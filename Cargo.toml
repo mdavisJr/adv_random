@@ -6,6 +6,7 @@ edition = "2021"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mdavisJr/adv_random"
+description = "Create random numbers or strings based off a rule or multiple rules"
 keywords = ["rand", "random", "pattern", "rule", "random string", "string", "password"]
 
 [lib]
