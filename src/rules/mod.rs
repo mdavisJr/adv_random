@@ -8,12 +8,14 @@ mod random_number;
 mod sequential;
 mod odd_even_by_index;
 mod number_pool_by_index;
+mod number_space;
 
 pub use self::exclude_number_sets::ExcludeNumberSets;
 pub use self::no_duplicates::NoDuplicate;
 pub use self::number_pool::{NumberPool, NumberPoolItem, NumberPoolItemFull, PoolType, NP_ALPHABET_SET, NP_NUMERIC_SET, NP_SPECIAL_CHAR_SET};
 pub use self::number_pool_by_index::{NumberPoolByIndex, NumberPoolItemByIndex};
 pub use self::number_range::NumberRange;
+pub use self::number_space::{NumberSpace, NumberSpaceType};
 pub use self::odd_even::{OddEven, OddEvenKey};
 pub use self::rule_trait::{MapAnyValue, RuleTrait, IsWithinErrorType};
 pub use self::random_number::RandomNumber;

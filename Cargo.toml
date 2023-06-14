@@ -15,5 +15,4 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 once_cell = "^1.17"
 rand = "^0"
-getrandom = { version = "^0.2", features = ["js"] }
 
