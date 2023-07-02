@@ -1,6 +1,6 @@
 [package]
 name = "adv_random"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Mark Davis <markeyd83@gmail.com>"]
 edition = "2021"
 readme = "README.md"

@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NumberSpaceType {
     Lt,
     Lte,
@@ -35,6 +35,14 @@ pub struct NumberSpace {
 impl NumberSpace {
     pub fn new(number_space_type: NumberSpaceType, value: usize) -> NumberSpace {
         return NumberSpace { number_space_type, value };
+    }
+
+    pub fn value(&self) -> usize {
+        return self.value;
+    }
+
+    pub fn number_space_type(&self) -> NumberSpaceType {
+        return self.number_space_type;
     }
 }
 
