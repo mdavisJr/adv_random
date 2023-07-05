@@ -456,7 +456,7 @@ fn uc_random_string_6() {
 
 #[test]
 fn uc_number_space_lt() {
-    //Create 10 random numbers between 1 and 100 where gap/space between numbers has to be less than 3 
+    //Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Lt, 3))
@@ -472,7 +472,7 @@ fn uc_number_space_lt() {
                 i += 1;
             }
 
-            println!("{:?}", numbers);
+            println!("{:?}", sorted_numbers);
         },
         _ => println!("{:?}", random_result.logs())
     }
@@ -480,7 +480,7 @@ fn uc_number_space_lt() {
 
 #[test]
 fn uc_number_space_lte() {
-    //Create 10 random numbers between 1 and 100 where gap/space between numbers has to be less than or equal to 3 
+    //Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Lte, 3))
@@ -496,7 +496,7 @@ fn uc_number_space_lte() {
                 i += 1;
             }
 
-            println!("{:?}", numbers);
+            println!("{:?}", sorted_numbers);
         },
         _ => println!("{:?}", random_result.logs())
     }
@@ -504,7 +504,7 @@ fn uc_number_space_lte() {
 
 #[test]
 fn uc_number_space_equals() {
-    //Create 10 random numbers between 1 and 100 where gap/space between numbers has equal to 3 
+    //Create 10 random numbers between 1 and 100 where the space between numbers is 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Eq, 3))
@@ -520,7 +520,7 @@ fn uc_number_space_equals() {
                 i += 1;
             }
 
-            println!("{:?}", numbers);
+            println!("{:?}", sorted_numbers);
         },
         _ => println!("{:?}", random_result.logs())
     }
@@ -528,7 +528,7 @@ fn uc_number_space_equals() {
 
 #[test]
 fn uc_number_space_gte() {
-    //Create 10 random numbers between 1 and 100 where gap/space between numbers has to be greater than or equal to 3 
+    //Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Gte, 3))
@@ -544,7 +544,7 @@ fn uc_number_space_gte() {
                 i += 1;
             }
 
-            println!("{:?}", numbers);
+            println!("{:?}", sorted_numbers);
         },
         _ => println!("{:?}", random_result.logs())
     }
@@ -552,7 +552,7 @@ fn uc_number_space_gte() {
 
 #[test]
 fn uc_number_space_gt() {
-    //Create 10 random numbers between 1 and 100 where gap/space between numbers has to be greater to 3 
+    //Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Gt, 3))
@@ -568,7 +568,7 @@ fn uc_number_space_gt() {
                 i += 1;
             }
 
-            println!("{:?}", numbers);
+            println!("{:?}", sorted_numbers);
         },
         _ => println!("{:?}", random_result.logs())
     }

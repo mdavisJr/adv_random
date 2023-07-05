@@ -287,3 +287,88 @@ match random_result.string(false) {
 ```
 #### Output: ZW1184036
 ---
+### Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
+```
+let random_result = random_numbers(&Settings::new(&[
+    Box::new(NumberRange::all(1, 100)),
+    Box::new(NumberSpace::new(NumberSpaceType::Lt, 3))
+], 10));
+match random_result.numbers() {
+    Ok(numbers) => {
+        let mut sorted_numbers: Vec<usize> = numbers.to_vec();
+        sorted_numbers.sort_unstable();
+        println!("{:?}", sorted_numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [20, 21, 22, 22, 23, 24, 24, 25, 25, 26]
+---
+### Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3
+```
+let random_result = random_numbers(&Settings::new(&[
+    Box::new(NumberRange::all(1, 100)),
+    Box::new(NumberSpace::new(NumberSpaceType::Lte, 3))
+], 10));
+match random_result.numbers() {
+    Ok(numbers) => {
+        let mut sorted_numbers: Vec<usize> = numbers.to_vec();
+        sorted_numbers.sort_unstable();
+        println!("{:?}", sorted_numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [5, 6, 7, 8, 8, 9, 9, 10, 11, 12]
+---
+### Create 10 random numbers between 1 and 100 where the space between numbers is 3
+```
+let random_result = random_numbers(&Settings::new(&[
+    Box::new(NumberRange::all(1, 100)),
+    Box::new(NumberSpace::new(NumberSpaceType::Eq, 3))
+], 10));
+match random_result.numbers() {
+    Ok(numbers) => {
+        let mut sorted_numbers: Vec<usize> = numbers.to_vec();
+        sorted_numbers.sort_unstable();
+        println!("{:?}", sorted_numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [24, 27, 30, 33, 36, 39, 42, 45, 48, 51]
+---
+### Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3
+```
+let random_result = random_numbers(&Settings::new(&[
+    Box::new(NumberRange::all(1, 100)),
+    Box::new(NumberSpace::new(NumberSpaceType::Gte, 3))
+], 10));
+match random_result.numbers() {
+    Ok(numbers) => {
+        let mut sorted_numbers: Vec<usize> = numbers.to_vec();
+        sorted_numbers.sort_unstable();
+        println!("{:?}", sorted_numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [1, 6, 15, 54, 63, 66, 77, 81, 85, 96]
+---
+### Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
+```
+let random_result = random_numbers(&Settings::new(&[
+    Box::new(NumberRange::all(1, 100)),
+    Box::new(NumberSpace::new(NumberSpaceType::Gt, 3))
+], 10));
+match random_result.numbers() {
+    Ok(numbers) => {
+        let mut sorted_numbers: Vec<usize> = numbers.to_vec();
+        sorted_numbers.sort_unstable();
+        println!("{:?}", sorted_numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [12, 24, 30, 57, 61, 71, 76, 85, 90, 97]
+---
