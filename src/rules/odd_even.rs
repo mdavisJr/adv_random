@@ -1,8 +1,6 @@
+use crate::random_trait::{RandomTrait, get_random_trait, get_random_vec_item};
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
-use rand::distributions::{Distribution, Uniform};
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -52,10 +50,8 @@ impl OddEven {
     }
 
     pub fn even_number(min: usize, max: usize) -> usize {
-        let mut rng = thread_rng();
-        let range = Uniform::from(min..=max);
         for _ in 0..20 {
-            let number = range.sample(&mut rng);
+            let number = get_random_trait().get_number(min, max);
             if OddEven::is_even(number) {
                 return number;
             }
@@ -63,10 +59,8 @@ impl OddEven {
         panic!("Could not find an even number in range: {}-{}", min, max);
     }
     pub fn odd_number(min: usize, max: usize) -> usize {
-        let mut rng = thread_rng();
-        let range = Uniform::from(min..=max);
         for _ in 0..20 {
-            let number = range.sample(&mut rng);
+            let number = get_random_trait().get_number(min, max);
             if OddEven::is_odd(number) {
                 return number;
             }
@@ -144,7 +138,7 @@ impl RuleTrait for OddEven {
         }
         if !pool_keys.is_empty() {
             let (min, max) = Settings::get_min_max("NumberRange", shared_data);
-            let selected_pool_key = pool_keys.choose(&mut thread_rng()).unwrap();
+            let selected_pool_key = get_random_vec_item(&pool_keys);
             let mut number = 0_usize;
             if *selected_pool_key == OddEvenKey::Odd {
                 number = OddEven::odd_number(min, max);

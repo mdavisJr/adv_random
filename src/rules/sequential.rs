@@ -1,7 +1,6 @@
+use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, IsWithinErrorType};
 use crate::settings::Settings;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -73,7 +72,7 @@ impl Sequential {
             }
         }
         if !other_seq_counts.is_empty() {
-            return *other_seq_counts.choose(&mut thread_rng()).unwrap();
+            return *get_random_vec_item(&other_seq_counts);
         }
         return 0;
     }
@@ -119,7 +118,7 @@ impl RuleTrait for Sequential {
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
+        selected_numbers_set: &HashSet<usize>,
         selected_numbers: &[usize],
         settings: &Settings,
         shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
@@ -128,10 +127,10 @@ impl RuleTrait for Sequential {
         let seq_count_needed = act_seq.needs_seq(self, settings);
         if seq_count_needed > 0 {
             let range = if selected_numbers.is_empty() {
-                let num = RandomNumber::get_numbers_by_shared_data(shared_data)[0];
+                let num = settings.get_number_within_number_range(selected_numbers_set, selected_numbers, shared_data).unwrap()[0];
                 num..=(num + seq_count_needed - 1)
             } else {
-                let num = *selected_numbers.choose(&mut thread_rng()).unwrap();
+                let num = *get_random_vec_item(&selected_numbers);
                 (num + 1)..=(num + seq_count_needed - 1)
             };
             let mut seq_digits: Vec<usize> = Vec::new();

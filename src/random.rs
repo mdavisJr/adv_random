@@ -1,9 +1,10 @@
+use once_cell::sync::OnceCell;
+
+use crate::random_trait::shuffle_vec;
 use crate::rules::{
     IsWithinErrorType, MapAnyValue, RuleTrait,
 };
 use crate::settings::Settings;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
@@ -23,7 +24,7 @@ pub struct RandomResult {
     numbers: Vec<usize>,
     attempts: usize,
     logs: Vec<Log>,
-    clear_err_tracker: Vec<usize>,
+    clear_err_tracker: Vec<usize>
 }
 
 impl Debug for RandomResult {
@@ -51,7 +52,8 @@ impl RandomResult {
                 let mut random_string = String::new();
                 let mut numbers: Vec<usize> = self.numbers.clone();
                 if shuffle {
-                    numbers.shuffle(&mut thread_rng());
+                    shuffle_vec(&mut numbers);
+                    //numbers.shuffle(&mut thread_rng()); TODO remove
                 }
                 for digit in numbers {
                     random_string.push(char::from_u32(digit as u32).unwrap());
@@ -172,6 +174,35 @@ fn reset(
     err_tracker.clear();
 }
 
+pub struct CurrentData<'a> {
+    selected_numbers: &'a Vec<usize>,
+    settings: &'a Settings,
+    shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>,
+}
+
+impl<'a> CurrentData<'a> {
+
+    pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>) -> CurrentData<'a> {
+        return CurrentData { selected_numbers, settings, shared_data }
+    }
+
+    pub fn selected_numbers_set(&self) -> &HashSet<usize> {
+        static SELECTED_NUMBERS_SET: OnceCell<HashSet<usize>> = OnceCell::new();
+        return SELECTED_NUMBERS_SET.get_or_init(|| {
+            self.selected_numbers.iter().copied().collect()
+        });
+    }
+
+    pub fn selected_numbers_sorted(&self) -> &Vec<usize> {
+        static SELECTED_NUMBERS_SET: OnceCell<Vec<usize>> = OnceCell::new();
+        return SELECTED_NUMBERS_SET.get_or_init(|| {
+            let mut t = self.selected_numbers.iter().copied().collect::<Vec<usize>>();
+            t.sort();
+            return t;
+        });
+    }  
+}
+
 pub fn random_numbers(settings: &Settings) -> RandomResult {
     let mut numbers: Vec<usize> = Vec::new();
     let max_tries = 500;
@@ -192,7 +223,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let mut gen_type = String::from("");
 
         let mut shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
-        expected_rules.shuffle(&mut thread_rng());
+        shuffle_vec(&mut expected_rules);
+        //expected_rules.shuffle(&mut thread_rng()); TODO remove
         if let Some(v) = key_to_make_priority {
             let idx = expected_rules
                 .iter()
@@ -245,6 +277,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 .copied()
                 .chain(potential_numbers.iter().copied())
                 .collect::<Vec<usize>>();
+            let currentData = CurrentData::new(&selected_and_potential_numbers, settings, &shared_data);
             let selected_and_potential_numbers_set: HashSet<usize> =
                 selected_and_potential_numbers.iter().copied().collect();
 
@@ -337,7 +370,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                         numbers,
                         attempts,
                         logs,
-                        clear_err_tracker,
+                        clear_err_tracker
                     };
                 }
             }
@@ -349,6 +382,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         numbers: Vec::new(),
         attempts: num_attempts,
         logs,
-        clear_err_tracker,
+        clear_err_tracker
     };
 }

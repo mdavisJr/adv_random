@@ -1,3 +1,4 @@
+use crate::random_trait::set_random_trait;
 use crate::rules::RuleTrait;
 use crate::rules::*;
 use crate::random::*;
@@ -14,8 +15,8 @@ static NUMBER_RANGE: Lazy<Mutex<NumberRange>> = Lazy::new(|| { Mutex::new(Number
 
 #[test]
 fn uc_random_numbers() {
-    //Create 10 random numbers between 1 and 20 (min and max numbers are inclusive) 
-    let random_result = random_numbers(&Settings::new(&[
+    //Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::all(1, 20))
     ], 10));
     match random_result.numbers() {
@@ -31,7 +32,7 @@ fn uc_random_numbers() {
 #[test]
 fn uc_no_duplicate() {
     //Create 10 random numbers between 1 and 20 with no duplicates 
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 20))
     ], 10));
@@ -49,7 +50,7 @@ fn uc_no_duplicate() {
 #[test]
 fn uc_number_range_1() {
     //Create random phone number
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::from_map(&[(&vec![0, 1], 100, 999), (&vec![2], 1000, 9999)]))
     ], 3));
     match random_result.numbers() {
@@ -68,7 +69,7 @@ fn uc_number_range_1() {
 #[test]
 fn uc_number_pool_1() {
     //Create 10 numbers between 1 and 100 with no duplicates that doesn't contain the number 23, contains the numbers 1 and 4, and at least 3 numbers from 17, 18, 19, 20, 21
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberPool::new(&[
             NumberPoolItem::new("exclude_23", &PoolType::Set(HashSet::from_iter([23])), 0),
@@ -106,7 +107,7 @@ fn uc_number_pool_1() {
 #[test]
 fn uc_odd_even_with_order_1() {
     //Create 5 numbers between 1 and 10 with no duplicates that are Odd, Even, Odd, Even, and Odd
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 10)),
         Box::new(OddEvenByIndex::new(&vec![0, 2, 4], &vec![1,3])),
@@ -130,7 +131,7 @@ fn uc_odd_even_with_order_1() {
 #[test]
 fn uc_odd_even_with_order_2() {
     //Create 5 numbers between 1 and 10 with no duplicates where first 3 numbers are Even and the last 2 numbers are Odd
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 10)),
         Box::new(OddEvenByIndex::new(&vec![3,4], &vec![0, 1, 2]))
@@ -154,7 +155,7 @@ fn uc_odd_even_with_order_2() {
 #[test]
 fn uc_odd_even_with_order_3() {
     //Create 5 numbers between 1 and 10 with no duplicates and the 5th number is odd
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 10)),
         Box::new(OddEvenByIndex::new(&vec![4], &vec![]))
@@ -174,7 +175,7 @@ fn uc_odd_even_with_order_3() {
 #[test]
 fn uc_odd_even_1() {
     //Create 10 numbers between 1 and 20 with no duplicates that has 5 odd and 5 even numbers
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 20)),
         Box::new(OddEven::new(5, 5))
@@ -207,7 +208,7 @@ fn uc_odd_even_1() {
 #[test]
 fn uc_odd_even_2() {
     //Create 10 numbers between 1 and 20 that has all even numbers
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::all(1, 20)),
         Box::new(OddEven::new(0, 10))
     ], 10));
@@ -237,7 +238,7 @@ fn uc_odd_even_2() {
 #[test]
 fn uc_seq_1() {
     //Create 5 numbers between 1 and 10 with no duplicates that are all nonsequential
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 10)),
         Box::new(Sequential::new(5, &[]))
@@ -261,7 +262,7 @@ fn uc_seq_1() {
 #[test]
 fn uc_seq_2() {
     //Create 5 numbers between 1 and 10 with no duplicates that has 3 nonsequential and has 1 sequential set of 2 numbers
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 10)),
         Box::new(Sequential::new(3, &[2]))
@@ -280,7 +281,7 @@ fn uc_seq_2() {
 #[test]
 fn uc_seq_3() {
     //Create 5 numbers between 1 and 10 with no duplicates that has 1 nonsequential number and has 2 sequential sets of 2 numbers a piece
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 10)),
         Box::new(Sequential::new(1, &[2, 2]))
@@ -299,7 +300,7 @@ fn uc_seq_3() {
 #[test]
 fn uc_random_string_1() {
     //Create a random 20 character string with no special characters
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberPool::alphanumeric(20, false))
     ], 20));
     match random_result.string(true) {
@@ -314,7 +315,7 @@ fn uc_random_string_1() {
 #[test]
 fn uc_random_string_2() {
     //Create a random 22 character string with special characters
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberPool::alphanumeric(20, true))
     ], 20));
     match random_result.string(true) {
@@ -329,7 +330,7 @@ fn uc_random_string_2() {
 #[test]
 fn uc_random_string_3() {
     //Create a random 20 character string with 10 letters, 10 numbers, no special characters, and no duplicates
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberPool::alphanumeric_specs(10, 10, 0))
     ], 20));
@@ -361,7 +362,7 @@ fn uc_random_string_3() {
 #[test]
 fn uc_random_string_4() {
     //Create a random 25 character string with 10 letters, 10 numbers, and 5 special characters and not duplicates
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberPool::alphanumeric_specs(10, 10, 5))
     ], 25));
@@ -393,7 +394,7 @@ fn uc_random_string_4() {
 #[test]
 fn uc_random_string_5() {
     //Create random 15 character string from upper case characters, from numbers 3 6 5, and from special characters # * 
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberPool::new(&[
             NumberPoolItem::new("upper_case_alpha_set", &PoolType::new(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect()), 11),
             NumberPoolItem::new("numeric_set", &PoolType::new(&"365".chars().collect()), 2),
@@ -428,7 +429,7 @@ fn uc_random_string_5() {
 fn uc_random_string_6() {    
     //Create random license number that starts with 2 apha-characters followed by 7 numeric characters. Also excludes "AB1234567" and "CB1234567" because they are already assigned to someone.
     let uc_alpha_set: HashSet<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect();
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(ExcludeNumberSets::new_string(&HashSet::from_iter(vec![String::from("AB1234567"), String::from("CB1234567")]))),
         Box::new(NumberPoolByIndex::new(vec![
             NumberPoolItemByIndex::new("upper_case_alpha_set", &PoolType::new(&uc_alpha_set.clone()), &HashSet::from_iter(vec![0, 1])),
@@ -457,7 +458,7 @@ fn uc_random_string_6() {
 #[test]
 fn uc_number_space_lt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Lt, 3))
     ], 10));
@@ -481,7 +482,7 @@ fn uc_number_space_lt() {
 #[test]
 fn uc_number_space_lte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3 
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Lte, 3))
     ], 10));
@@ -505,7 +506,7 @@ fn uc_number_space_lte() {
 #[test]
 fn uc_number_space_equals() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is 3 
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Eq, 3))
     ], 10));
@@ -529,7 +530,7 @@ fn uc_number_space_equals() {
 #[test]
 fn uc_number_space_gte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3 
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Gte, 3))
     ], 10));
@@ -553,7 +554,7 @@ fn uc_number_space_gte() {
 #[test]
 fn uc_number_space_gt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(NumberRange::all(1, 100)),
         Box::new(NumberSpace::new(NumberSpaceType::Gt, 3))
     ], 10));
@@ -576,7 +577,7 @@ fn uc_number_space_gt() {
 
 #[test]
 fn odd_even_with_order_2() {
-    let random_result = random_numbers(&Settings::new(&[
+    let random_result = random_numbers(&Settings::new_default(&[
         Box::new(OddEvenByIndex::new(&vec![0, 2, 4], &vec![1,3]))
     ], 5));
     match random_result.numbers() {
@@ -629,7 +630,7 @@ fn sequential_1() {
                 seq_number.is_within_range(
                     &item.2.iter().copied().collect::<HashSet<_>>(),
                     item.2,
-                    &Settings::new(&[], item.2.len()),
+                    &Settings::new_default(&[], item.2.len()),
                     &HashMap::new()
                 ),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; SEQ_NUM: {:?}",
@@ -642,7 +643,7 @@ fn sequential_1() {
                 seq_number.is_match(
                     &item.2.iter().copied().collect::<HashSet<_>>(),
                     item.2,
-                    &Settings::new(&[], item.2.len()),
+                    &Settings::new_default(&[], item.2.len()),
                     &HashMap::new()
                 ),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; SEQ_NUM: {:?}",
@@ -650,7 +651,7 @@ fn sequential_1() {
                 idx == 1,
                 seq_number
             );
-            let rand_result = random_numbers(&Settings::new(
+            let rand_result = random_numbers(&Settings::new_default(
                 &[Box::new(seq_number.clone()), Box::new(NUMBER_RANGE.lock().unwrap().clone())],
                 item.2.len(),
             ));
@@ -668,7 +669,7 @@ fn sequential_1() {
                 Sequential::from_numbers(rand_result.numbers().unwrap(), false).is_match(
                     &item.2.iter().copied().collect::<HashSet<_>>(),
                     item.2,
-                    &Settings::new(&[], item.2.len()),
+                    &Settings::new_default(&[], item.2.len()),
                     &HashMap::new()
                 ),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; SEQ_NUM: {:?} \n\n{:?}",
@@ -705,7 +706,7 @@ fn number_range_1() {
             item.1.is_within_range(
                 &item.2.iter().copied().collect::<HashSet<_>>(),
                 item.2,
-                &Settings::new(&[], item.2.len()),
+                &Settings::new_default(&[], item.2.len()),
                 &HashMap::new()
             ),
             "MAIN IDX: {},  NUM_RANGE: {:?}",
@@ -717,14 +718,14 @@ fn number_range_1() {
             item.1.is_match(
                 &item.2.iter().copied().collect::<HashSet<_>>(),
                 item.2,
-                &Settings::new(&[], item.2.len()),
+                &Settings::new_default(&[], item.2.len()),
                 &HashMap::new()
             ),
             "MAIN IDX: {},  NUM_RANGE: {:?}",
             main_idx,
             item.1
         );
-        let rand_result = random_numbers(&Settings::new(&[Box::new(item.1.clone())], item.2.len()));
+        let rand_result = random_numbers(&Settings::new_default(&[Box::new(item.1.clone())], item.2.len()));
         assert_eq!(
             RandomResultType::Success,
             rand_result.status(),
@@ -742,7 +743,7 @@ fn number_range_1() {
                     .copied()
                     .collect::<HashSet<_>>(),
                 rand_result.numbers().unwrap(),
-                &Settings::new(&[], item.2.len()),
+                &Settings::new_default(&[], item.2.len()),
                 &HashMap::new()
             ),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
@@ -756,7 +757,7 @@ fn number_range_1() {
 #[test]
 fn number_range_2() {
     let rules: Vec<Box<dyn RuleTrait>> = vec![Box::new(NumberRange::all(1, 2))];
-    let settings = Settings::new(&rules, 10);
+    let settings = Settings::new_default(&rules, 10);
     for _ in 0..MAX_TRIES {
         let random_result = random_numbers(&settings);
         assert_eq!(
@@ -775,7 +776,7 @@ fn number_range_2() {
 #[test]
 fn number_range_3() {
     let rules: Vec<Box<dyn RuleTrait>> = vec![Box::new(NumberRange::all(1, 1))];
-    let settings = Settings::new(&rules, 10);
+    let settings = Settings::new_default(&rules, 10);
     for _ in 0..MAX_TRIES {
         let random_result = random_numbers(&settings);
         assert_eq!(
@@ -794,7 +795,7 @@ fn number_range_3() {
 #[test]
 fn number_range_4() {
     let rules: Vec<Box<dyn RuleTrait>> = vec![Box::new(NumberRange::all(100, 100))];
-    let settings = Settings::new(&rules, 10);
+    let settings = Settings::new_default(&rules, 10);
     for _ in 0..MAX_TRIES {
         let random_result = random_numbers(&settings);
         assert_eq!(
@@ -816,7 +817,7 @@ fn number_range_5() {
         Box::new(NumberRange::all(1, 2)),
         Box::new(NoDuplicate {}),
     ];
-    let settings = Settings::new(&rules, 2);
+    let settings = Settings::new_default(&rules, 2);
     for _ in 0..MAX_TRIES {
         let random_result = random_numbers(&settings);
         assert_eq!(
@@ -860,7 +861,7 @@ fn odd_even_1() {
                 odd_even.is_within_range(
                     &item.2.iter().copied().collect::<HashSet<_>>(),
                     item.2,
-                    &Settings::new(&[], item.2.len()),
+                    &Settings::new_default(&[], item.2.len()),
                     &HashMap::new()
                 ),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?}",
@@ -873,7 +874,7 @@ fn odd_even_1() {
                 odd_even.is_match(
                     &item.2.iter().copied().collect::<HashSet<_>>(),
                     item.2,
-                    &Settings::new(&[], item.2.len()),
+                    &Settings::new_default(&[], item.2.len()),
                     &HashMap::new()
                 ),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?}",
@@ -881,7 +882,7 @@ fn odd_even_1() {
                 idx == 1,
                 odd_even
             );
-            let rand_result = random_numbers(&Settings::new(
+            let rand_result = random_numbers(&Settings::new_default(
                 &[Box::new(*odd_even), Box::new(NUMBER_RANGE.lock().unwrap().clone())],
                 item.2.len(),
             ));
@@ -899,7 +900,7 @@ fn odd_even_1() {
                 OddEven::from_numbers(rand_result.numbers().unwrap()).is_match(
                     &item.2.iter().copied().collect::<HashSet<_>>(),
                     item.2,
-                    &Settings::new(&[], item.2.len()),
+                    &Settings::new_default(&[], item.2.len()),
                     &HashMap::new()
                 ),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?} \n\n{:?}",
@@ -916,7 +917,7 @@ fn odd_even_1() {
 fn odd_even_2() {
     let rules: Vec<Box<dyn RuleTrait>> =
         vec![Box::new(OddEven::new(5, 5)), Box::new(NUMBER_RANGE.lock().unwrap().clone())];
-    let settings = Settings::new(&rules, 10);
+    let settings = Settings::new_default(&rules, 10);
     for _ in 0..MAX_TRIES {
         let random_result = random_numbers(&settings);
         assert_eq!(
@@ -950,7 +951,7 @@ fn random_number() {
         NumberRange::from_map(&[(&vec![0], 20,20), (&vec![1], 55,55), (&vec![2], 4,10), (&vec![3], 71,75), (&vec![4], 47,47)]),
     ];
     for (main_idx, item) in data.iter().enumerate() {
-        let rand_result = random_numbers(&Settings::new(&[Box::new(item.clone())], item.len()));
+        let rand_result = random_numbers(&Settings::new_default(&[Box::new(item.clone())], item.len()));
         assert_eq!(
             RandomResultType::Success,
             rand_result.status(),
@@ -970,7 +971,7 @@ fn random_number() {
                     .copied()
                     .collect::<HashSet<_>>(),
                 rand_result.numbers().unwrap(),
-                &Settings::new(&[], item.len()),
+                &Settings::new_default(&[], item.len()),
                 &HashMap::new()
             ),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
@@ -994,7 +995,7 @@ fn number_pool_1() {
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
     ];
-    let settings_1 = Settings::new(&rules_1, 10);
+    let settings_1 = Settings::new_default(&rules_1, 10);
     let rules_2: Vec<Box<dyn RuleTrait>> = vec![
         Box::new(NumberPool::new(&[
             NumberPoolItem::new("exclude_set", &PoolType::MinMax(23, 23), 0),
@@ -1003,7 +1004,7 @@ fn number_pool_1() {
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
     ];
-    let settings_2 = Settings::new(&rules_2, 10);
+    let settings_2 = Settings::new_default(&rules_2, 10);
     for settings in [settings_1, settings_2] {
         for _ in 0..MAX_TRIES {
             let random_result = random_numbers(&settings);
@@ -1039,7 +1040,7 @@ fn number_pool_2() {
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
     ];
-    let settings_1 = Settings::new(&rules_1, 10);
+    let settings_1 = Settings::new_default(&rules_1, 10);
     let rules_2: Vec<Box<dyn RuleTrait>> = vec![
         Box::new(NumberPool::new(&[
             NumberPoolItem::new("exclude_set", &PoolType::MinMax(11, 100), 0),
@@ -1047,7 +1048,7 @@ fn number_pool_2() {
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
     ];
-    let settings_2 = Settings::new(&rules_2, 10);
+    let settings_2 = Settings::new_default(&rules_2, 10);
     for settings in [settings_1, settings_2] {
         for _ in 0..MAX_TRIES {
             let random_result = random_numbers(&settings);

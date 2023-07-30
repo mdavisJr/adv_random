@@ -1,12 +1,9 @@
 
-use rand::distributions::{Distribution, Uniform};
-
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::{Settings, self};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use rand::thread_rng;
 use std::fmt::{Debug, Display, Formatter, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -82,19 +79,17 @@ impl RuleTrait for NumberSpace {
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
+        selected_numbers_set: &HashSet<usize>,
         selected_numbers: &[usize],
         settings: &Settings,
         shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
     ) -> std::result::Result<Vec<usize>, String> {
         if self.number_space_type == NumberSpaceType::Eq {
             let mut numbers: Vec<usize> = vec![];
-            let (min, max) = Settings::get_min_max("NumberRange", shared_data);
-            let mut rng = thread_rng();
-            let range = Uniform::from(min..=max);
+
             let mut number= 0;
             if selected_numbers.len() == 0 {
-                number = range.sample(&mut rng);
+                number = settings.get_number_within_number_range(selected_numbers_set, selected_numbers, shared_data).unwrap()[0];
             } else if selected_numbers.len() > 1 {
                 number = *selected_numbers.iter().max().unwrap(); //TODO use selected_numbers_sorted in future release 
             }

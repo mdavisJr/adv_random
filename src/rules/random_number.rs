@@ -1,7 +1,6 @@
+use crate::random_trait::get_random_trait;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
-use rand::distributions::{Distribution, Uniform};
-use rand::thread_rng;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -11,20 +10,21 @@ use std::fmt::{Debug, Display, Formatter, Result};
 pub struct RandomNumber {}
 
 impl RandomNumber {
-    pub fn get_numbers_by_shared_data(
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
-    ) -> Vec<usize> {
-        let (min, max) = Settings::get_min_max("NumberRange", shared_data);
-        return RandomNumber::get_numbers(min, max);
-    }
+    // pub fn get_numbers_by_shared_data(
+    //     shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+    //     settings: &Settings,
+    // ) -> Vec<usize> {
+    //     let (min, max) = Settings::get_min_max("NumberRange", shared_data);
+    //     return RandomNumber::get_numbers(min, max);
+    // }
 
-    pub fn get_numbers(min: usize, max: usize) -> Vec<usize> {
-        let mut rng = thread_rng();
-        let range = Uniform::from(min..=max);
-        let number = range.sample(&mut rng);
+    // pub fn get_numbers(min: usize, max: usize) -> Vec<usize> {
+    //     let mut rng = thread_rng();
+    //     let range = Uniform::from(min..=max);
+    //     let number = range.sample(&mut rng);
 
-        return vec![number];
-    }
+    //     return vec![number];
+    // }
 }
 
 impl Display for RandomNumber {
@@ -57,10 +57,11 @@ impl RuleTrait for RandomNumber {
         &self,
         _selected_numbers_set: &HashSet<usize>,
         _selected_numbers: &[usize],
-        _settings: &Settings,
+        settings: &Settings,
         shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
     ) -> std::result::Result<Vec<usize>, String> {
-        return Ok(RandomNumber::get_numbers_by_shared_data(shared_data));
+        let (min, max) = Settings::get_min_max("NumberRange", shared_data);
+        return Ok(vec![get_random_trait().get_number(min, max)]);
     }
 
     fn is_within_range(

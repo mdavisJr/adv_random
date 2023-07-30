@@ -1,8 +1,6 @@
+use crate::random_trait::{get_random_trait, get_random_vec_item};
 use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait};
 use crate::settings::Settings;
-use rand::distributions::{Distribution, Uniform};
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -37,12 +35,10 @@ impl PoolType {
         match self {
             PoolType::Set(set) => {
                 let rand_pool: Vec<usize> = set.iter().copied().collect();
-                return *rand_pool.choose(&mut thread_rng()).unwrap();
+                return *get_random_vec_item(&rand_pool);
             }
             PoolType::MinMax(min, max) => {
-                let mut rng = thread_rng();
-                let range = Uniform::from(*min..=*max);
-                return range.sample(&mut rng);
+                return get_random_trait().get_number(*min, *max);
             }
         }
     }
@@ -165,16 +161,13 @@ impl NumberPool {
         }
         let mut numeric_count:usize = 1;
         let mut special_char_count: usize = if include_special_char { 1 } else { 0 };
-        let mut rng = thread_rng();
 
         if count >= 10 {
-            let range = Uniform::from(1..=3);
-            numeric_count = range.sample(&mut rng);
+            numeric_count = get_random_trait().get_number(1, 3);
         }
 
         if include_special_char && count >= 10 {
-            let range = Uniform::from(1..=2);
-            special_char_count = range.sample(&mut rng);
+            special_char_count = get_random_trait().get_number(1, 2);
         }
 
         let alpha_count = count - numeric_count - special_char_count;
