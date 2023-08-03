@@ -1,8 +1,9 @@
+use crate::random::CurrentData;
 use crate::random_trait::get_random_vec_item;
-use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, IsWithinErrorType};
+use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -20,15 +21,13 @@ impl Sequential {
         };
     }
 
-    pub fn from_numbers(numbers: &[usize], seq_order_matters: bool) -> Sequential {
+    pub fn from_numbers(current_data: &CurrentData, seq_order_matters: bool) -> Sequential {
         let mut seq_counts: Vec<usize> = Vec::new();
         let mut seq_count: usize = 0;
-        let mut sorted_numbers: Vec<usize> = numbers.to_vec();
-        sorted_numbers.sort_unstable();
 
-        for (idx, _) in sorted_numbers.iter().enumerate() {
+        for (idx, _) in current_data.selected_numbers_sorted().iter().enumerate() {
             if idx > 0 {
-                if (sorted_numbers[idx - 1] + 1) == sorted_numbers[idx] {
+                if (current_data.selected_numbers_sorted()[idx - 1] + 1) == current_data.selected_numbers_sorted()[idx] {
                     if seq_count == 0 {
                         seq_count += 2;
                     } else {
@@ -48,7 +47,7 @@ impl Sequential {
             seq_counts.sort_unstable();
         }
         return Sequential {
-            not: numbers.len() - seq_counts.iter().copied().sum::<usize>(),
+            not: current_data.selected_numbers().len() - seq_counts.iter().copied().sum::<usize>(),
             seq_counts,
         };
     }
@@ -109,28 +108,23 @@ impl RuleTrait for Sequential {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
-        let act_seq = Sequential::from_numbers(selected_numbers, false);
-        let seq_count_needed = act_seq.needs_seq(self, settings);
+        let act_seq = Sequential::from_numbers(current_data, false);
+        let seq_count_needed = act_seq.needs_seq(self, current_data.settings());
         if seq_count_needed > 0 {
-            let range = if selected_numbers.is_empty() {
-                let num = settings.get_number_within_number_range(selected_numbers_set, selected_numbers, shared_data).unwrap()[0];
+            let range = if current_data.selected_numbers().is_empty() {
+                let num = current_data.settings().get_number_within_number_range(current_data).unwrap()[0];
                 num..=(num + seq_count_needed - 1)
             } else {
-                let num = *get_random_vec_item(&selected_numbers);
+                let num = *get_random_vec_item(&current_data.selected_numbers());
                 (num + 1)..=(num + seq_count_needed - 1)
             };
             let mut seq_digits: Vec<usize> = Vec::new();
@@ -144,12 +138,9 @@ impl RuleTrait for Sequential {
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        let other = Sequential::from_numbers(selected_numbers, false);
+        let other = Sequential::from_numbers(current_data, false);
         if other.not > self.not {
             return Err((IsWithinErrorType::Regular, format!(
                 "Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}.",
@@ -174,12 +165,9 @@ impl RuleTrait for Sequential {
 
     fn is_match(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        let other = Sequential::from_numbers(selected_numbers, false);
+        let other = Sequential::from_numbers(current_data, false);
         if self.not == other.not && self.seq_counts == other.seq_counts {
             return Ok(());
         }

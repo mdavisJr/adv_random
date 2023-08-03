@@ -1,7 +1,8 @@
+use crate::random::CurrentData;
 use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait, OddEvenKey, OddEven};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -62,26 +63,21 @@ impl RuleTrait for OddEvenByIndex {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
-        if self.odd_even.contains_key(&selected_numbers.len()) {
-            let (min, max) = Settings::get_min_max("NumberRange", shared_data);
+        if self.odd_even.contains_key(&current_data.selected_numbers().len()) {
+            let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
             
-            if self.odd_even[&selected_numbers.len()] == OddEvenKey::Odd {
+            if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Odd {
                 return Ok(vec![OddEven::odd_number(min, max)]);
-            } else if self.odd_even[&selected_numbers.len()] == OddEvenKey::Even {
+            } else if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Even {
                 return Ok(vec![OddEven::even_number(min, max)]);
             } else {
                 return Err(String::from("Skip"));
@@ -92,12 +88,9 @@ impl RuleTrait for OddEvenByIndex {
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        for (idx, selected_number) in selected_numbers.iter().copied().enumerate() {
+        for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
             if self.odd_even.contains_key(&idx) {
                 let number_type: OddEvenKey = self.odd_even[&idx];
                 if (number_type == OddEvenKey::Odd && !OddEven::is_odd(selected_number))
@@ -108,7 +101,7 @@ impl RuleTrait for OddEvenByIndex {
                         IsWithinErrorType::Regular,
                         format!(
                             "Selected number {} at index {} is not: {:?}. Numbers:{:?}",
-                            selected_number, idx, number_type, selected_numbers
+                            selected_number, idx, number_type, current_data.selected_numbers()
                         ),
                     ));
                 }
@@ -119,17 +112,9 @@ impl RuleTrait for OddEvenByIndex {
 
     fn is_match(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        match self.is_within_range(
-            selected_numbers_set,
-            selected_numbers,
-            settings,
-            shared_data,
-        ) {
+        match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.1)
         }

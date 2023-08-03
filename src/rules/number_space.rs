@@ -1,8 +1,8 @@
 
+use crate::random::CurrentData;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
-use crate::settings::{Settings, self};
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -70,31 +70,26 @@ impl RuleTrait for NumberSpace {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         if self.number_space_type == NumberSpaceType::Eq {
             let mut numbers: Vec<usize> = vec![];
 
             let mut number= 0;
-            if selected_numbers.len() == 0 {
-                number = settings.get_number_within_number_range(selected_numbers_set, selected_numbers, shared_data).unwrap()[0];
-            } else if selected_numbers.len() > 1 {
-                number = *selected_numbers.iter().max().unwrap(); //TODO use selected_numbers_sorted in future release 
+            if current_data.selected_numbers().len() == 0 {
+                number = current_data.settings().get_number_within_number_range(current_data).unwrap()[0];
+            } else if current_data.selected_numbers().len() > 1 {
+                number = *current_data.selected_numbers().iter().max().unwrap(); //TODO use selected_numbers_sorted in future release 
             }
             
-            while (numbers.len() + selected_numbers.len()) < settings.count() {
+            while (numbers.len() + current_data.selected_numbers().len()) < current_data.settings().count() {
                 number = number + self.value;
                 numbers.push(number);
             }
@@ -104,17 +99,12 @@ impl RuleTrait for NumberSpace {
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        let mut sorted_numbers: Vec<usize> = selected_numbers.to_vec();
-        sorted_numbers.sort_unstable();
 
         let mut i = 1;
-        while i < sorted_numbers.len() {                
-            let num_space = sorted_numbers[i] - sorted_numbers[i-1];
+        while i < current_data.selected_numbers_sorted().len() {                
+            let num_space = current_data.selected_numbers_sorted()[i] - current_data.selected_numbers_sorted()[i-1];
             let err_str = "Expected ".to_owned() + &self.to_string() + "; Actual Value" + &num_space.to_string();
             match self.number_space_type {
                 NumberSpaceType::Lt => {
@@ -151,17 +141,9 @@ impl RuleTrait for NumberSpace {
 
     fn is_match(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        match self.is_within_range(
-            selected_numbers_set,
-            selected_numbers,
-            settings,
-            shared_data,
-        ) {
+        match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.1)
         }

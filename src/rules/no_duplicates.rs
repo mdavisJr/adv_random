@@ -1,7 +1,7 @@
+use crate::random::CurrentData;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
-use crate::settings::Settings;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -27,49 +27,33 @@ impl RuleTrait for NoDuplicate {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        _current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         return Err(String::from("Skip"));
     }
 
     fn is_within_range(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        if selected_numbers.len() != selected_numbers_set.len() {
-            return Err((IsWithinErrorType::Regular, format!("Duplicate found in {:?}", selected_numbers)));
+        if current_data.selected_numbers().len() != current_data.selected_numbers_set().len() {
+            return Err((IsWithinErrorType::Regular, format!("Duplicate found in {:?}", current_data.selected_numbers())));
         }
         return Ok(());
     }
 
     fn is_match(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        match self.is_within_range(
-            selected_numbers_set,
-            selected_numbers,
-            settings,
-            shared_data,
-        ) {
+        match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.1)
         }

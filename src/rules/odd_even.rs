@@ -1,8 +1,9 @@
-use crate::random_trait::{RandomTrait, get_random_trait, get_random_vec_item};
+use crate::random::CurrentData;
+use crate::random_trait::{get_random_trait, get_random_vec_item};
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::Hash;
@@ -114,21 +115,16 @@ impl RuleTrait for OddEven {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
-        let act_odd_even = OddEven::from_numbers(selected_numbers);
+        let act_odd_even = OddEven::from_numbers(current_data.selected_numbers());
         let mut pool_keys: Vec<OddEvenKey> = Vec::with_capacity(2);
         if act_odd_even.needs_even(self) {
             pool_keys.push(OddEvenKey::Even);
@@ -137,7 +133,7 @@ impl RuleTrait for OddEven {
             pool_keys.push(OddEvenKey::Odd);
         }
         if !pool_keys.is_empty() {
-            let (min, max) = Settings::get_min_max("NumberRange", shared_data);
+            let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
             let selected_pool_key = get_random_vec_item(&pool_keys);
             let mut number = 0_usize;
             if *selected_pool_key == OddEvenKey::Odd {
@@ -152,12 +148,9 @@ impl RuleTrait for OddEven {
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        let other = OddEven::from_numbers(selected_numbers);
+        let other = OddEven::from_numbers(current_data.selected_numbers());
         if other.odd > self.odd {
             return Err((IsWithinErrorType::Regular, "Too Many Odds".to_owned()));
         }
@@ -169,12 +162,9 @@ impl RuleTrait for OddEven {
 
     fn is_match(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        let other = OddEven::from_numbers(selected_numbers);
+        let other = OddEven::from_numbers(current_data.selected_numbers());
         if self.odd == other.odd && self.even == other.even {
             return Ok(());
         }

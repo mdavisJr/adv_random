@@ -1,7 +1,7 @@
+use crate::random::CurrentData;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
-use crate::settings::Settings;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -61,11 +61,9 @@ impl RuleTrait for NumberRange {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
+        current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {        
-        let key = if self.use_0_idx_for_all {0} else {selected_numbers.len()};
+        let key = if self.use_0_idx_for_all {0} else {current_data.selected_numbers().len()};
         if self.ranges.contains_key(&key) {
             let mut map: HashMap<String, MapAnyValue> = HashMap::new();
             let (min, max) = self.ranges[&key];
@@ -85,29 +83,23 @@ impl RuleTrait for NumberRange {
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        _current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         return Err(String::from("Skip"));
     }
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        for (idx, selected_number) in selected_numbers.iter().copied().enumerate() {
+        for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
             let key = if self.use_0_idx_for_all {0} else {idx};
             if self.ranges.contains_key(&key) {
                 let (min, max) = self.ranges[&key];
                 if selected_number < min || selected_number > max {
                     return Err((IsWithinErrorType::Regular, format!(
                         "Selected number {} at index {} is not within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
-                        selected_number, idx, min, max, selected_numbers, key
+                        selected_number, idx, min, max, current_data.selected_numbers(), key
                     )));
                 }
             }
@@ -117,17 +109,9 @@ impl RuleTrait for NumberRange {
 
     fn is_match(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        match self.is_within_range(
-            selected_numbers_set,
-            selected_numbers,
-            settings,
-            shared_data,
-        ) {
+        match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.1)
         }

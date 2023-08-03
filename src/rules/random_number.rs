@@ -1,8 +1,9 @@
+use crate::random::CurrentData;
 use crate::random_trait::get_random_trait;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -46,40 +47,29 @@ impl RuleTrait for RandomNumber {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData,
     ) -> std::result::Result<Vec<usize>, String> {
-        let (min, max) = Settings::get_min_max("NumberRange", shared_data);
+        let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
         return Ok(vec![get_random_trait().get_number(min, max)]);
     }
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        _current_data: &CurrentData,
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 
     fn is_match(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        _current_data: &CurrentData,
     ) -> std::result::Result<(), String> {
         return Ok(());
     }

@@ -98,23 +98,19 @@ impl fmt::Display for RandomResult {
 
 fn set_numbers(
     numbers: &mut Vec<usize>,
-    selected_numbers_set: &mut HashSet<usize>,
     _settings: &Settings,
     ds: &[usize],
 ) {
     numbers.clear();
     numbers.extend(ds);
-    selected_numbers_set.extend(numbers.clone());
 }
 
 fn clear_numbers(
     logs: &mut Vec<Log>,
     numbers: &mut Vec<usize>,
-    selected_numbers_set: &mut HashSet<usize>,
     _settings: &Settings,
 ) {
     numbers.clear();
-    selected_numbers_set.clear();
     logs.push(Log::Info {
         msg: format!("CLEAR - {:?}", numbers),
     });
@@ -143,7 +139,6 @@ pub fn halt_from_error(
     err_tracker: &mut HashMap<String, usize>,
     attempts: usize,
     numbers: &mut Vec<usize>,
-    selected_numbers_set: &mut HashSet<usize>,
     settings: &Settings,
     clear_err_tracker: &mut Vec<usize>,
 ) {
@@ -158,7 +153,7 @@ pub fn halt_from_error(
         logs.push(Log::Error {
             msg: format!("Reset Because Of Too Many Same Errors - {}", err),
         });
-        reset(logs, numbers, selected_numbers_set, settings, err_tracker);
+        reset(logs, numbers, settings, err_tracker);
         clear_err_tracker.push(attempts);
     }
 }
@@ -166,16 +161,17 @@ pub fn halt_from_error(
 fn reset(
     logs: &mut Vec<Log>,
     numbers: &mut Vec<usize>,
-    selected_numbers_set: &mut HashSet<usize>,
     settings: &Settings,
     err_tracker: &mut HashMap<String, usize>,
 ) {
-    clear_numbers(logs, numbers, selected_numbers_set, settings);
+    clear_numbers(logs, numbers, settings);
     err_tracker.clear();
 }
 
 pub struct CurrentData<'a> {
     selected_numbers: &'a Vec<usize>,
+    selected_numbers_set: HashSet<usize>,
+    selected_numbers_sorted: Vec<usize>,
     settings: &'a Settings,
     shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>,
 }
@@ -183,23 +179,29 @@ pub struct CurrentData<'a> {
 impl<'a> CurrentData<'a> {
 
     pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>) -> CurrentData<'a> {
-        return CurrentData { selected_numbers, settings, shared_data }
+        let mut selected_numbers_sorted = selected_numbers.iter().copied().collect::<Vec<usize>>();
+        selected_numbers_sorted.sort_unstable();
+        return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: selected_numbers.iter().copied().collect(), selected_numbers_sorted };
+    }
+
+    pub fn selected_numbers(&self) -> &'a Vec<usize> {
+        return self.selected_numbers;
+    }
+
+    pub fn settings(&self) -> &'a Settings {
+        return self.settings;
+    }
+
+    pub fn shared_data(&self) -> &'a HashMap<String, HashMap<String, MapAnyValue>> {
+        return self.shared_data;
     }
 
     pub fn selected_numbers_set(&self) -> &HashSet<usize> {
-        static SELECTED_NUMBERS_SET: OnceCell<HashSet<usize>> = OnceCell::new();
-        return SELECTED_NUMBERS_SET.get_or_init(|| {
-            self.selected_numbers.iter().copied().collect()
-        });
+        return &self.selected_numbers_set;
     }
 
     pub fn selected_numbers_sorted(&self) -> &Vec<usize> {
-        static SELECTED_NUMBERS_SET: OnceCell<Vec<usize>> = OnceCell::new();
-        return SELECTED_NUMBERS_SET.get_or_init(|| {
-            let mut t = self.selected_numbers.iter().copied().collect::<Vec<usize>>();
-            t.sort();
-            return t;
-        });
+        return &self.selected_numbers_sorted;
     }  
 }
 
@@ -207,13 +209,12 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
     let mut numbers: Vec<usize> = Vec::new();
     let max_tries = 500;
     let mut err_tracker: HashMap<String, usize> = HashMap::new();
-    let mut selected_numbers_set: HashSet<usize> = HashSet::with_capacity(settings.count());
     let mut num_attempts = 1;
     let mut logs: Vec<Log> = Vec::new();
     let mut clear_err_tracker: Vec<usize> = Vec::new();
     let mut expected_rules: Vec<Box<dyn RuleTrait>> = settings.expected_rules().clone();
     let mut key_to_make_priority: Option<String> = None;
-    clear_numbers(&mut logs, &mut numbers, &mut selected_numbers_set, settings);
+    clear_numbers(&mut logs, &mut numbers, settings);
     for attempts in 1..=max_tries {
         logs.push(Log::Info {
             msg: format!("Attempt - {:?}", attempts),
@@ -222,6 +223,9 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let mut potential_numbers = Vec::new();
         let mut gen_type = String::from("");
 
+        let current_data_numbers: Vec<usize> = numbers.iter().copied().collect();
+        let current_data_shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+        let current_data_selected_numbers = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
         let mut shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
         shuffle_vec(&mut expected_rules);
         //expected_rules.shuffle(&mut thread_rng()); TODO remove
@@ -236,18 +240,15 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
         for expected_rule in &expected_rules {
             if let Some(actual_rule_shared_data) =
-                expected_rule.share_data(&selected_numbers_set, &numbers, settings)
+                expected_rule.share_data(&current_data_selected_numbers)
             {
                 shared_data.insert(expected_rule.name(), actual_rule_shared_data);
             }
         }
+
+        let current_data_selected_numbers_2 = CurrentData::new(&current_data_numbers, settings, &shared_data);
         for expected_rule in &expected_rules {
-            match expected_rule.get_numbers(
-                &selected_numbers_set,
-                &numbers,
-                settings,
-                &shared_data,
-            ) {
+            match expected_rule.get_numbers(&current_data_selected_numbers_2) {
                 Ok(v) => {
                     gen_type = expected_rule.name();
                     potential_numbers.extend(&v);
@@ -261,7 +262,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             &mut err_tracker,
                             attempts,
                             &mut numbers,
-                            &mut selected_numbers_set,
                             settings,
                             &mut clear_err_tracker,
                         );
@@ -277,9 +277,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 .copied()
                 .chain(potential_numbers.iter().copied())
                 .collect::<Vec<usize>>();
-            let currentData = CurrentData::new(&selected_and_potential_numbers, settings, &shared_data);
-            let selected_and_potential_numbers_set: HashSet<usize> =
-                selected_and_potential_numbers.iter().copied().collect();
+            let current_data_with_potential_numbers = CurrentData::new(&selected_and_potential_numbers, settings, &shared_data);
 
             logs.push(Log::Info {
                 msg: format!(
@@ -295,7 +293,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                     &mut err_tracker,
                     attempts,
                     &mut numbers,
-                    &mut selected_numbers_set,
                     settings,
                     &mut clear_err_tracker,
                 );
@@ -305,10 +302,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
             let mut is_within_range_err: std::result::Result<(), String> = Ok(());
             for expected_rule in &expected_rules {
                 if let Err(e) = expected_rule.is_within_range(
-                    &selected_and_potential_numbers_set,
-                    &selected_and_potential_numbers,
-                    settings,
-                    &shared_data,
+                    &current_data_with_potential_numbers,
                 ) {
                     if e.0 == IsWithinErrorType::MakePriority {
                         key_to_make_priority = Some(expected_rule.name());
@@ -321,7 +315,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 Ok(()) => {
                     set_numbers(
                         &mut numbers,
-                        &mut selected_numbers_set,
                         settings,
                         &selected_and_potential_numbers,
                     );
@@ -333,7 +326,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                         &mut err_tracker,
                         attempts,
                         &mut numbers,
-                        &mut selected_numbers_set,
                         settings,
                         &mut clear_err_tracker,
                     );
@@ -344,10 +336,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 let mut no_errors = true;
                 for expected_rule in &expected_rules {
                     if let Err(e) = expected_rule.is_match(
-                        &selected_and_potential_numbers_set,
-                        &selected_and_potential_numbers,
-                        settings,
-                        &shared_data,
+                        &current_data_with_potential_numbers,
                     ) {
                         no_errors = false;
                         halt_from_error(
@@ -356,11 +345,10 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             &mut err_tracker,
                             attempts,
                             &mut numbers,
-                            &mut selected_numbers_set,
                             settings,
                             &mut clear_err_tracker,
                         );
-                        clear_numbers(&mut logs, &mut numbers, &mut selected_numbers_set, settings);
+                        clear_numbers(&mut logs, &mut numbers, settings);
                         break;
                     }
                 }

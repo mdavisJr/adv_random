@@ -1,6 +1,6 @@
-use crate::settings::Settings;
+use crate::random::CurrentData;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Display;
 
 #[derive(Debug)]
@@ -18,35 +18,24 @@ pub enum IsWithinErrorType {
 pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug {
     fn is_within_range(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData,
     ) -> std::result::Result<(), (IsWithinErrorType, String)>;
 
     fn as_any(&self) -> &dyn Any;
 
     fn is_match(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData,
     ) -> std::result::Result<(), String>;
 
     fn get_numbers(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData,
     ) -> std::result::Result<Vec<usize>, String>;
 
     fn share_data(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
+        current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>>;
 
     fn check_count(

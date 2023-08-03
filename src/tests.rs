@@ -1,4 +1,3 @@
-use crate::random_trait::set_random_trait;
 use crate::rules::RuleTrait;
 use crate::rules::*;
 use crate::random::*;
@@ -615,7 +614,11 @@ fn sequential_1() {
         ),
     ];
     for (main_idx, item) in data.iter().enumerate() {
-        let seq_numbers = vec![item.1.clone(), Sequential::from_numbers(item.2, false)];
+        let current_data_numbers: Vec<usize> = item.2.to_vec();
+        let current_data_settings: Settings = Settings::new_default(&[], item.2.len());
+        let current_data_shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+        let current_data = CurrentData::new(&current_data_numbers, &current_data_settings, &current_data_shared_data);
+        let seq_numbers = vec![item.1.clone(), Sequential::from_numbers(&current_data, false)];
         for (idx, seq_number) in seq_numbers.iter().enumerate() {
             assert_eq!(
                 item.0,
@@ -625,14 +628,10 @@ fn sequential_1() {
                 idx == 1,
                 seq_number
             );
+            
             assert_eq!(
                 Ok(()),
-                seq_number.is_within_range(
-                    &item.2.iter().copied().collect::<HashSet<_>>(),
-                    item.2,
-                    &Settings::new_default(&[], item.2.len()),
-                    &HashMap::new()
-                ),
+                seq_number.is_within_range(&current_data),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; SEQ_NUM: {:?}",
                 main_idx,
                 idx == 1,
@@ -640,12 +639,7 @@ fn sequential_1() {
             );
             assert_eq!(
                 Ok(()),
-                seq_number.is_match(
-                    &item.2.iter().copied().collect::<HashSet<_>>(),
-                    item.2,
-                    &Settings::new_default(&[], item.2.len()),
-                    &HashMap::new()
-                ),
+                seq_number.is_match(&current_data),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; SEQ_NUM: {:?}",
                 main_idx,
                 idx == 1,
@@ -666,12 +660,7 @@ fn sequential_1() {
             );
             assert_eq!(
                 Ok(()),
-                Sequential::from_numbers(rand_result.numbers().unwrap(), false).is_match(
-                    &item.2.iter().copied().collect::<HashSet<_>>(),
-                    item.2,
-                    &Settings::new_default(&[], item.2.len()),
-                    &HashMap::new()
-                ),
+                Sequential::from_numbers(&current_data, false).is_match(&current_data),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; SEQ_NUM: {:?} \n\n{:?}",
                 main_idx,
                 idx == 1,
@@ -694,6 +683,10 @@ fn number_range_1() {
         ("[(0, (1, 1)), (1, (99, 99)), (2, (4, 4)), (3, (6, 6)), (4, (7, 7))]", NumberRange::from_map(&[(&vec![0], 1,1), (&vec![1], 99,99), (&vec![2], 4,4), (&vec![3], 6,6), (&vec![4], 7,7)]), &[1, 99, 5, 6, 7], Err((IsWithinErrorType::Regular, "Selected number 5 at index 2 is not within range of min: 4 and max: 4. Numbers:[1, 99, 5, 6, 7].  Map Index:2".to_owned())), Err("Selected number 5 at index 2 is not within range of min: 4 and max: 4. Numbers:[1, 99, 5, 6, 7].  Map Index:2".to_owned())),
     ];
     for (main_idx, item) in data.iter().enumerate() {
+        let current_data_numbers: Vec<usize> = item.2.to_vec();
+        let current_data_settings: Settings = Settings::new_default(&[], item.2.len());
+        let current_data_shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+        let current_data = CurrentData::new(&current_data_numbers, &current_data_settings, &current_data_shared_data);
         assert_eq!(
             item.0,
             item.1.to_string(),
@@ -703,24 +696,14 @@ fn number_range_1() {
         );
         assert_eq!(
             item.3,
-            item.1.is_within_range(
-                &item.2.iter().copied().collect::<HashSet<_>>(),
-                item.2,
-                &Settings::new_default(&[], item.2.len()),
-                &HashMap::new()
-            ),
+            item.1.is_within_range(&current_data),
             "MAIN IDX: {},  NUM_RANGE: {:?}",
             main_idx,
             item.1
         );
         assert_eq!(
             item.4,
-            item.1.is_match(
-                &item.2.iter().copied().collect::<HashSet<_>>(),
-                item.2,
-                &Settings::new_default(&[], item.2.len()),
-                &HashMap::new()
-            ),
+            item.1.is_match(&current_data),
             "MAIN IDX: {},  NUM_RANGE: {:?}",
             main_idx,
             item.1
@@ -736,16 +719,7 @@ fn number_range_1() {
         );
         assert_eq!(
             Ok(()),
-            item.1.is_match(
-                &rand_result
-                    .numbers().unwrap()
-                    .iter()
-                    .copied()
-                    .collect::<HashSet<_>>(),
-                rand_result.numbers().unwrap(),
-                &Settings::new_default(&[], item.2.len()),
-                &HashMap::new()
-            ),
+            item.1.is_match(&CurrentData::new(&rand_result.numbers().unwrap(), &Settings::new_default(&[], item.2.len()), &HashMap::new())),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
             main_idx,
             item.1,
@@ -848,6 +822,10 @@ fn odd_even_1() {
     for (main_idx, item) in data.iter().enumerate() {
         let odd_evens = vec![item.1, OddEven::from_numbers(item.2)];
         for (idx, odd_even) in odd_evens.iter().enumerate() {
+            let current_data_numbers: Vec<usize> = item.2.to_vec();
+        let current_data_settings: Settings = Settings::new_default(&[], item.2.len());
+        let current_data_shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+        let current_data = CurrentData::new(&current_data_numbers, &current_data_settings, &current_data_shared_data);
             assert_eq!(
                 item.0,
                 odd_even.to_string(),
@@ -858,12 +836,7 @@ fn odd_even_1() {
             );
             assert_eq!(
                 Ok(()),
-                odd_even.is_within_range(
-                    &item.2.iter().copied().collect::<HashSet<_>>(),
-                    item.2,
-                    &Settings::new_default(&[], item.2.len()),
-                    &HashMap::new()
-                ),
+                odd_even.is_within_range(&current_data),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?}",
                 main_idx,
                 idx == 1,
@@ -871,12 +844,7 @@ fn odd_even_1() {
             );
             assert_eq!(
                 Ok(()),
-                odd_even.is_match(
-                    &item.2.iter().copied().collect::<HashSet<_>>(),
-                    item.2,
-                    &Settings::new_default(&[], item.2.len()),
-                    &HashMap::new()
-                ),
+                odd_even.is_match(&current_data),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?}",
                 main_idx,
                 idx == 1,
@@ -897,12 +865,7 @@ fn odd_even_1() {
             );
             assert_eq!(
                 Ok(()),
-                OddEven::from_numbers(rand_result.numbers().unwrap()).is_match(
-                    &item.2.iter().copied().collect::<HashSet<_>>(),
-                    item.2,
-                    &Settings::new_default(&[], item.2.len()),
-                    &HashMap::new()
-                ),
+                OddEven::from_numbers(rand_result.numbers().unwrap()).is_match(&current_data),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?} \n\n{:?}",
                 main_idx,
                 idx == 1,
@@ -964,16 +927,7 @@ fn random_number() {
         );
         assert_eq!(
             Ok(()),
-            item.is_match(
-                &rand_result
-                    .numbers().unwrap()
-                    .iter()
-                    .copied()
-                    .collect::<HashSet<_>>(),
-                rand_result.numbers().unwrap(),
-                &Settings::new_default(&[], item.len()),
-                &HashMap::new()
-            ),
+            item.is_match(&CurrentData::new(&rand_result.numbers().unwrap(), &Settings::new_default(&[], item.len()), &HashMap::new())),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
             main_idx,
             item,
@@ -1069,4 +1023,46 @@ fn number_pool_2() {
             );
         }
     }
+}
+
+#[test]
+fn current_data_1() {
+    let current_data_numbers_1: Vec<usize> = vec![5,4,3,2,1];
+    let current_data_settings_1: Settings = Settings::new_default(&[], current_data_numbers_1.len());
+    let current_data_shared_data_1: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+    let current_data_1 = CurrentData::new(&current_data_numbers_1, &current_data_settings_1, &current_data_shared_data_1);
+
+    let current_data_numbers_2: Vec<usize> = vec![25,24,23,22,21];
+    let current_data_settings_2: Settings = Settings::new_default(&[], current_data_numbers_2.len());
+    let current_data_shared_data_2: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+    let current_data_2 = CurrentData::new(&current_data_numbers_2, &current_data_settings_2, &current_data_shared_data_2);
+
+    let current_data_numbers_3: Vec<usize> = vec![35,35,33,32,31];
+    let current_data_settings_3: Settings = Settings::new_default(&[], current_data_numbers_3.len());
+    let current_data_shared_data_3: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+    let current_data_3 = CurrentData::new(&current_data_numbers_3, &current_data_settings_3, &current_data_shared_data_3);
+
+
+    assert_eq!(current_data_1.selected_numbers().clone(), current_data_numbers_1);
+    assert_eq!(current_data_1.selected_numbers_set().len(), current_data_numbers_1.len());
+    assert!(current_data_numbers_1.iter().all(|x| current_data_1.selected_numbers_set().contains(x)), "expected:{:?} - actual:{:?}", current_data_numbers_1, current_data_1.selected_numbers_set());
+    assert_eq!(current_data_1.selected_numbers_sorted().clone(), current_data_numbers_1.iter().copied().rev().collect::<Vec<usize>>());
+
+    assert_eq!(current_data_2.selected_numbers().clone(), current_data_numbers_2);
+    assert_eq!(current_data_2.selected_numbers_set().len(), current_data_numbers_2.len());
+    assert!(current_data_numbers_2.iter().all(|x| current_data_2.selected_numbers_set().contains(x)), "expected:{:?} - actual:{:?}", current_data_numbers_2, current_data_2.selected_numbers_set());
+    assert_eq!(current_data_2.selected_numbers_sorted().clone(), current_data_numbers_2.iter().copied().rev().collect::<Vec<usize>>());
+
+    assert_eq!(current_data_3.selected_numbers().clone(), current_data_numbers_3);
+    assert_eq!(current_data_3.selected_numbers_set().len(), current_data_numbers_3.len() - 1);
+    assert!(current_data_numbers_3.iter().all(|x| current_data_3.selected_numbers_set().contains(x)), "expected:{:?} - actual:{:?}", current_data_numbers_3, current_data_3.selected_numbers_set());
+    assert_eq!(current_data_3.selected_numbers_sorted().clone(), current_data_numbers_3.iter().copied().rev().collect::<Vec<usize>>());
+
+    assert_ne!(current_data_1.selected_numbers_sorted().clone(), current_data_2.selected_numbers_sorted().clone());
+    assert_ne!(current_data_2.selected_numbers_sorted().clone(), current_data_3.selected_numbers_sorted().clone());
+    assert_ne!(current_data_1.selected_numbers_sorted().clone(), current_data_3.selected_numbers_sorted().clone());
+    assert_eq!(format!("{:?}", current_data_1.selected_numbers_set().intersection(current_data_2.selected_numbers_set())), "[]");
+    assert_eq!(format!("{:?}", current_data_2.selected_numbers_set().intersection(current_data_3.selected_numbers_set())), "[]");
+    assert_eq!(format!("{:?}", current_data_1.selected_numbers_set().intersection(current_data_3.selected_numbers_set())), "[]");
+    //assert_ne!(Vec::from_iter(current_data_1.selected_numbers_set().clone()), current_data_numbers_1.iter.clone());
 }

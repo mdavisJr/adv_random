@@ -1,7 +1,6 @@
+use crate::random::CurrentData;
 use crate::rules::{MapAnyValue, RuleTrait, RandomNumber};
-use crate::random_trait::{RandomTrait, get_random_trait};
-use crate::default_random::DefaultRandom;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Debug, Ord, PartialOrd, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum UseNumberType {
@@ -60,12 +59,9 @@ impl Settings {
         return (min, max);
     }
 
-    pub fn get_number_within_number_range(&self, 
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,) -> Result<Vec<usize>, String> {
+    pub fn get_number_within_number_range(&self, current_data: &CurrentData) -> Result<Vec<usize>, String> {
         return self.expected_rules().iter().find(|x| x.name() == "RandomNumber").unwrap()
-            .get_numbers(selected_numbers_set, selected_numbers, self, shared_data);
+            .get_numbers(current_data);
     }    
 
     pub fn expected_rules(&self) -> &Vec<Box<dyn RuleTrait>> {

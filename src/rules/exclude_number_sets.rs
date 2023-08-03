@@ -1,5 +1,5 @@
+use crate::random::CurrentData;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
-use crate::settings::Settings;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -48,44 +48,33 @@ impl RuleTrait for ExcludeNumberSets {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        _current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         return Err(String::from("Skip"));
     }
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        _current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 
     fn is_match(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        if self.excluded_number_sets.contains(selected_numbers) {
+        if self.excluded_number_sets.contains(current_data.selected_numbers()) {
             return Err(format!(
                 "Excluded Number Set found: {:?}",
-                selected_numbers
+                current_data.selected_numbers()
             ));
         }
         return Ok(());

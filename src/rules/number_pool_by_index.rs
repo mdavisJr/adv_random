@@ -1,7 +1,7 @@
+use crate::random::CurrentData;
 use crate::rules::{
     IsWithinErrorType, MapAnyValue, RuleTrait, PoolType,
 };
-use crate::settings::Settings;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -56,22 +56,17 @@ impl RuleTrait for NumberPoolByIndex {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         for number_pool_item in &self.number_pool_items {
-            if number_pool_item.indexes.contains(&selected_numbers.len()) {
+            if number_pool_item.indexes.contains(&current_data.selected_numbers().len()) {
                 let number = number_pool_item.pool.random_number();
                 return Ok(vec![number]);
             }
@@ -81,12 +76,9 @@ impl RuleTrait for NumberPoolByIndex {
 
     fn is_within_range(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        for (idx, selected_number) in selected_numbers.iter().copied().enumerate() {
+        for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
             for number_pool_item in &self.number_pool_items {
                 if number_pool_item.indexes.contains(&idx)
                     && !number_pool_item.pool.contains(selected_number)
@@ -95,7 +87,7 @@ impl RuleTrait for NumberPoolByIndex {
                         IsWithinErrorType::Regular,
                         format!(
                             "Selected number {} at index {} is not: {:?}. Numbers:{:?}",
-                            selected_number, idx, number_pool_item, selected_numbers
+                            selected_number, idx, number_pool_item, current_data.selected_numbers()
                         ),
                     ));
                 }
@@ -106,17 +98,9 @@ impl RuleTrait for NumberPoolByIndex {
 
     fn is_match(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        match self.is_within_range(
-            selected_numbers_set,
-            selected_numbers,
-            settings,
-            shared_data,
-        ) {
+        match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.1),
         }

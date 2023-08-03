@@ -1,6 +1,6 @@
+use crate::random::CurrentData;
 use crate::random_trait::{get_random_trait, get_random_vec_item};
 use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait};
-use crate::settings::Settings;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -315,27 +315,22 @@ impl RuleTrait for NumberPool {
 
     fn share_data(
         &self,
-        _selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
+        _current_data: &CurrentData,
     ) -> Option<HashMap<String, MapAnyValue>> {
         None
     }
 
     fn get_numbers(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, selected_numbers_set);
+            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
         let mut numbers: Vec<usize> = Vec::new();
         for (_key, number_pool_item) in &other_number_pool.number_pool_items {
             if number_pool_item.missing > 0 {
                 if number_pool_item.pool.len() == number_pool_item.needs {
-                    numbers.extend(number_pool_item.pool.difference(selected_numbers_set));
+                    numbers.extend(number_pool_item.pool.difference(current_data.selected_numbers_set()));
                 } else {
                     numbers.push(number_pool_item
                         .pool
@@ -353,13 +348,10 @@ impl RuleTrait for NumberPool {
 
     fn is_within_range(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        selected_numbers: &[usize],
-        settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
         let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, selected_numbers_set);
+            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
 
         let mut total_missing: usize = 0;
         for (key, number_pool_item) in &other_number_pool.number_pool_items {
@@ -373,10 +365,10 @@ impl RuleTrait for NumberPool {
                 total_missing += number_pool_item.missing;
             }
         }
-        let len_remaining = if selected_numbers.len() > settings.count() {
+        let len_remaining = if current_data.selected_numbers().len() > current_data.settings().count() {
             0
         } else {
-            settings.count() - selected_numbers.len()
+            current_data.settings().count() - current_data.selected_numbers().len()
         };
         if total_missing > 0 && total_missing > len_remaining {
             return Err((IsWithinErrorType::MakePriority, format!(
@@ -389,13 +381,10 @@ impl RuleTrait for NumberPool {
 
     fn is_match(
         &self,
-        selected_numbers_set: &HashSet<usize>,
-        _selected_numbers: &[usize],
-        _settings: &Settings,
-        _shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        current_data: &CurrentData
     ) -> std::result::Result<(), String> {
         let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, selected_numbers_set);
+            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
         for (key, number_pool_item) in other_number_pool.number_pool_items {
             if number_pool_item.has != number_pool_item.needs {
                 return Err(format!(
