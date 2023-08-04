@@ -170,8 +170,8 @@ fn reset(
 
 pub struct CurrentData<'a> {
     selected_numbers: &'a Vec<usize>,
-    selected_numbers_set: HashSet<usize>,
-    selected_numbers_sorted: Vec<usize>,
+    selected_numbers_set: OnceCell<HashSet<usize>>,
+    selected_numbers_sorted: OnceCell<Vec<usize>>,
     settings: &'a Settings,
     shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>,
 }
@@ -179,9 +179,24 @@ pub struct CurrentData<'a> {
 impl<'a> CurrentData<'a> {
 
     pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>) -> CurrentData<'a> {
-        let mut selected_numbers_sorted = selected_numbers.iter().copied().collect::<Vec<usize>>();
-        selected_numbers_sorted.sort_unstable();
-        return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: selected_numbers.iter().copied().collect(), selected_numbers_sorted };
+        return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: OnceCell::new(), selected_numbers_sorted: OnceCell::new() };
+    }
+
+    pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>) -> CurrentData<'a> {
+        let new_current_data = CurrentData { 
+            selected_numbers: current_data.selected_numbers, 
+            settings: current_data.settings, 
+            shared_data, 
+            selected_numbers_set: OnceCell::new(), 
+            selected_numbers_sorted: OnceCell::new(), 
+        };
+        if current_data.selected_numbers_set.get().is_some() {
+            let _ = new_current_data.selected_numbers_set.set(current_data.selected_numbers_set.get().unwrap().clone());
+        }
+        if current_data.selected_numbers_sorted.get().is_some() {
+            let _ = new_current_data.selected_numbers_sorted.set(current_data.selected_numbers_sorted.get().unwrap().to_vec());
+        }
+        return new_current_data;
     }
 
     pub fn selected_numbers(&self) -> &'a Vec<usize> {
@@ -197,11 +212,17 @@ impl<'a> CurrentData<'a> {
     }
 
     pub fn selected_numbers_set(&self) -> &HashSet<usize> {
-        return &self.selected_numbers_set;
+        return self.selected_numbers_set.get_or_init(|| {
+            self.selected_numbers.iter().copied().collect()
+        });
     }
 
     pub fn selected_numbers_sorted(&self) -> &Vec<usize> {
-        return &self.selected_numbers_sorted;
+        return self.selected_numbers_sorted.get_or_init(|| {
+            let mut t = self.selected_numbers.iter().copied().collect::<Vec<usize>>();
+            t.sort_unstable();
+            return t;
+        });
     }  
 }
 
@@ -225,7 +246,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
         let current_data_numbers: Vec<usize> = numbers.iter().copied().collect();
         let current_data_shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
-        let current_data_selected_numbers = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
+        let current_data_selected_numbers_sd = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
         let mut shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
         shuffle_vec(&mut expected_rules);
         //expected_rules.shuffle(&mut thread_rng()); TODO remove
@@ -240,15 +261,15 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
         for expected_rule in &expected_rules {
             if let Some(actual_rule_shared_data) =
-                expected_rule.share_data(&current_data_selected_numbers)
+                expected_rule.share_data(&current_data_selected_numbers_sd)
             {
                 shared_data.insert(expected_rule.name(), actual_rule_shared_data);
             }
         }
 
-        let current_data_selected_numbers_2 = CurrentData::new(&current_data_numbers, settings, &shared_data);
+        let current_data_selected_numbers_gn = CurrentData::from_current_data(&current_data_selected_numbers_sd, &shared_data);
         for expected_rule in &expected_rules {
-            match expected_rule.get_numbers(&current_data_selected_numbers_2) {
+            match expected_rule.get_numbers(&current_data_selected_numbers_gn) {
                 Ok(v) => {
                     gen_type = expected_rule.name();
                     potential_numbers.extend(&v);
