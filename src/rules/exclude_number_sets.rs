@@ -5,6 +5,9 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
+use super::ExcludeRuleTrait;
+use super::exclude_rule_trait::is_excluded_helper;
+
 #[derive(Clone)]
 pub struct ExcludeNumberSets {
     excluded_number_sets: HashSet<Vec<usize>>,
@@ -89,5 +92,18 @@ impl RuleTrait for ExcludeNumberSets {
         _count: usize,
     ) -> std::result::Result<bool, String> {
         return Ok(true);
+    }
+}
+
+impl ExcludeRuleTrait for ExcludeNumberSets {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_excluded(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), String> {
+        return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 }

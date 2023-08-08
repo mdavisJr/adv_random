@@ -6,6 +6,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
+use super::ExcludeRuleTrait;
+use super::exclude_rule_trait::is_excluded_helper;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NumberSpaceType {
     Lt,
@@ -158,5 +161,18 @@ impl RuleTrait for NumberSpace {
         _count: usize,
     ) -> std::result::Result<bool, String> {
         return Ok(true);
+    }
+}
+
+impl ExcludeRuleTrait for NumberSpace {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_excluded(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), String> {
+        return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 }

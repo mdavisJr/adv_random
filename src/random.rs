@@ -373,6 +373,29 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                         break;
                     }
                 }
+                match settings.exclude_rules() {
+                    Some(exclude_rules) => {
+                        for exclude_rule in exclude_rules {
+                            if let Err(e) = exclude_rule.is_excluded(
+                                &current_data_with_potential_numbers,
+                            ) {
+                                no_errors = false;
+                                halt_from_error(
+                                    &e,
+                                    &mut logs,
+                                    &mut err_tracker,
+                                    attempts,
+                                    &mut numbers,
+                                    settings,
+                                    &mut clear_err_tracker,
+                                );
+                                clear_numbers(&mut logs, &mut numbers, settings);
+                                break;
+                            }
+                        }
+                    },
+                    None => {},
+                }
                 if no_errors {
                     return RandomResult {
                         status: RandomResultType::Success,

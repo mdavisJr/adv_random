@@ -8,6 +8,9 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::Hash;
 
+use super::ExcludeRuleTrait;
+use super::exclude_rule_trait::is_excluded_helper;
+
 #[derive(Clone, Copy)]
 pub struct OddEven {
     odd: usize,
@@ -186,5 +189,18 @@ impl RuleTrait for OddEven {
             return Ok(true);
         }
         return Err(format!("Odd count: {} and Even count: {} is greater than count: {} ", self.odd, self.even, count));
+    }
+}
+
+impl ExcludeRuleTrait for OddEven {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_excluded(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), String> {
+        return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 }

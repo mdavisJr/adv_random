@@ -7,6 +7,9 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
+use super::ExcludeRuleTrait;
+use super::exclude_rule_trait::is_excluded_helper;
+
 #[derive(Clone)]
 pub struct NumberPoolByIndex {
     number_pool_items: Vec<NumberPoolItemByIndex>,
@@ -115,5 +118,18 @@ impl RuleTrait for NumberPoolByIndex {
         _count: usize,
     ) -> std::result::Result<bool, String> {
         return Ok(true);
+    }
+}
+
+impl ExcludeRuleTrait for NumberPoolByIndex {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_excluded(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), String> {
+        return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 }

@@ -1,31 +1,26 @@
 use crate::random::CurrentData;
-use crate::rules::{MapAnyValue, RuleTrait, RandomNumber};
+use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, ExcludeRuleTrait};
 use std::collections::HashMap;
-
-#[derive(Debug, Ord, PartialOrd, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum UseNumberType {
-    ALL,
-    SomeOf(usize),
-    Exclude,
-}
 
 #[derive(Clone)]
 pub struct Settings {
     expected_rules: Vec<Box<dyn RuleTrait>>,
-    count: usize
+    count: usize,
+    exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>
 }
 
 impl Settings {
-    pub fn new_default(
-        expected_rules: &[Box<dyn RuleTrait>],
-        count: usize
-    ) -> Settings {
-        return Settings::new(expected_rules, count);
-    }
-
     pub fn new(
         expected_rules: &[Box<dyn RuleTrait>],
-        count: usize
+        count: usize,
+    ) -> Settings {
+        return Settings::with_exclude_rules(expected_rules, count, None)
+    }
+
+    pub fn with_exclude_rules(
+        expected_rules: &[Box<dyn RuleTrait>],
+        count: usize,
+        exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>
     ) -> Settings {
         let mut expected_rules_clone = expected_rules.to_vec();
         if expected_rules_clone.iter().all(|x| x.name() != "RandomNumber") {
@@ -38,7 +33,8 @@ impl Settings {
         }
         return Settings {
             expected_rules: expected_rules_clone,
-            count
+            count,
+            exclude_rules
         };
     }
 
@@ -66,6 +62,10 @@ impl Settings {
 
     pub fn expected_rules(&self) -> &Vec<Box<dyn RuleTrait>> {
         return &self.expected_rules;
+    }
+
+    pub fn exclude_rules(&self) -> &Option<Vec<Box<dyn ExcludeRuleTrait>>> {
+        return &self.exclude_rules;
     }
 
     pub fn count(&self) -> usize {

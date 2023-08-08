@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
+use super::ExcludeRuleTrait;
+use super::exclude_rule_trait::is_excluded_helper;
+
 #[derive(Clone)]
 pub struct NumberRange {
     ranges: HashMap<usize, (usize, usize)>,
@@ -126,5 +129,30 @@ impl RuleTrait for NumberRange {
         _count: usize,
     ) -> std::result::Result<bool, String> {
         return Ok(true);
+    }
+}
+
+impl ExcludeRuleTrait for NumberRange {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_excluded(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), String> {
+        for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
+            let key = if self.use_0_idx_for_all {0} else {idx};
+            if self.ranges.contains_key(&key) {
+                let (min, max) = self.ranges[&key];
+                if selected_number >= min || selected_number <= max {
+                    return Err(format!(
+                        "Selected number {} at index {} is within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
+                        selected_number, idx, min, max, current_data.selected_numbers(), key
+                    ));
+                }
+            }
+        }
+        return Ok(());
     }
 }

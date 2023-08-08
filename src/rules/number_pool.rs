@@ -8,6 +8,9 @@ use std::sync::Mutex;
 use std::fmt::{Debug, Display, Formatter, Result};
 use once_cell::sync::Lazy;
 
+use super::ExcludeRuleTrait;
+use super::exclude_rule_trait::is_excluded_helper;
+
 
 pub static NP_ALPHABET_SET: Lazy<Mutex<HashSet<char>>> = Lazy::new(|| {
     Mutex::new(HashSet::from_iter(['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']))
@@ -409,5 +412,18 @@ impl RuleTrait for NumberPool {
             return Ok(true);
         }
         return Err(format!("{} count: {} is greater than count: {} ", self.name(), needs_count, count));
+    }
+}
+
+impl ExcludeRuleTrait for NumberPool {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_excluded(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), String> {
+        return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 }
