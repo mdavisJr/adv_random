@@ -2,6 +2,8 @@ use crate::random::CurrentData;
 use std::any::Any;
 use std::fmt::Display;
 
+use super::IsWithinErrorType;
+
 pub fn is_excluded_helper(is_match_results: &std::result::Result<(), String>, rule_str: &str) -> std::result::Result<(), String> {
     return match is_match_results {
         Ok(()) => Err(format!("Number Contains Rule {}, that should be excluded.", rule_str)),
@@ -13,10 +15,17 @@ pub trait ExcludeRuleTrait: ExcludeRuleTraitClone + Display + std::fmt::Debug {
 
     fn as_any(&self) -> &dyn Any;
 
+    fn is_within_excluded_range(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), (IsWithinErrorType, String)>;
+
     fn is_excluded(
         &self,
         current_data: &CurrentData,
     ) -> std::result::Result<(), String>;
+
+    fn exclude_name(&self) -> String;
 }
 
 pub trait ExcludeRuleTraitClone {

@@ -331,6 +331,21 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                     is_within_range_err = Err(format!("Check Type: {}. Error Type: {:?}. Potential Rule Stack Not Within Range - {}", expected_rule.name(), e.0, e.1));
                 }
             }
+            
+            if let Ok(()) = is_within_range_err {
+                if let Some(exclude_rules) = settings.exclude_rules() {
+                    for exclude_rule in exclude_rules {
+                        if let Err(e) = exclude_rule.is_within_excluded_range(
+                            &current_data_with_potential_numbers,
+                        ) {
+                            if e.0 == IsWithinErrorType::MakePriority {
+                                key_to_make_priority = Some(exclude_rule.exclude_name());
+                            }
+                            is_within_range_err = Err(format!("Check Type: {}. Error Type: {:?}. Potential Rule Stack Not Within Range - {}", exclude_rule.exclude_name(), e.0, e.1));
+                        }
+                    }
+                }
+            }
 
             match is_within_range_err {
                 Ok(()) => {

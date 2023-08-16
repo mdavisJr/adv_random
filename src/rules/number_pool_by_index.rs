@@ -132,4 +132,15 @@ impl ExcludeRuleTrait for NumberPoolByIndex {
     ) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
+
+    fn is_within_excluded_range(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+        return Ok(());
+    }
+
+    fn exclude_name(&self) -> String {
+        return self.name();
+    }
 }

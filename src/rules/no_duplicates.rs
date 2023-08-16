@@ -79,10 +79,21 @@ impl ExcludeRuleTrait for NoDuplicate {
         self
     }
 
+    fn is_within_excluded_range(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+        return Ok(());
+    }
+
     fn is_excluded(
         &self,
         current_data: &CurrentData,
     ) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
+    }
+
+    fn exclude_name(&self) -> String {
+        return self.name();
     }
 }

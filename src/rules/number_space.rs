@@ -7,7 +7,6 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
 use super::ExcludeRuleTrait;
-use super::exclude_rule_trait::is_excluded_helper;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NumberSpaceType {
@@ -173,6 +172,54 @@ impl ExcludeRuleTrait for NumberSpace {
         &self,
         current_data: &CurrentData,
     ) -> std::result::Result<(), String> {
-        return is_excluded_helper(&self.is_match(current_data), &self.to_string());
+        match self.is_within_excluded_range(current_data) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(e.1)
+        }
+    }
+
+    fn is_within_excluded_range(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+        let mut i = 1;
+        while i < current_data.selected_numbers_sorted().len() {                
+            let num_space = current_data.selected_numbers_sorted()[i] - current_data.selected_numbers_sorted()[i-1];
+            let err_str = "Expected ".to_owned() + &self.to_string() + "; Actual Value" + &num_space.to_string();
+            match self.number_space_type {
+                NumberSpaceType::Lt => {
+                    if num_space < self.value {
+                        return Err((IsWithinErrorType::Regular, err_str));
+                    }
+                },
+                NumberSpaceType::Lte => {
+                    if num_space <= self.value {
+                        return Err((IsWithinErrorType::Regular, err_str));
+                    }
+                },
+                NumberSpaceType::Eq => {
+                    if num_space == self.value {
+                        return Err((IsWithinErrorType::Regular, err_str));
+                    }
+                },
+                NumberSpaceType::Gte => {
+                    if num_space >= self.value {
+                        return Err((IsWithinErrorType::Regular, err_str));
+                    }
+                },                
+                NumberSpaceType::Gt => {
+                    if num_space > self.value {
+                        return Err((IsWithinErrorType::Regular, err_str));
+                    }
+                }
+            }
+            i += 1;
+        }
+
+        return Ok(());
+    }
+
+    fn exclude_name(&self) -> String {
+        return self.name();
     }
 }

@@ -6,7 +6,26 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
 use super::ExcludeRuleTrait;
-use super::exclude_rule_trait::is_excluded_helper;
+
+fn is_within_range_helper(
+    number_range: &NumberRange,
+    current_data: &CurrentData,
+    invert: bool
+) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
+        let key = if number_range.use_0_idx_for_all {0} else {idx};
+        if number_range.ranges.contains_key(&key) {
+            let (min, max) = number_range.ranges[&key];
+            if (!invert && (selected_number < min || selected_number > max)) || (invert && (selected_number >= min && selected_number <= max)) {
+                return Err((IsWithinErrorType::Regular, format!(
+                    "Invert: {} - Selected number {} at index {} is not within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
+                    invert, selected_number, idx, min, max, current_data.selected_numbers(), key
+                )));
+            }
+        }
+    }
+    return Ok(());
+}
 
 #[derive(Clone)]
 pub struct NumberRange {
@@ -95,19 +114,7 @@ impl RuleTrait for NumberRange {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
-            let key = if self.use_0_idx_for_all {0} else {idx};
-            if self.ranges.contains_key(&key) {
-                let (min, max) = self.ranges[&key];
-                if selected_number < min || selected_number > max {
-                    return Err((IsWithinErrorType::Regular, format!(
-                        "Selected number {} at index {} is not within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
-                        selected_number, idx, min, max, current_data.selected_numbers(), key
-                    )));
-                }
-            }
-        }
-        return Ok(());
+        return is_within_range_helper(self, current_data, false);
     }
 
     fn is_match(
@@ -141,18 +148,20 @@ impl ExcludeRuleTrait for NumberRange {
         &self,
         current_data: &CurrentData,
     ) -> std::result::Result<(), String> {
-        for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
-            let key = if self.use_0_idx_for_all {0} else {idx};
-            if self.ranges.contains_key(&key) {
-                let (min, max) = self.ranges[&key];
-                if selected_number >= min || selected_number <= max {
-                    return Err(format!(
-                        "Selected number {} at index {} is within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
-                        selected_number, idx, min, max, current_data.selected_numbers(), key
-                    ));
-                }
-            }
+        match self.is_within_excluded_range(current_data) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(e.1)
         }
-        return Ok(());
+    }
+
+    fn is_within_excluded_range(
+        &self,
+        current_data: &CurrentData,
+    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+        return is_within_range_helper(self, current_data, true);
+    }
+
+    fn exclude_name(&self) -> String {
+        return self.name();
     }
 }
