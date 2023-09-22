@@ -1,14 +1,30 @@
 use once_cell::sync::OnceCell;
 
+#[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
 
 static RANDOM_TRAIT: OnceCell<Box<dyn RandomTrait + Send + Sync>> = OnceCell::new();
 
+#[cfg(feature="rand")]
 pub fn get_random_trait() -> &'static Box<dyn RandomTrait + Send + Sync> {
     let value: &Box<dyn RandomTrait + Send + Sync> = RANDOM_TRAIT.get_or_init(|| {
         Box::new(DefaultRandom{})
     });
     return value;
+}
+
+#[cfg(not(feature="rand"))]
+pub fn get_random_trait() -> &'static Box<dyn RandomTrait + Send + Sync> {
+    let value: &Box<dyn RandomTrait + Send + Sync> = match RANDOM_TRAIT.get() {
+        Some(v) => v,
+        None => panic!("Please call set_random_trait function or use feature \"rand\""),
+    };
+    return value;
+}
+
+#[cfg(not(feature="rand"))]
+pub fn set_random_trait(random_trait: Box<dyn RandomTrait + Send + Sync>) {
+    let _ = RANDOM_TRAIT.set(random_trait);
 }
 
 pub fn get_random_vec_item<T>(vec: &[T]) -> &T {
@@ -24,17 +40,6 @@ pub fn shuffle_vec<T>(vector: &mut [T])
     let len = vector.len() - 1;
     for i in 0..=len {
         vector.swap(i, get_random_trait().get_number(i, len));
-    }
-}
-
-pub fn set_random_trait(random_trait: Option<Box<dyn RandomTrait + Send + Sync>>) {
-    if let Err(_) = RANDOM_TRAIT.set(
-        match random_trait {
-            Some(v) => v,
-            None => Box::new(DefaultRandom{})
-        }
-    ) {
-        panic!("already set");
     }
 }
 

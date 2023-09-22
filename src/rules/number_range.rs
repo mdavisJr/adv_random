@@ -10,16 +10,16 @@ use super::ExcludeRuleTrait;
 fn is_within_range_helper(
     number_range: &NumberRange,
     current_data: &CurrentData,
-    invert: bool
+    exclude: bool
 ) -> std::result::Result<(), (IsWithinErrorType, String)> {
     for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
         let key = if number_range.use_0_idx_for_all {0} else {idx};
         if number_range.ranges.contains_key(&key) {
             let (min, max) = number_range.ranges[&key];
-            if (!invert && (selected_number < min || selected_number > max)) || (invert && (selected_number >= min && selected_number <= max)) {
+            if (!exclude && (selected_number < min || selected_number > max)) || (exclude && (selected_number >= min && selected_number <= max)) {
                 return Err((IsWithinErrorType::Regular, format!(
-                    "Invert: {} - Selected number {} at index {} is not within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
-                    invert, selected_number, idx, min, max, current_data.selected_numbers(), key
+                    "Exclude: {} - Selected number {} at index {} is not within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
+                    exclude, selected_number, idx, min, max, current_data.selected_numbers(), key
                 )));
             }
         }

@@ -109,7 +109,7 @@ impl ExcludeRuleTrait for ExcludeNumberSets {
 
     fn is_within_excluded_range(
         &self,
-        current_data: &CurrentData,
+        _current_data: &CurrentData,
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }

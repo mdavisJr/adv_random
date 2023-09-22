@@ -19,7 +19,7 @@ pub use self::number_range::NumberRange;
 pub use self::number_space::{NumberSpace, NumberSpaceType};
 pub use self::odd_even::{OddEven, OddEvenKey};
 pub use self::rule_trait::{MapAnyValue, RuleTrait, IsWithinErrorType};
-pub use self::exclude_rule_trait::ExcludeRuleTrait;
+pub use self::exclude_rule_trait::{is_excluded_helper, ExcludeRuleTrait};
 pub use self::random_number::RandomNumber;
 pub use self::sequential::Sequential;
 pub use self::odd_even_by_index::OddEvenByIndex;

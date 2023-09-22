@@ -1,18 +1,21 @@
+#[cfg(feature="rand")]
 use rand::{thread_rng, Rng};
+#[cfg(feature="rand")]
 use rand::distributions::{Distribution, Uniform};
-use crate::random_trait::RandomTrait;
 
 
 
 #[derive(Debug, Clone)]
 pub struct DefaultRandom {}
 
+#[cfg(feature="rand")]
 impl DefaultRandom {
     pub fn new() -> Box<dyn RandomTrait> {
         return Box::new(DefaultRandom {  });
     }
 }
 
+#[cfg(feature="rand")]
 impl RandomTrait for DefaultRandom {
     fn get_number(&self, min: usize, max: usize) -> usize {
         let mut rng = thread_rng();
