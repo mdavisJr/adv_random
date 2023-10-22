@@ -2,7 +2,7 @@ use once_cell::sync::OnceCell;
 
 use crate::random_trait::shuffle_vec;
 use crate::rules::{
-    IsWithinErrorType, MapAnyValue, RuleTrait,
+    IsWithinErrorType, MapAnyValue, RuleTrait, ExcludeRuleTrait,
 };
 use crate::settings::Settings;
 use std::collections::{HashMap, HashSet};
@@ -10,7 +10,7 @@ use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::Hash;
 
-const ERR_TRACKER_MULTIPLIER: usize = 6;
+const ERR_TRACKER_MULTIPLIER: usize = 10;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum RandomResultType {
@@ -149,7 +149,7 @@ pub fn halt_from_error(
         .entry(err.to_owned())
         .and_modify(|x| *x += 1)
         .or_insert(1);
-    if count > (ERR_TRACKER_MULTIPLIER * settings.count()) {
+    if count > (settings.max_specific_error_count()) {
         logs.push(Log::Error {
             msg: format!("Reset Because Of Too Many Same Errors - {}", err),
         });
@@ -228,7 +228,7 @@ impl<'a> CurrentData<'a> {
 
 pub fn random_numbers(settings: &Settings) -> RandomResult {
     let mut numbers: Vec<usize> = Vec::new();
-    let max_tries = 500;
+    let mut is_match_attempts: usize = 0;
     let mut err_tracker: HashMap<String, usize> = HashMap::new();
     let mut num_attempts = 1;
     let mut logs: Vec<Log> = Vec::new();
@@ -236,7 +236,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
     let mut expected_rules: Vec<Box<dyn RuleTrait>> = settings.expected_rules().clone();
     let mut key_to_make_priority: Option<String> = None;
     clear_numbers(&mut logs, &mut numbers, settings);
-    for attempts in 1..=max_tries {
+    for attempts in 1..=settings.max_tries() {
         logs.push(Log::Info {
             msg: format!("Attempt - {:?}", attempts),
         });
@@ -293,21 +293,21 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
         //Check if potential_numbers are valid
         if !potential_numbers.is_empty() {
-            let selected_and_potential_numbers = numbers
-                .iter()
-                .copied()
-                .chain(potential_numbers.iter().copied())
-                .collect::<Vec<usize>>();
-            let current_data_with_potential_numbers = CurrentData::new(&selected_and_potential_numbers, settings, &shared_data);
+            let _temp_numbers = numbers
+            .iter()
+            .copied()
+            .chain(potential_numbers.iter().copied())
+            .collect::<Vec<usize>>();
+            let current_data_with_potential_numbers = CurrentData::new(&_temp_numbers, settings, &shared_data);
 
             logs.push(Log::Info {
                 msg: format!(
                     "GEN_TYPE - {}; P - {:?}; A&P - {:?}",
-                    gen_type, potential_numbers, selected_and_potential_numbers
+                    gen_type, potential_numbers, current_data_with_potential_numbers.selected_numbers
                 ),
             });
 
-            if selected_and_potential_numbers.len() > settings.count() {
+            if current_data_with_potential_numbers.selected_numbers().len() > settings.count() {
                 halt_from_error(
                     "Too Many Numbers Selected.",
                     &mut logs,
@@ -320,63 +320,27 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 continue;
             }
 
-            let mut is_within_range_err: std::result::Result<(), String> = Ok(());
-            for expected_rule in &expected_rules {
-                if let Err(e) = expected_rule.is_within_range(
-                    &current_data_with_potential_numbers,
-                ) {
-                    if e.0 == IsWithinErrorType::MakePriority {
-                        key_to_make_priority = Some(expected_rule.name());
-                    }
-                    is_within_range_err = Err(format!("Check Type: {}. Error Type: {:?}. Potential Rule Stack Not Within Range - {}", expected_rule.name(), e.0, e.1));
-                }
-            }
-            
-            if let Ok(()) = is_within_range_err {
-                if let Some(exclude_rules) = settings.exclude_rules() {
-                    for exclude_rule in exclude_rules {
-                        if let Err(e) = exclude_rule.is_within_excluded_range(
-                            &current_data_with_potential_numbers,
-                        ) {
-                            if e.0 == IsWithinErrorType::MakePriority {
-                                key_to_make_priority = Some(exclude_rule.exclude_name());
-                            }
-                            is_within_range_err = Err(format!("Check Type: {}. Error Type: {:?}. Potential Rule Stack Not Within Range - {}", exclude_rule.exclude_name(), e.0, e.1));
-                        }
-                    }
-                }
-            }
+            if current_data_with_potential_numbers.selected_numbers().len() == settings.count() {
+                is_match_attempts += 1;
 
-            match is_within_range_err {
-                Ok(()) => {
-                    set_numbers(
-                        &mut numbers,
-                        settings,
-                        &selected_and_potential_numbers,
-                    );
-                }
-                Err(e) => {
-                    halt_from_error(
-                        &e,
-                        &mut logs,
-                        &mut err_tracker,
-                        attempts,
-                        &mut numbers,
-                        settings,
-                        &mut clear_err_tracker,
-                    );
-                }
-            }
-
-            if numbers.len() == settings.count() {
-                let mut no_errors = true;
-                for expected_rule in &expected_rules {
-                    if let Err(e) = expected_rule.is_match(
-                        &current_data_with_potential_numbers,
-                    ) {
-                        no_errors = false;
+                match is_match_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
+                    Ok(_) => {
+                        set_numbers(
+                            &mut numbers,
+                            settings,
+                            &current_data_with_potential_numbers.selected_numbers(),
+                        );
+                        return RandomResult {
+                            status: RandomResultType::Success,
+                            numbers,
+                            attempts,
+                            logs,
+                            clear_err_tracker
+                        };
+                    },
+                    Err(e) => {
                         halt_from_error(
-                            &e,
+                            &format!("Is Matched Failed. {}", e),
                             &mut logs,
                             &mut err_tracker,
                             attempts,
@@ -384,41 +348,40 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             settings,
                             &mut clear_err_tracker,
                         );
-                        clear_numbers(&mut logs, &mut numbers, settings);
-                        break;
-                    }
-                }
-                match settings.exclude_rules() {
-                    Some(exclude_rules) => {
-                        for exclude_rule in exclude_rules {
-                            if let Err(e) = exclude_rule.is_excluded(
-                                &current_data_with_potential_numbers,
-                            ) {
-                                no_errors = false;
-                                halt_from_error(
-                                    &e,
-                                    &mut logs,
-                                    &mut err_tracker,
-                                    attempts,
-                                    &mut numbers,
-                                    settings,
-                                    &mut clear_err_tracker,
-                                );
-                                clear_numbers(&mut logs, &mut numbers, settings);
-                                break;
-                            }
+                        if is_match_attempts == settings.max_is_match_attempts() {                        
+                            clear_numbers(&mut logs, &mut numbers, settings);
+                            is_match_attempts = 0;
+                            logs.push(Log::Info {
+                                msg: format!("Clear - Reached Is Match Attempts"),
+                            });
                         }
-                    },
-                    None => {},
+                        continue;
+                    }                    
                 }
-                if no_errors {
-                    return RandomResult {
-                        status: RandomResultType::Success,
-                        numbers,
-                        attempts,
-                        logs,
-                        clear_err_tracker
-                    };
+            } else {
+                match is_within_range_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
+                    Ok(_) => {
+                        set_numbers(
+                            &mut numbers,
+                            settings,
+                            &current_data_with_potential_numbers.selected_numbers(),
+                        );
+                    },
+                    Err(e) => {
+                        if e.0 == IsWithinErrorType::MakePriority {
+                            key_to_make_priority = Some(e.2);
+                        }
+                        halt_from_error(
+                            &e.1,
+                            &mut logs,
+                            &mut err_tracker,
+                            attempts,
+                            &mut numbers,
+                            settings,
+                            &mut clear_err_tracker,
+                        );
+                        continue;
+                    },
                 }
             }
         }
@@ -430,5 +393,79 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         attempts: num_attempts,
         logs,
         clear_err_tracker
+    };
+}
+
+
+fn is_match_check(
+    expected_rules: &[Box<dyn RuleTrait>], 
+    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
+    _settings: &Settings, current_data: &CurrentData,
+    logs: &mut Vec<Log>) -> std::result::Result<(), String> {
+    let mut err: std::result::Result<(), String> = Ok(());
+    for expected_rule in expected_rules {
+        err = expected_rule.is_match(current_data);
+        if err.is_err() {
+            logs.push(Log::Info {
+                msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
+            });
+            break;
+        }
+    }
+    if let Ok(()) = err {
+        if let Some(exc_rules) = exclude_rules {
+            for exclude_rule in exc_rules {
+                err = exclude_rule.is_excluded(current_data);
+                if err.is_err() {
+                    logs.push(Log::Info {
+                        msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
+                    });
+                    break;
+                }
+            }
+        }
+    }
+
+    return err;
+}
+
+fn is_within_range_check(
+    expected_rules: &[Box<dyn RuleTrait>], 
+    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
+    _settings: &Settings, 
+    current_data: &CurrentData,
+    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, String)> {
+    let mut err: std::result::Result<(), (IsWithinErrorType, String)> = Ok(());
+    let mut priority_rule_name = String::new();
+    for expected_rule in expected_rules {
+        err = expected_rule.is_within_range(current_data);
+        if err.is_err() {
+            logs.push(Log::Info {
+                msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
+            });
+            priority_rule_name = expected_rule.name();
+            break;
+        }
+    }
+    if let Ok(()) = err {
+        if let Some(exc_rules) = exclude_rules {
+            for exclude_rule in exc_rules {
+                err = exclude_rule.is_within_excluded_range(current_data);
+                if err.is_err() {
+                    logs.push(Log::Info {
+                        msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
+                    });
+                    priority_rule_name = exclude_rule.exclude_name();
+                    break;
+                }
+            }
+        }
+    }
+
+    return match err {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            Err((e.0, e.1, priority_rule_name))
+        }
     };
 }

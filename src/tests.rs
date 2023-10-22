@@ -498,7 +498,7 @@ fn uc_number_space_lt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(NumberSpaceType::Lt, 3))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lt(3), 10)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -506,8 +506,9 @@ fn uc_number_space_lt() {
             sorted_numbers.sort_unstable();
 
             let mut i = 1;
-            while i < sorted_numbers.len() {                
-                assert!((sorted_numbers[i] - sorted_numbers[i-1]) < 3, "{}:{} - {}:{} = {}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], sorted_numbers[i] - sorted_numbers[i-1]);
+            while i < sorted_numbers.len() {
+                let num_space = sorted_numbers[i] - sorted_numbers[i-1];                 
+                assert!(num_space < 3, "i={}; sorted_numbers[i]={}; i-1={}; sorted_numbers[i-1]={}; num_space={}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], num_space);
                 i += 1;
             }
 
@@ -522,7 +523,7 @@ fn uc_number_space_lte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(NumberSpaceType::Lte, 3))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lte(3), 10)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -530,8 +531,9 @@ fn uc_number_space_lte() {
             sorted_numbers.sort_unstable();
 
             let mut i = 1;
-            while i < sorted_numbers.len() {                
-                assert!((sorted_numbers[i] - sorted_numbers[i-1]) <= 3, "{}:{} - {}:{} = {}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], sorted_numbers[i] - sorted_numbers[i-1]);
+            while i < sorted_numbers.len() {  
+                let num_space = sorted_numbers[i] - sorted_numbers[i-1];               
+                assert!(num_space <= 3, "i={}; sorted_numbers[i]={}; i-1={}; sorted_numbers[i-1]={}; num_space={}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], num_space);
                 i += 1;
             }
 
@@ -546,7 +548,7 @@ fn uc_number_space_equals() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(NumberSpaceType::Eq, 3))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Eq(3), 10)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -554,8 +556,9 @@ fn uc_number_space_equals() {
             sorted_numbers.sort_unstable();
 
             let mut i = 1;
-            while i < sorted_numbers.len() {                
-                assert!((sorted_numbers[i] - sorted_numbers[i-1]) == 3, "{}:{} - {}:{} = {}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], sorted_numbers[i] - sorted_numbers[i-1]);
+            while i < sorted_numbers.len() { 
+                let num_space = sorted_numbers[i] - sorted_numbers[i-1];                
+                assert!(num_space == 3, "i={}; sorted_numbers[i]={}; i-1={}; sorted_numbers[i-1]={}; num_space={}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], num_space);
                 i += 1;
             }
 
@@ -570,7 +573,7 @@ fn uc_number_space_gte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(NumberSpaceType::Gte, 3))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gte(3), 10)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -578,8 +581,9 @@ fn uc_number_space_gte() {
             sorted_numbers.sort_unstable();
 
             let mut i = 1;
-            while i < sorted_numbers.len() {                
-                assert!((sorted_numbers[i] - sorted_numbers[i-1]) >= 3, "{}:{} - {}:{} = {}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], sorted_numbers[i] - sorted_numbers[i-1]);
+            while i < sorted_numbers.len() {   
+                let num_space = sorted_numbers[i] - sorted_numbers[i-1];              
+                assert!(num_space >= 3, "i={}; sorted_numbers[i]={}; i-1={}; sorted_numbers[i-1]={}; num_space={}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], num_space);
                 i += 1;
             }
 
@@ -594,7 +598,7 @@ fn uc_number_space_gt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(NumberSpaceType::Gt, 3))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gt(3), 10)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -602,8 +606,34 @@ fn uc_number_space_gt() {
             sorted_numbers.sort_unstable();
 
             let mut i = 1;
-            while i < sorted_numbers.len() {                
-                assert!((sorted_numbers[i] - sorted_numbers[i-1]) > 3, "{}:{} - {}:{} = {}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], sorted_numbers[i] - sorted_numbers[i-1]);
+            while i < sorted_numbers.len() {       
+                let num_space = sorted_numbers[i] - sorted_numbers[i-1];          
+                assert!(num_space > 3, "i={}; sorted_numbers[i]={}; i-1={}; sorted_numbers[i-1]={}; num_space={}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], num_space);
+                i += 1;
+            }
+
+            println!("{:?}", sorted_numbers);
+        },
+        _ => println!("{:?}", random_result.logs())
+    }
+}
+
+#[test]
+fn uc_number_space_between() {
+    //Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
+    let random_result = random_numbers(&Settings::new(&[
+        Box::new(NumberRange::all(1, 100)),
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Between(3, 6), 10)]))
+    ], 10));
+    match random_result.numbers() {
+        Ok(numbers) => {
+            let mut sorted_numbers: Vec<usize> = numbers.to_vec();
+            sorted_numbers.sort_unstable();
+
+            let mut i = 1;
+            while i < sorted_numbers.len() {     
+                let num_space = sorted_numbers[i] - sorted_numbers[i-1];           
+                assert!(num_space >= 3 && num_space <= 6, "i={}; sorted_numbers[i]={}; i-1={}; sorted_numbers[i-1]={}; num_space={}", i, sorted_numbers[i], i-1, sorted_numbers[i-1], num_space);
                 i += 1;
             }
 
@@ -1104,4 +1134,55 @@ fn current_data_1() {
     assert_eq!(format!("{:?}", current_data_2.selected_numbers_set().intersection(current_data_3.selected_numbers_set())), "[]");
     assert_eq!(format!("{:?}", current_data_1.selected_numbers_set().intersection(current_data_3.selected_numbers_set())), "[]");
     //assert_ne!(Vec::from_iter(current_data_1.selected_numbers_set().clone()), current_data_numbers_1.iter.clone());
+}
+
+
+#[test]
+fn get_num_spaces_1() {
+    let list: Vec<usize> = vec![4, 2, 1, 30, 10, 14, 12, 8, 5]; //1, 2, 4, 5, 8, 10, 12, 14, 30 
+    let gaps = NumberSpaceItem::get_num_spaces(&list, false);
+    assert_eq!(gaps, vec![1, 2, 1, 3, 2, 2, 2, 16], "{:?}", gaps);
+}
+
+#[test]
+fn get_num_spaces_2() {
+    let list: Vec<usize> = vec![1, 2, 4, 5, 8, 10, 12, 14, 30]; //1, 2, 4, 5, 8, 10, 12, 14, 30 
+    let gaps = NumberSpaceItem::get_num_spaces(&list, true);
+    assert_eq!(gaps, vec![1, 2, 1, 3, 2, 2, 2, 16], "{:?}", gaps);
+}
+
+#[test]
+fn num_space_type_get_num() {
+    let number_space_base: usize = 7;
+    let max: usize = 40;
+    let lt = NumberSpaceType::Lt(3).get_number(number_space_base, max);
+    assert!(lt >= 8 && lt < 10);
+    let lte = NumberSpaceType::Lte(3).get_number(number_space_base, max);
+    assert!(lte >= 8 && lte <= 10);
+    let eq = NumberSpaceType::Eq(3).get_number(number_space_base, max);
+    assert!(eq == 10);
+    let gt = NumberSpaceType::Gt(3).get_number(number_space_base, max);                 //7+3+1=11;max  -- 11,...      
+    assert!(gt >= 11 && gt <= max);
+    let gte = NumberSpaceType::Gte(3).get_number(number_space_base, max);               //7+3=10;max    -- 10,...
+    assert!(gte >= 10 && gte <= max);
+    let between = NumberSpaceType::Between(1, 3).get_number(number_space_base, max);
+    assert!(between >= 8 && between <= 10);
+}
+
+
+//Is within Range
+
+#[test]
+fn sequential_is_within_range() {
+    let mut map: HashMap<String, MapAnyValue> = HashMap::new();
+            map.insert(
+                "min".to_owned(),
+                MapAnyValue::Usize(1),
+            );
+            map.insert(
+                "max".to_owned(),
+                MapAnyValue::Usize(100),
+            );
+    let rule = Sequential::new(5, &[]);
+    assert_eq!(Ok(()), rule.is_within_range(&CurrentData::new(&vec![20, 35, 4, 11, 12], &Settings::new(&[], 5), &HashMap::new())))
 }

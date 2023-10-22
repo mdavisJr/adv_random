@@ -2,9 +2,11 @@
 use rand::{thread_rng, Rng};
 #[cfg(feature="rand")]
 use rand::distributions::{Distribution, Uniform};
+#[cfg(feature="rand")]
+use crate::random_trait::RandomTrait;
 
 
-
+#[cfg(feature="rand")]
 #[derive(Debug, Clone)]
 pub struct DefaultRandom {}
 

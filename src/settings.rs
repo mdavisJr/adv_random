@@ -6,7 +6,10 @@ use std::collections::HashMap;
 pub struct Settings {
     expected_rules: Vec<Box<dyn RuleTrait>>,
     count: usize,
-    exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>
+    exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>,
+    max_tries: usize,
+    max_is_match_attempts: usize,
+    max_specific_error_count: usize
 }
 
 impl Settings {
@@ -34,7 +37,10 @@ impl Settings {
         return Settings {
             expected_rules: expected_rules_clone,
             count,
-            exclude_rules
+            exclude_rules,
+            max_tries: 500,
+            max_is_match_attempts: 30,
+            max_specific_error_count: 10 * count
         };
     }
 
@@ -70,5 +76,17 @@ impl Settings {
 
     pub fn count(&self) -> usize {
         return self.count;
+    }
+
+    pub fn max_tries(&self) -> usize {
+        return self.max_tries;
+    }
+
+    pub fn max_is_match_attempts(&self) -> usize {
+        return self.max_is_match_attempts;
+    }
+
+    pub fn max_specific_error_count(&self) -> usize {
+        return self.max_specific_error_count;
     }
 }
