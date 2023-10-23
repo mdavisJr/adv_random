@@ -10,8 +10,6 @@ use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::Hash;
 
-const ERR_TRACKER_MULTIPLIER: usize = 10;
-
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum RandomResultType {
     Success,

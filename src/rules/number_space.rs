@@ -3,24 +3,12 @@ use crate::random::CurrentData;
 use crate::random_trait::get_random_trait;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
-use core::num;
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
-use std::{fmt, default};
+use std::collections::HashMap;
+use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
 use super::{ExcludeRuleTrait, is_excluded_helper};
-
-fn is_within_range_helper(number_space_type: NumberSpaceType, num_space: usize, exclude: bool) -> std::result::Result<(), String> {
-    let err_str = format!("Exclude: {} - Expected {}; Actual Value: {}", exclude, number_space_type, num_space);
-    let comparison_value = number_space_type.is_match(num_space);
-    if !exclude && !comparison_value {
-        return Err(err_str);
-    } else if exclude && comparison_value {
-        return Err(err_str);
-    }
-    return Ok(());
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NumberSpaceType {
