@@ -54,22 +54,34 @@ impl OddEven {
     }
 
     pub fn even_number(min: usize, max: usize) -> usize {
-        for _ in 0..20 {
-            let number = get_random_trait().get_number(min, max);
-            if OddEven::is_even(number) {
-                return number;
+        //for _ in 0..20 {
+        let number = get_random_trait().get_number(min, max);
+        if OddEven::is_even(number) {
+            return number;
+        } else {
+            if number == max {
+                return number - 1;
+            } else {
+                return number + 1;
             }
         }
-        panic!("Could not find an even number in range: {}-{}", min, max);
+        //}
+        //panic!("Could not find an even number in range: {}-{}", min, max);
     }
     pub fn odd_number(min: usize, max: usize) -> usize {
-        for _ in 0..20 {
-            let number = get_random_trait().get_number(min, max);
-            if OddEven::is_odd(number) {
-                return number;
+        //for _ in 0..20 {
+        let number = get_random_trait().get_number(min, max);
+        if OddEven::is_odd(number) {
+            return number;
+        } else {
+            if number == max {
+                return number - 1;
+            } else {
+                return number + 1;
             }
         }
-        panic!("Could not find an odd number in range: {}-{}", min, max);
+        //}
+        //panic!("Could not find an odd number in range: {}-{}", min, max);
     }
 
     pub fn needs_even(&self, other: &Self) -> bool {

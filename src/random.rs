@@ -132,6 +132,7 @@ impl fmt::Display for Log {
 
 #[allow(clippy::too_many_arguments)]
 pub fn halt_from_error(
+    err_for_err_tracker: &str,
     err: &str,
     logs: &mut Vec<Log>,
     err_tracker: &mut HashMap<String, usize>,
@@ -144,12 +145,12 @@ pub fn halt_from_error(
         msg: err.to_owned(),
     });
     let count = *err_tracker
-        .entry(err.to_owned())
+        .entry(err_for_err_tracker.to_owned())
         .and_modify(|x| *x += 1)
         .or_insert(1);
     if count > (settings.max_specific_error_count()) {
         logs.push(Log::Error {
-            msg: format!("Reset Because Of Too Many Same Errors - {}", err),
+            msg: format!("Reset Because Of Too Many Same Errors - {}: {}", err_for_err_tracker, err),
         });
         reset(logs, numbers, settings, err_tracker);
         clear_err_tracker.push(attempts);
@@ -276,6 +277,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 Err(e) => {
                     if e != "Skip" {
                         halt_from_error(
+                            &format!("gn-{}", expected_rule.name()),
                             &e,
                             &mut logs,
                             &mut err_tracker,
@@ -308,6 +310,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
             if current_data_with_potential_numbers.selected_numbers().len() > settings.count() {
                 halt_from_error(
                     "Too Many Numbers Selected.",
+                    "Too Many Numbers Selected.",
                     &mut logs,
                     &mut err_tracker,
                     attempts,
@@ -338,7 +341,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                     },
                     Err(e) => {
                         halt_from_error(
-                            &format!("Is Matched Failed. {}", e),
+                            &format!("imc-{}", e.1),
+                            &format!("is_match_check failed. {}", e.0),
                             &mut logs,
                             &mut err_tracker,
                             attempts,
@@ -370,6 +374,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             key_to_make_priority = Some(e.2);
                         }
                         halt_from_error(
+                            &format!("iwrc-{}", e.3),
                             &e.1,
                             &mut logs,
                             &mut err_tracker,
@@ -399,14 +404,16 @@ fn is_match_check(
     expected_rules: &[Box<dyn RuleTrait>], 
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, current_data: &CurrentData,
-    logs: &mut Vec<Log>) -> std::result::Result<(), String> {
+    logs: &mut Vec<Log>) -> std::result::Result<(), (String, String)> {
     let mut err: std::result::Result<(), String> = Ok(());
+    let mut rule_name = String::new();
     for expected_rule in expected_rules {
         err = expected_rule.is_match(current_data);
         if err.is_err() {
             logs.push(Log::Info {
                 msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
             });
+            rule_name = expected_rule.name();
             break;
         }
     }
@@ -418,13 +425,19 @@ fn is_match_check(
                     logs.push(Log::Info {
                         msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
                     });
+                    rule_name = format!("exr-{}", exclude_rule.exclude_name());
                     break;
                 }
             }
         }
     }
 
-    return err;
+    return match err {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            Err((e, rule_name))
+        }
+    };
 }
 
 fn is_within_range_check(
@@ -432,9 +445,10 @@ fn is_within_range_check(
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, 
     current_data: &CurrentData,
-    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, String)> {
+    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, String, String)> {
     let mut err: std::result::Result<(), (IsWithinErrorType, String)> = Ok(());
     let mut priority_rule_name = String::new();
+    let mut rule_name = String::new();
     for expected_rule in expected_rules {
         err = expected_rule.is_within_range(current_data);
         if err.is_err() {
@@ -442,6 +456,7 @@ fn is_within_range_check(
                 msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
             });
             priority_rule_name = expected_rule.name();
+            rule_name = expected_rule.name();
             break;
         }
     }
@@ -454,6 +469,7 @@ fn is_within_range_check(
                         msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
                     });
                     priority_rule_name = exclude_rule.exclude_name();
+                    rule_name = format!("exr-{}", exclude_rule.exclude_name());
                     break;
                 }
             }
@@ -463,7 +479,7 @@ fn is_within_range_check(
     return match err {
         Ok(()) => Ok(()),
         Err(e) => {
-            Err((e.0, e.1, priority_rule_name))
+            Err((e.0, e.1, priority_rule_name, rule_name))
         }
     };
 }

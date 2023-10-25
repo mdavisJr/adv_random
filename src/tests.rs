@@ -31,7 +31,7 @@ fn uc_random_numbers() {
             assert!(numbers.iter().all(|x| *x >= 1 && *x <= 20));
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -49,13 +49,13 @@ fn uc_no_duplicate() {
             assert!(numbers.iter().all(|x| *x >= 1 && *x <= 20));
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
 #[test]
 fn uc_has_duplicate() {
-    //Create 10 random numbers between 1 and 20 with duplicates(or with repeating numbers) 
+    //Create 10 random numbers between 1 and 20 with duplicates numbers 
     let random_result = random_numbers(&Settings::with_exclude_rules(&[        
         Box::new(NumberRange::all(1, 20))
     ], 10, Some(vec![Box::new(NoDuplicate{})])));
@@ -66,7 +66,7 @@ fn uc_has_duplicate() {
             assert!(numbers.len() > numbers.iter().copied().collect::<HashSet<usize>>().len());
             assert!(numbers.iter().all(|x| *x >= 1 && *x <= 20));            
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -85,7 +85,7 @@ fn uc_number_range_1() {
             assert!(numbers.len() == 3);
             println!("{}-{}-{}", numbers[0], numbers[1], numbers[2]);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -95,19 +95,19 @@ fn uc_number_range_2() {
     let random_result = random_numbers(&Settings::with_exclude_rules(&[
         Box::new(NoDuplicate{}),
         Box::new(NumberRange::all(1, 100))
-    ], 10, Some(vec![Box::new(NumberRange::all(20, 29)), Box::new(NumberRange::all(51, 75))])));
-    let mut excluded_numbers = HashSet::new();
-    (20..=29).for_each(|x| {excluded_numbers.insert(x);});
-    (51..=75).for_each(|x| {excluded_numbers.insert(x);});
+    ], 10, Some(vec![Box::new(NumberRange::all(20, 29)), Box::new(NumberRange::all(51, 75))])));    
     match random_result.numbers() {
         Ok(numbers) => {
+            let mut excluded_numbers = HashSet::new();
+            (20..=29).for_each(|x| {excluded_numbers.insert(x);});
+            (51..=75).for_each(|x| {excluded_numbers.insert(x);});
             assert!(numbers.len() == 10);
             for number in numbers {
                 assert!(!excluded_numbers.contains(number), "{:?}:: should not contain: {}", numbers, number);
             }
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -145,7 +145,7 @@ fn uc_number_pool_1() {
             assert_eq!(some_set_count, 3);
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }        
 }
 
@@ -169,7 +169,7 @@ fn uc_odd_even_with_order_1() {
             assert!(numbers.len() == 5);
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -193,7 +193,7 @@ fn uc_odd_even_with_order_2() {
             assert!(numbers.len() == 5);
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -213,7 +213,7 @@ fn uc_odd_even_with_order_3() {
             assert!(numbers.len() == 5);
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -246,7 +246,7 @@ fn uc_odd_even_1() {
             assert_eq!(even, 5);
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -276,7 +276,7 @@ fn uc_odd_even_2() {
             assert_eq!(even, 10);
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -300,7 +300,7 @@ fn uc_seq_1() {
             }
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -319,7 +319,7 @@ fn uc_seq_2() {
             //TODO Test
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -338,7 +338,7 @@ fn uc_seq_3() {
             //TODO Test
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -353,7 +353,7 @@ fn uc_random_string_1() {
             assert!(s.len() == 20);
             println!("{}", s)
         }
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -368,7 +368,7 @@ fn uc_random_string_2() {
             assert!(s.len() == 20);
             println!("{}", s)
         }
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -400,7 +400,7 @@ fn uc_random_string_3() {
             assert_eq!(0, special_char_count);
             println!("{}", s)
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -432,7 +432,7 @@ fn uc_random_string_4() {
             assert_eq!(5, special_char_count);
             println!("{}", s)
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -466,7 +466,7 @@ fn uc_random_string_5() {
             assert_eq!(2, special_char_count);
             println!("{}", s)
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -496,7 +496,7 @@ fn uc_random_string_6() {
             assert!(chars.next().unwrap().is_numeric());
             println!("{}", s)
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -505,7 +505,7 @@ fn uc_number_space_lt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lt(3), 10)]))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lt(3), 9)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -521,7 +521,7 @@ fn uc_number_space_lt() {
 
             println!("{:?}", sorted_numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -530,7 +530,7 @@ fn uc_number_space_lte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lte(3), 10)]))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lte(3), 9)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -546,7 +546,7 @@ fn uc_number_space_lte() {
 
             println!("{:?}", sorted_numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -555,7 +555,7 @@ fn uc_number_space_equals() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Eq(3), 10)]))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Eq(3), 9)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -571,7 +571,7 @@ fn uc_number_space_equals() {
 
             println!("{:?}", sorted_numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -580,7 +580,7 @@ fn uc_number_space_gte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3 
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gte(3), 10)]))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gte(3), 9)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -596,7 +596,7 @@ fn uc_number_space_gte() {
 
             println!("{:?}", sorted_numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -605,7 +605,7 @@ fn uc_number_space_gt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gt(3), 10)]))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gt(3), 9)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -621,16 +621,16 @@ fn uc_number_space_gt() {
 
             println!("{:?}", sorted_numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
 #[test]
 fn uc_number_space_between() {
-    //Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
+    //Create 10 random numbers between 1 and 100 where the space between numbers is between 3 and 6
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 100)),
-        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Between(3, 6), 10)]))
+        Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Between(3, 6), 9)]))
     ], 10));
     match random_result.numbers() {
         Ok(numbers) => {
@@ -646,7 +646,7 @@ fn uc_number_space_between() {
 
             println!("{:?}", sorted_numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -657,7 +657,7 @@ fn odd_even_with_order_2() {
     ], 5));
     match random_result.numbers() {
         Ok(s) => println!("{:?}", s),
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 
@@ -1191,7 +1191,28 @@ fn sequential_is_within_range() {
                 MapAnyValue::Usize(100),
             );
     let rule = Sequential::new(5, &[]);
-    assert_eq!(Ok(()), rule.is_within_range(&CurrentData::new(&vec![20, 35, 4, 11, 12], &Settings::new(&[], 5), &HashMap::new())))
+    match rule.is_within_range(&CurrentData::new(&vec![5, 2, 7, 6/*20, 35, 4, 11, 12*/], &Settings::new(&[], 5), &HashMap::new())) {
+        Ok(_) => panic!("Should Have Thrown Error."),
+        Err(e) => assert_eq!("Expected Not: 5 and Seq_Counts: [].  Actual Not: 1 and Seq_Counts: [3].", e.1)
+    }
+}
+
+#[test]
+fn even_number_1() {
+    for _ in 0..2000 {
+        let even_number = OddEven::even_number(1, 20);
+        assert!(even_number % 2 == 0, "{}", even_number);
+        assert!(even_number >= 1 && even_number <= 20, "{}", even_number);
+    }
+}
+
+#[test]
+fn odd_number_1() {
+    for _ in 0..2000 {
+        let odd_number = OddEven::odd_number(1, 20);
+        assert!(odd_number % 2 == 1, "{}", odd_number);
+        assert!(odd_number >= 1 && odd_number <= 20, "{}", odd_number);
+    }
 }
 
 #[test]
@@ -1210,7 +1231,7 @@ fn no_default_rand() {
             assert!(numbers.iter().all(|x| *x >= 1 && *x <= 20));
             println!("{:?}", numbers);
         },
-        _ => println!("{:?}", random_result.logs())
+        _ => panic!("{}", random_result)
     }
 }
 

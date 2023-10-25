@@ -144,7 +144,7 @@ impl RuleTrait for Sequential {
         current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
         let other = Sequential::from_numbers(current_data, false);
-        if other.not > self.not {
+        if (other.not > self.not) || (other.seq_counts.len() > self.seq_counts.len()) {
             return Err((IsWithinErrorType::Regular, format!(
                 "Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}.",
                 self.not, self.seq_counts, other.not, other.seq_counts

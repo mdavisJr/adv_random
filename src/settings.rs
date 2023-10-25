@@ -39,8 +39,8 @@ impl Settings {
             count,
             exclude_rules,
             max_tries: 500,
-            max_is_match_attempts: 30,
-            max_specific_error_count: 10 * count
+            max_is_match_attempts: 15,
+            max_specific_error_count: 4 * count
         };
     }
 
