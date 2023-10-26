@@ -18,7 +18,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [13, 10, 13, 7, 4, 3, 10, 8, 13, 18]
+#### Output: [7, 2, 2, 12, 8, 1, 19, 14, 13, 17]
 ---
 ### Create 10 random numbers between 1 and 20 with no duplicates
 ```
@@ -33,7 +33,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [9, 8, 4, 13, 15, 17, 11, 3, 5, 14]
+#### Output: [5, 1, 8, 15, 20, 16, 4, 11, 9, 18]
 ---
 ### Create 10 random numbers between 1 and 20 with duplicates numbers
 ```
@@ -47,7 +47,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [9, 20, 19, 6, 19, 3, 7, 17, 5, 1]
+#### Output: [12, 13, 7, 1, 9, 20, 19, 8, 14, 13]
 ---
 ### Create random phone number
 ```
@@ -61,7 +61,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: 752-804-6592
+#### Output: 715-889-7948
 ---
 ### Create 10 numbers between 1 and 100, excluding numbers 20 - 29 and 51 - 75, and with no duplicates
 ```
@@ -76,7 +76,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [37, 81, 43, 10, 15, 4, 31, 12, 46, 93]
+#### Output: [94, 96, 90, 11, 12, 79, 34, 98, 43, 93]
 ---
 ### Create 10 numbers between 1 and 100 with no duplicates that doesn't contain the number 23, contains the numbers 1 and 4, and at least 3 numbers from 17, 18, 19, 20, 21
 ```
@@ -96,7 +96,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [34, 4, 1, 19, 7, 69, 97, 21, 3, 20]
+#### Output: [48, 17, 4, 1, 20, 35, 76, 95, 19, 88]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that are Odd, Even, Odd, Even, and Odd
 ```
@@ -112,7 +112,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [9, 6, 7, 2, 1]
+#### Output: [5, 4, 9, 10, 1]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates where first 3 numbers are Even and the last 2 numbers are Odd
 ```
@@ -128,7 +128,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [6, 2, 8, 5, 9]
+#### Output: [4, 10, 6, 9, 7]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates and the 5th number is odd
 ```
@@ -144,7 +144,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [3, 2, 7, 5, 1]
+#### Output: [5, 4, 2, 9, 7]
 ---
 ### Create 10 numbers between 1 and 20 with no duplicates that has 5 odd and 5 even numbers
 ```
@@ -160,7 +160,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [7, 10, 1, 6, 2, 19, 14, 20, 11, 9]
+#### Output: [7, 17, 4, 14, 9, 1, 13, 2, 6, 18]
 ---
 ### Create 10 numbers between 1 and 20 that has all even numbers
 ```
@@ -175,7 +175,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [20, 18, 8, 8, 6, 18, 18, 4, 10, 2]
+#### Output: [20, 20, 8, 2, 4, 14, 2, 2, 14, 8]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that are all nonsequential
 ```
@@ -191,7 +191,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [1, 8, 10, 6, 4]
+#### Output: [7, 5, 1, 3, 10]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that has 3 nonsequential and has 1 sequential set of 2 numbers
 ```
@@ -207,7 +207,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [7, 8, 10, 4, 2]
+#### Output: [2, 3, 7, 5, 9]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that has 1 nonsequential number and has 2 sequential sets of 2 numbers a piece
 ```
@@ -223,7 +223,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [9, 10, 4, 5, 7]
+#### Output: [6, 7, 1, 2, 10]
 ---
 ### Create a random 20 character string with no special characters
 ```
@@ -237,7 +237,7 @@ match random_result.string(true) {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: nAHeWQskMJ0gSafFw7dC
+#### Output: kAKjsQ8iO5HLewV6frUt
 ---
 ### Create a random 22 character string with special characters
 ```
@@ -251,7 +251,7 @@ match random_result.string(true) {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: sEnTrfWXAqZhlB8+*YVd
+#### Output: 0scj@HK+ZW4d2bDivAqY
 ---
 ### Create a random 20 character string with 10 letters, 10 numbers, no special characters, and no duplicates
 ```
@@ -266,7 +266,7 @@ match random_result.string(true) {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: 61Wk34IMN52bRQ78r09Y
+#### Output: 64VEU1C2brQu837y0J95
 ---
 ### Create a random 25 character string with 10 letters, 10 numbers, and 5 special characters and not duplicates
 ```
@@ -281,7 +281,7 @@ match random_result.string(true) {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: 9JE6^*bG217$4AN83MF-0x#r5
+#### Output: uV605wKk*-)I2+3Hr4v987^1x
 ---
 ### Create random 15 character string from upper case characters, from numbers 3 6 5, and from special characters # *
 ```
@@ -299,7 +299,7 @@ match random_result.string(true) {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: *CBXSI#W6GONU5F
+#### Output: IN5#YTPUSM3ZV*E
 ---
 ### Create random license number that starts with 2 apha-characters followed by 7 numeric characters. Also excludes "AB1234567" and "CB1234567" because they are already assigned to someone.
 ```
@@ -318,7 +318,7 @@ match random_result.string(false) {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: ZW1184036
+#### Output: MW6406422
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
 ```
@@ -335,7 +335,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [86, 87, 90, 93, 95, 96, 98, 99, 99, 100]
+#### Output: [30, 31, 32, 33, 34, 35, 37, 38, 40, 41]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3
 ```
@@ -352,7 +352,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [40, 42, 43, 46, 47, 49, 51, 53, 55, 58]
+#### Output: [81, 82, 84, 85, 87, 90, 93, 95, 98, 100]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is 3
 ```
@@ -369,7 +369,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [38, 41, 44, 47, 50, 53, 56, 59, 62, 65]
+#### Output: [37, 40, 43, 46, 49, 52, 55, 58, 61, 64]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3
 ```
@@ -386,7 +386,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [9, 16, 28, 34, 47, 58, 76, 86, 92, 99]
+#### Output: [10, 14, 29, 53, 58, 62, 69, 73, 86, 100]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
 ```
@@ -403,7 +403,7 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [4, 14, 19, 29, 44, 50, 55, 69, 73, 99]
+#### Output: [5, 29, 33, 52, 61, 66, 72, 88, 92, 97]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is between 3 and 6
 ```
@@ -418,5 +418,5 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [43, 49, 55, 61, 66, 71, 76, 82, 88, 91]
+#### Output: [30, 34, 39, 45, 49, 53, 59, 62, 67, 72]
 ---
