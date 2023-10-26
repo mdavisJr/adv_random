@@ -1,5 +1,9 @@
 # adv_random
-adv_random will create random numbers or strings based off a rule or multiple rules.  It comes out the box with standard rules and also supports you creating your own rules too. 
+Create random numbers, passwords, or strings based on rules.  You can choose your own random number generator to work with this framework.  By default this framework will use [random](https://crates.io/crates/random) if you do not provide a random number generator.
+
+This framework comes with some standard rules that you can use.  If you don't see a rule that you need, you can create your own custom rules to use with this framework or send me a request to add in a new rule.
+
+Please see examples of using rules below.  The framework can handle more combinations of rules than what is shown below.  If you would like to see an example that isn't shown, send me a request and I'll add that example.
 
 # Examples
 ### Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
@@ -29,8 +33,21 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [13, 17, 2, 9, 18, 10, 15, 20, 12, 16]
 #### Output: [9, 8, 4, 13, 15, 17, 11, 3, 5, 14]
+---
+### Create 10 random numbers between 1 and 20 with duplicates numbers
+```
+let random_result = random_numbers(&Settings::with_exclude_rules(&[        
+    Box::new(NumberRange::all(1, 20))
+], 10, Some(vec![Box::new(NoDuplicate{})])));
+match random_result.numbers() {
+    Ok(numbers) => {
+        println!("{:?}", numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [9, 20, 19, 6, 19, 3, 7, 17, 5, 1]
 ---
 ### Create random phone number
 ```
@@ -44,7 +61,22 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: 748-909-5124
+#### Output: 752-804-6592
+---
+### Create 10 numbers between 1 and 100, excluding numbers 20 - 29 and 51 - 75, and with no duplicates
+```
+let random_result = random_numbers(&Settings::with_exclude_rules(&[
+    Box::new(NoDuplicate{}),
+    Box::new(NumberRange::all(1, 100))
+], 10, Some(vec![Box::new(NumberRange::all(20, 29)), Box::new(NumberRange::all(51, 75))])));    
+match random_result.numbers() {
+    Ok(numbers) => {
+        println!("{:?}", numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [37, 81, 43, 10, 15, 4, 31, 12, 46, 93]
 ---
 ### Create 10 numbers between 1 and 100 with no duplicates that doesn't contain the number 23, contains the numbers 1 and 4, and at least 3 numbers from 17, 18, 19, 20, 21
 ```
@@ -292,7 +324,7 @@ match random_result.string(false) {
 ```
 let random_result = random_numbers(&Settings::new(&[
     Box::new(NumberRange::all(1, 100)),
-    Box::new(NumberSpace::new(NumberSpaceType::Lt, 3))
+    Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lt(3), 9)]))
 ], 10));
 match random_result.numbers() {
     Ok(numbers) => {
@@ -303,13 +335,13 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [20, 21, 22, 22, 23, 24, 24, 25, 25, 26]
+#### Output: [86, 87, 90, 93, 95, 96, 98, 99, 99, 100]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3
 ```
 let random_result = random_numbers(&Settings::new(&[
     Box::new(NumberRange::all(1, 100)),
-    Box::new(NumberSpace::new(NumberSpaceType::Lte, 3))
+    Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Lte(3), 9)]))
 ], 10));
 match random_result.numbers() {
     Ok(numbers) => {
@@ -320,13 +352,13 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [5, 6, 7, 8, 8, 9, 9, 10, 11, 12]
+#### Output: [40, 42, 43, 46, 47, 49, 51, 53, 55, 58]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is 3
 ```
 let random_result = random_numbers(&Settings::new(&[
     Box::new(NumberRange::all(1, 100)),
-    Box::new(NumberSpace::new(NumberSpaceType::Eq, 3))
+    Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Eq(3), 9)]))
 ], 10));
 match random_result.numbers() {
     Ok(numbers) => {
@@ -337,13 +369,13 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [24, 27, 30, 33, 36, 39, 42, 45, 48, 51]
+#### Output: [38, 41, 44, 47, 50, 53, 56, 59, 62, 65]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3
 ```
 let random_result = random_numbers(&Settings::new(&[
     Box::new(NumberRange::all(1, 100)),
-    Box::new(NumberSpace::new(NumberSpaceType::Gte, 3))
+    Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gte(3), 9)]))
 ], 10));
 match random_result.numbers() {
     Ok(numbers) => {
@@ -354,13 +386,13 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [1, 6, 15, 54, 63, 66, 77, 81, 85, 96]
+#### Output: [9, 16, 28, 34, 47, 58, 76, 86, 92, 99]
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
 ```
 let random_result = random_numbers(&Settings::new(&[
     Box::new(NumberRange::all(1, 100)),
-    Box::new(NumberSpace::new(NumberSpaceType::Gt, 3))
+    Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Gt(3), 9)]))
 ], 10));
 match random_result.numbers() {
     Ok(numbers) => {
@@ -371,5 +403,20 @@ match random_result.numbers() {
     _ => println!("{:?}", random_result.logs())
 }
 ```
-#### Output: [12, 24, 30, 57, 61, 71, 76, 85, 90, 97]
+#### Output: [4, 14, 19, 29, 44, 50, 55, 69, 73, 99]
+---
+### Create 10 random numbers between 1 and 100 where the space between numbers is between 3 and 6
+```
+let random_result = random_numbers(&Settings::new(&[
+    Box::new(NumberRange::all(1, 100)),
+    Box::new(NumberSpace::new(&vec![NumberSpaceItem::new(&NumberSpaceType::Between(3, 6), 9)]))
+], 10));
+match random_result.numbers() {
+    Ok(numbers) => {
+        println!("{:?}", numbers);
+    },
+    _ => println!("{:?}", random_result.logs())
+}
+```
+#### Output: [43, 49, 55, 61, 66, 71, 76, 82, 88, 91]
 ---
