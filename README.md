@@ -30,6 +30,7 @@ match random_result.numbers() {
 }
 ```
 #### Output: [13, 17, 2, 9, 18, 10, 15, 20, 12, 16]
+#### Output: [9, 8, 4, 13, 15, 17, 11, 3, 5, 14]
 ---
 ### Create random phone number
 ```
