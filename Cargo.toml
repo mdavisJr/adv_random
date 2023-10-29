@@ -1,12 +1,12 @@
 [package]
 name = "adv_random"
-version = "2.0.0"
+version = "2.0.1"
 authors = ["Mark Davis <markeyd83@gmail.com>"]
 edition = "2021"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mdavisJr/adv_random"
-description = "Create random numbers or strings based off a rule or multiple rules"
+description = "Create random numbers, passwords, or strings based on rules"
 keywords = ["rand", "random", "rule", "string", "password"]
 
 [lib]
