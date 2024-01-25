@@ -1,5 +1,5 @@
 # adv_random
-Create random numbers, passwords, or strings based on rules.  You can choose your own random number generator to work with this framework.  By default this framework will use [random](https://crates.io/crates/random) if you do not provide a random number generator.
+Create random numbers, passwords, or strings based on rules.  You can choose your own random number generator to work with this framework.  By default this framework will use [rand](https://crates.io/crates/rand) if you do not provide a random number generator.
 
 This framework comes with some standard rules that you can use.  If you don't see a rule that you need, you can create your own custom rules to use with this framework or send me a request to add in a new rule.
 
