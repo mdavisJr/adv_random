@@ -1,7 +1,6 @@
 #[cfg(feature="rand")]
 use rand::{thread_rng, Rng};
 #[cfg(feature="rand")]
-use rand::distributions::{Distribution, Uniform};
 #[cfg(feature="rand")]
 use crate::random_trait::RandomTrait;
 
@@ -20,13 +19,10 @@ impl DefaultRandom {
 #[cfg(feature="rand")]
 impl RandomTrait for DefaultRandom {
     fn get_number(&self, min: usize, max: usize) -> usize {
-        let mut rng = thread_rng();
-        let range = Uniform::from(min..=max);
-        return range.sample(&mut rng);
+        return thread_rng().gen_range(min..=max); 
     }
 
     fn get_bool(&self) -> bool {
-        let mut rng = thread_rng();
-        return rng.gen();
+        return thread_rng().gen();
     }
 }
