@@ -1230,6 +1230,16 @@ fn random_trait_get_number_1() {
 }
 
 #[test]
+fn random_trait_get_bool_1() {
+    let mut set = HashSet::new();
+    for _ in 0..100 {
+        let bool_value = get_random_trait().get_bool();
+        set.insert(bool_value);
+    }
+    assert!(set.len() == 2);    
+}
+
+#[test]
 #[cfg_attr(feature = "rand", ignore)]
 #[cfg(not(feature="rand"))]
 fn no_default_rand() {
