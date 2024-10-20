@@ -1,3 +1,4 @@
+use crate::random_trait::get_random_trait;
 use crate::random_trait::RandomTrait;
 #[cfg(not(feature="rand"))]
 use crate::random_trait::set_random_trait;
@@ -1213,6 +1214,19 @@ fn odd_number_1() {
         assert!(odd_number % 2 == 1, "{}", odd_number);
         assert!(odd_number >= 1 && odd_number <= 20, "{}", odd_number);
     }
+}
+
+#[test]
+fn random_trait_get_number_1() {
+    let mut set = HashSet::new();
+    let min = 1;
+    let max = 200;
+    for _ in 0..2000 {
+        let number = get_random_trait().get_number(min, max);
+        set.insert(number);
+        assert!(number >= min && number <= max, "{}", number);
+    }
+    assert!(set.len() == max);    
 }
 
 #[test]
