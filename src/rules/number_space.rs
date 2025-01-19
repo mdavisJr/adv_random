@@ -79,12 +79,19 @@ impl Display for NumberSpaceType {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProcessMissing {
+    AllPerRequest,
+    OnePerRequest
+}
+
 #[derive(Clone, Debug)]
 pub struct NumberSpaceItem {
     number_space_type: NumberSpaceType,
     needs: usize,
     has: usize,
     missing: usize,
+    process_missing: ProcessMissing
 }
 
 impl NumberSpaceItem {
@@ -93,11 +100,16 @@ impl NumberSpaceItem {
     }
 
     pub fn new_full(number_space_type: &NumberSpaceType, needs: usize, has: usize, missing: usize) -> NumberSpaceItem {
+        return NumberSpaceItem::new_with_process_missing(number_space_type, needs, has, missing, ProcessMissing::OnePerRequest);
+    }
+
+    pub fn new_with_process_missing(number_space_type: &NumberSpaceType, needs: usize, has: usize, missing: usize, process_missing: ProcessMissing) -> NumberSpaceItem {
         return NumberSpaceItem {
             number_space_type: number_space_type.clone(),
             needs,
             has,
             missing,
+            process_missing
         };
     }
 
@@ -134,16 +146,37 @@ impl NumberSpaceItem {
     pub fn missing(&self) -> usize {
         return self.missing;
     }
+
+    pub fn process_missing_count(&self) -> usize {
+        return if ProcessMissing::OnePerRequest == self.process_missing { 1 } else { self.missing };
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProcessNumberSpaceItems {
+    AllPerRequest,
+    OnePerRequest
 }
 
 #[derive(Clone)]
 pub struct NumberSpace {
-    number_space_items: Vec<NumberSpaceItem>
+    number_space_items: Vec<NumberSpaceItem>,
+    process_number_space_items: ProcessNumberSpaceItems,
 }
 
 impl NumberSpace {
     pub fn new(number_space_items: &[NumberSpaceItem]) -> NumberSpace {
-        return NumberSpace { number_space_items: number_space_items.to_vec() };
+        return NumberSpace::new_with_process_number_space_items(number_space_items, ProcessNumberSpaceItems::AllPerRequest);
+    }
+
+    pub fn new_with_process_number_space_items(
+        number_space_items: &[NumberSpaceItem], 
+        process_number_space_items: ProcessNumberSpaceItems
+    ) -> NumberSpace {
+        return NumberSpace { 
+            number_space_items: number_space_items.to_vec(),
+            process_number_space_items
+        };
     }
 
     pub fn number_space_items(&self) -> &Vec<NumberSpaceItem> {
@@ -153,7 +186,8 @@ impl NumberSpace {
     fn from_numbers_2(
         number_space_items: &Vec<NumberSpaceItem>,
         numbers: &[usize],
-        is_sorted: bool
+        is_sorted: bool,
+        process_number_space_items: ProcessNumberSpaceItems
     ) -> NumberSpace {
         return NumberSpace::from_numbers(
             &number_space_items
@@ -162,7 +196,8 @@ impl NumberSpace {
                 .collect::<Vec<NumberSpaceItem>>(),
                 numbers,
             false,
-            is_sorted
+            is_sorted,
+            process_number_space_items
         );
     }
 
@@ -170,7 +205,8 @@ impl NumberSpace {
         number_pool_items: &[NumberSpaceItem],
         numbers: &[usize],
         set_needs_eq_match: bool,
-        is_sorted: bool
+        is_sorted: bool,
+        process_number_space_items: ProcessNumberSpaceItems
     ) -> NumberSpace {
         let mut number_space_items: Vec<NumberSpaceItem> = Vec::new();
         for number_pool_item in number_pool_items {            
@@ -190,11 +226,13 @@ impl NumberSpace {
                     },
                     has: match_count,
                     missing,
+                    process_missing: number_pool_item.process_missing
                 },
             );
         }
         return NumberSpace {
             number_space_items,
+            process_number_space_items
         };
     }
 }
@@ -237,32 +275,28 @@ impl RuleTrait for NumberSpace {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
-        if current_data.selected_numbers().len() > 1 {
-        } else {
-
-        }
-
         let other_number_pool =
-        NumberSpace::from_numbers_2(&self.number_space_items, &current_data.selected_numbers_sorted(), true);
+        NumberSpace::from_numbers_2(&self.number_space_items, &current_data.selected_numbers_sorted(), true, self.process_number_space_items);
         let mut numbers: Vec<usize> = Vec::new();
         for number_space_item in &other_number_pool.number_space_items {
-            if number_space_item.missing > 0 {
+            for _ in 0..number_space_item.process_missing_count() {
                 let number_space_base: usize = if !numbers.is_empty() {
                     *numbers.last().unwrap()
                 } else if current_data.selected_numbers_sorted().len() > 0 {
                     *current_data.selected_numbers_sorted().last().unwrap()
                 } else {
                     let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
-                    get_random_trait().get_number(min, max)
+                    let val = get_random_trait().get_number(min, max);
+                    numbers.push(val);
+                    val
                 };
-                numbers.push(number_space_item
-                    .number_space_type
-                    .get_number(
+                numbers.push(number_space_item.number_space_type.get_number(
                         number_space_base,
                         Settings::get_min_max("NumberRange", current_data.shared_data()).1
                     )
                 );
             }
+            if self.process_number_space_items == ProcessNumberSpaceItems::OnePerRequest && !numbers.is_empty() { break; }
         }
         if !numbers.is_empty() {
             return Ok(numbers);
@@ -276,7 +310,7 @@ impl RuleTrait for NumberSpace {
         current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
 
-        let other_number_space = NumberSpace::from_numbers_2(&self.number_space_items, &current_data.selected_numbers_sorted(), true);
+        let other_number_space = NumberSpace::from_numbers_2(&self.number_space_items, &current_data.selected_numbers_sorted(), true, self.process_number_space_items);
 
         let mut total_missing: usize = 0;
         for number_space_item in &other_number_space.number_space_items {
@@ -309,7 +343,7 @@ impl RuleTrait for NumberSpace {
         current_data: &CurrentData
     ) -> std::result::Result<(), String> {
         let other_number_space =
-            NumberSpace::from_numbers_2(&self.number_space_items, current_data.selected_numbers_sorted(), true);
+            NumberSpace::from_numbers_2(&self.number_space_items, current_data.selected_numbers_sorted(), true, self.process_number_space_items);
         for number_space_item in other_number_space.number_space_items {
             if number_space_item.has != number_space_item.needs {
                 return Err(format!(
