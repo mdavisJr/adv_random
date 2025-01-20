@@ -16,7 +16,7 @@ pub use self::no_duplicates::NoDuplicate;
 pub use self::number_pool::{NumberPool, NumberPoolItem, NumberPoolItemFull, PoolType, NP_ALPHABET_SET, NP_NUMERIC_SET, NP_SPECIAL_CHAR_SET};
 pub use self::number_pool_by_index::{NumberPoolByIndex, NumberPoolItemByIndex};
 pub use self::number_range::NumberRange;
-pub use self::number_space::{NumberSpace, NumberSpaceType, NumberSpaceItem};
+pub use self::number_space::{NumberSpace, NumberSpaceType, NumberSpaceItem, ProcessNumberSpaceItems, ProcessMissing};
 pub use self::odd_even::{OddEven, OddEvenKey};
 pub use self::rule_trait::{MapAnyValue, RuleTrait, IsWithinErrorType};
 pub use self::exclude_rule_trait::{is_excluded_helper, ExcludeRuleTrait};
