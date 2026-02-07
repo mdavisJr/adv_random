@@ -330,7 +330,7 @@ impl RuleTrait for NumberPool {
         let other_number_pool =
             NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
         let mut numbers: Vec<usize> = Vec::new();
-        for (_key, number_pool_item) in &other_number_pool.number_pool_items {
+        for number_pool_item in other_number_pool.number_pool_items.values() {
             if number_pool_item.missing > 0 {
                 if number_pool_item.pool.len() == number_pool_item.needs {
                     numbers.extend(number_pool_item.pool.difference(current_data.selected_numbers_set()));
@@ -407,7 +407,7 @@ impl RuleTrait for NumberPool {
         &self,
         count: usize,
     ) -> std::result::Result<bool, String> {
-        let needs_count:usize = self.number_pool_items.values().into_iter().map(|x| x.needs).sum::<usize>();
+        let needs_count:usize = self.number_pool_items.values().map(|x| x.needs).sum::<usize>();
         if needs_count <= count {
             return Ok(true);
         }

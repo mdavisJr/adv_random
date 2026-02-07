@@ -32,14 +32,36 @@ impl NumberSpaceType {
         };
     }
 
-    pub fn has(&self, num_spaces: &[usize]) -> usize {
-        let mut matches: usize = 0;
+    pub fn has(&self, num_spaces: &[usize]) -> Vec<usize> {
+        let mut matches: Vec<usize> = Vec::new();
+        let mut match_count = 0;
+        let mut last_gap_was_match = false;
         for num_space in num_spaces {
             if self.is_match(*num_space) {
-                matches += 1;
-            }
+                if last_gap_was_match {
+                    match_count += 1;
+                } else {
+                    match_count = 1;
+                }
+                last_gap_was_match = true;
+            } else {
+                if match_count > 0 {
+                    matches.push(match_count);
+                    match_count = 0;
+                }
+                last_gap_was_match = false;
+            }            
         }
-        return matches;
+        if match_count > 0 {
+            matches.push(match_count);
+            match_count = 0;
+        }
+
+        if !matches.is_empty() {
+            matches.sort();           
+        }
+        
+        return matches; 
     }
 
     pub fn get_number(&self, number_space_base: usize, max: usize) -> usize {
@@ -79,37 +101,23 @@ impl Display for NumberSpaceType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ProcessMissing {
-    AllPerRequest,
-    OnePerRequest
-}
-
 #[derive(Clone, Debug)]
 pub struct NumberSpaceItem {
     number_space_type: NumberSpaceType,
-    needs: usize,
-    has: usize,
-    missing: usize,
-    process_missing: ProcessMissing
+    needs: Vec<usize>,
+    has: Vec<usize>
 }
 
 impl NumberSpaceItem {
     pub fn new(number_space_type: &NumberSpaceType, needs: usize) -> NumberSpaceItem {
-        return NumberSpaceItem::new_full(number_space_type, needs, 0, 0);
+        return NumberSpaceItem::new_full(number_space_type, &[needs], &Vec::new());
     }
 
-    pub fn new_full(number_space_type: &NumberSpaceType, needs: usize, has: usize, missing: usize) -> NumberSpaceItem {
-        return NumberSpaceItem::new_with_process_missing(number_space_type, needs, has, missing, ProcessMissing::OnePerRequest);
-    }
-
-    pub fn new_with_process_missing(number_space_type: &NumberSpaceType, needs: usize, has: usize, missing: usize, process_missing: ProcessMissing) -> NumberSpaceItem {
+    pub fn new_full(number_space_type: &NumberSpaceType, needs: &[usize], has: &[usize]) -> NumberSpaceItem {
         return NumberSpaceItem {
-            number_space_type: number_space_type.clone(),
-            needs,
-            has,
-            missing,
-            process_missing
+            number_space_type: *number_space_type,
+            needs: needs.to_vec(),
+            has: has.to_vec()
         };
     }
 
@@ -131,24 +139,75 @@ impl NumberSpaceItem {
         return Vec::new();
     }
 
+    pub fn from_numbers(
+        number_space_types: &[(NumberSpaceType, Option<Vec<usize>>)],
+        numbers: &[usize],
+        is_sorted: bool
+    ) -> Vec<NumberSpaceItem> {
+        return NumberSpaceItem::from_number_spaces(number_space_types, &NumberSpaceItem::get_num_spaces(numbers, is_sorted));
+    }
+
+    pub fn from_number_spaces(
+        number_space_types: &[(NumberSpaceType, Option<Vec<usize>>)],
+        number_spaces: &[usize]
+    ) -> Vec<NumberSpaceItem> {
+        let mut number_space_items: Vec<NumberSpaceItem> = Vec::new();
+        for number_space_type in number_space_types {            
+            let match_count = number_space_type.0.has(number_spaces);
+            number_space_items.push(
+                NumberSpaceItem {
+                    number_space_type: number_space_type.0,
+                    needs: match &number_space_type.1 {
+                        Some(v) => v.clone(),
+                        None => match_count.clone()
+                    },
+                    has: match_count.clone()
+                },
+            );
+        }
+        
+        return number_space_items;
+    }
+
     pub fn number_space_type(&self) -> &NumberSpaceType {
         return &self.number_space_type;
     }
 
-    pub fn needs(&self) -> usize {
-        return self.needs;
+    pub fn needs(&self) -> &Vec<usize> {
+        return &self.needs;
     }
 
-    pub fn has(&self) -> usize {
-        return self.has;
+    pub fn has(&self) -> &Vec<usize> {
+        return &self.has;
     }
 
-    pub fn missing(&self) -> usize {
-        return self.missing;
+    pub fn missing(&self) -> Vec<usize> {
+        let mut missing_list: Vec<usize> = Vec::new();
+        for i in 0..self.needs.len() {
+            if i < self.has.len() {
+                let missing = if self.has[i] > self.needs[i] {
+                    0
+                } else {
+                    self.needs[i] - self.has[i]
+                };
+                missing_list.push(missing);
+            } else {
+                missing_list.push(self.needs[i]);
+            }
+        }
+        
+        return missing_list;
     }
 
     pub fn process_missing_count(&self) -> usize {
-        return if ProcessMissing::OnePerRequest == self.process_missing { 1 } else { self.missing };
+        let missing_list = self.missing();
+        for missing in missing_list {
+            if missing > 0 {
+                return missing;
+            }
+        }
+
+        return 0;
     }
 }
 
@@ -183,56 +242,14 @@ impl NumberSpace {
         return &self.number_space_items;
     }
 
-    fn from_numbers_2(
-        number_space_items: &Vec<NumberSpaceItem>,
-        numbers: &[usize],
-        is_sorted: bool,
-        process_number_space_items: ProcessNumberSpaceItems
-    ) -> NumberSpace {
-        return NumberSpace::from_numbers(
-            &number_space_items
-                .iter()
-                .map(|x| NumberSpaceItem::new(&x.number_space_type.clone(), x.needs))
-                .collect::<Vec<NumberSpaceItem>>(),
-                numbers,
-            false,
-            is_sorted,
-            process_number_space_items
-        );
-    }
-
     pub fn from_numbers(
-        number_pool_items: &[NumberSpaceItem],
+        number_space: &NumberSpace,
         numbers: &[usize],
-        set_needs_eq_match: bool,
-        is_sorted: bool,
-        process_number_space_items: ProcessNumberSpaceItems
+        is_sorted: bool
     ) -> NumberSpace {
-        let mut number_space_items: Vec<NumberSpaceItem> = Vec::new();
-        for number_pool_item in number_pool_items {            
-            let match_count = number_pool_item.number_space_type.has(&NumberSpaceItem::get_num_spaces(numbers, is_sorted));
-            let missing = if match_count > number_pool_item.needs {
-                0
-            } else {
-                number_pool_item.needs - match_count
-            };
-            number_space_items.push(
-                NumberSpaceItem {
-                    number_space_type: number_pool_item.number_space_type.clone(),
-                    needs: if set_needs_eq_match {
-                        match_count
-                    } else {
-                        number_pool_item.needs
-                    },
-                    has: match_count,
-                    missing,
-                    process_missing: number_pool_item.process_missing
-                },
-            );
-        }
         return NumberSpace {
-            number_space_items,
-            process_number_space_items
+            number_space_items: NumberSpaceItem::from_numbers(&number_space.number_space_items.iter().map(|x| (x.number_space_type, Some(x.needs.clone()))).collect::<Vec<_>>(), numbers, is_sorted),
+            process_number_space_items: number_space.process_number_space_items
         };
     }
 }
@@ -244,7 +261,13 @@ impl Display for NumberSpace {
             for number_space_item in &self.number_space_items {
                 s.push_str(&format!("{}", number_space_item.number_space_type));
                 s.push('=');
-                s.push_str(&number_space_item.has.to_string());
+                if !number_space_item.has.is_empty() {
+                    for item in &number_space_item.has {
+                        s.push_str(item.to_string().as_str());
+                        s.push(',');
+                    }
+                    s.pop();
+                }
                 s.push(';');
             }
             s.pop();
@@ -276,13 +299,13 @@ impl RuleTrait for NumberSpace {
         current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         let other_number_pool =
-        NumberSpace::from_numbers_2(&self.number_space_items, &current_data.selected_numbers_sorted(), true, self.process_number_space_items);
+        NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
         for number_space_item in &other_number_pool.number_space_items {
-            for _ in 0..number_space_item.process_missing_count() {
-                let number_space_base: usize = if !numbers.is_empty() {
+            if number_space_item.process_missing_count() > 0 {            
+                let mut number_space_base: usize = if numbers.len() == 1 || (numbers.len() > 1 && number_space_item.number_space_type.has(&[numbers[numbers.len() -1] - numbers[numbers.len() -2]]).is_empty()) {
                     *numbers.last().unwrap()
-                } else if current_data.selected_numbers_sorted().len() > 0 {
+                } else if current_data.selected_numbers_sorted().len() == 1 || (current_data.selected_numbers_sorted().len() > 1 && number_space_item.number_space_type.has(&[current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -1] - current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -2]]).is_empty()) {
                     *current_data.selected_numbers_sorted().last().unwrap()
                 } else {
                     let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
@@ -290,13 +313,16 @@ impl RuleTrait for NumberSpace {
                     numbers.push(val);
                     val
                 };
-                numbers.push(number_space_item.number_space_type.get_number(
-                        number_space_base,
-                        Settings::get_min_max("NumberRange", current_data.shared_data()).1
-                    )
-                );
+                for _ in 0..number_space_item.process_missing_count() {
+                    numbers.push(number_space_item.number_space_type.get_number(
+                            number_space_base,
+                            Settings::get_min_max("NumberRange", current_data.shared_data()).1
+                        )
+                    );
+                    number_space_base = *numbers.last().unwrap();
+                }
+                if self.process_number_space_items == ProcessNumberSpaceItems::OnePerRequest && !numbers.is_empty() { break; }
             }
-            if self.process_number_space_items == ProcessNumberSpaceItems::OnePerRequest && !numbers.is_empty() { break; }
         }
         if !numbers.is_empty() {
             return Ok(numbers);
@@ -310,18 +336,18 @@ impl RuleTrait for NumberSpace {
         current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
 
-        let other_number_space = NumberSpace::from_numbers_2(&self.number_space_items, &current_data.selected_numbers_sorted(), true, self.process_number_space_items);
+        let other_number_space = NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
 
         let mut total_missing: usize = 0;
         for number_space_item in &other_number_space.number_space_items {
             if number_space_item.has > number_space_item.needs {
                 return Err((IsWithinErrorType::Regular, format!(
-                    "Too many from pool {:?}, \"needs\" is {} and \"has\" {} from this pool",
+                    "Too many from pool {:?}, \"needs\" is {:?} and \"has\" {:?} from this pool",
                     number_space_item.number_space_type, number_space_item.needs, number_space_item.has
                 )));
             }
-            if number_space_item.needs > 0 {
-                total_missing += number_space_item.missing;
+            if number_space_item.needs.iter().sum::<usize>() > 0 {
+                total_missing += number_space_item.missing().iter().sum::<usize>();
             }
         }
         let len_remaining = if current_data.selected_numbers().len() > current_data.settings().count() {
@@ -343,11 +369,11 @@ impl RuleTrait for NumberSpace {
         current_data: &CurrentData
     ) -> std::result::Result<(), String> {
         let other_number_space =
-            NumberSpace::from_numbers_2(&self.number_space_items, current_data.selected_numbers_sorted(), true, self.process_number_space_items);
+        NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         for number_space_item in other_number_space.number_space_items {
             if number_space_item.has != number_space_item.needs {
                 return Err(format!(
-                    "Expected--Pool:{:?}--Needs:{}. Actual Count:{}",
+                    "Expected--Pool:{:?}--Needs:{:?}. Actual Count:{:?}",
                     number_space_item.number_space_type, number_space_item.needs, number_space_item.has
                 ));
             }

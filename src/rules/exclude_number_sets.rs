@@ -19,7 +19,6 @@ impl ExcludeNumberSets {
             excluded_number_sets: excluded_number_sets.clone(),
         };
     }
-
     pub fn new_string(excluded_sets: &HashSet<String>) -> ExcludeNumberSets {
         return ExcludeNumberSets { 
             excluded_number_sets: excluded_sets.iter()
@@ -40,7 +39,7 @@ impl Display for ExcludeNumberSets {
 
 impl Debug for ExcludeNumberSets {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 

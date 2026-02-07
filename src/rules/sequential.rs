@@ -100,7 +100,7 @@ impl Display for Sequential {
 
 impl Debug for Sequential {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 
@@ -127,7 +127,7 @@ impl RuleTrait for Sequential {
                 let num = current_data.settings().get_number_within_number_range(current_data).unwrap()[0];
                 num..=(num + seq_count_needed - 1)
             } else {
-                let num = *get_random_vec_item(&current_data.selected_numbers());
+                let num = *get_random_vec_item(current_data.selected_numbers());
                 (num + 1)..=(num + seq_count_needed - 1)
             };
             let mut seq_digits: Vec<usize> = Vec::new();

@@ -19,7 +19,7 @@ impl Display for NoDuplicate {
 
 impl Debug for NoDuplicate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 

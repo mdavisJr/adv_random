@@ -2,7 +2,7 @@ use crate::random::CurrentData;
 use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, ExcludeRuleTrait};
 use std::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Settings {
     expected_rules: Vec<Box<dyn RuleTrait>>,
     count: usize,

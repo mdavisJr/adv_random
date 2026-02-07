@@ -218,9 +218,9 @@ impl<'a> CurrentData<'a> {
 
     pub fn selected_numbers_sorted(&self) -> &Vec<usize> {
         return self.selected_numbers_sorted.get_or_init(|| {
-            let mut t = self.selected_numbers.iter().copied().collect::<Vec<usize>>();
-            t.sort_unstable();
-            return t;
+            let mut selected_numbers = self.selected_numbers.to_vec();
+            selected_numbers.sort_unstable();
+            return selected_numbers;
         });
     }  
 }
@@ -243,7 +243,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let mut potential_numbers = Vec::new();
         let mut gen_type = String::from("");
 
-        let current_data_numbers: Vec<usize> = numbers.iter().copied().collect();
+        let current_data_numbers: Vec<usize> = numbers.to_vec();
         let current_data_shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
         let current_data_selected_numbers_sd = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
         let mut shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
@@ -329,7 +329,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                         set_numbers(
                             &mut numbers,
                             settings,
-                            &current_data_with_potential_numbers.selected_numbers(),
+                            current_data_with_potential_numbers.selected_numbers(),
                         );
                         return RandomResult {
                             status: RandomResultType::Success,
@@ -354,7 +354,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             clear_numbers(&mut logs, &mut numbers, settings);
                             is_match_attempts = 0;
                             logs.push(Log::Info {
-                                msg: format!("Clear - Reached Is Match Attempts"),
+                                msg: "Clear - Reached Is Match Attempts".to_string(),
                             });
                         }
                         continue;
@@ -366,7 +366,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                         set_numbers(
                             &mut numbers,
                             settings,
-                            &current_data_with_potential_numbers.selected_numbers(),
+                            current_data_with_potential_numbers.selected_numbers(),
                         );
                     },
                     Err(e) => {

@@ -1240,6 +1240,39 @@ fn random_trait_get_bool_1() {
 }
 
 #[test]
+fn number_space_item_from_number_1() {
+    //Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
+    let number_space = NumberSpaceItem::from_numbers(&[
+        (NumberSpaceType::Between(1, 3), None),
+        (NumberSpaceType::Between(4, 6), None),
+        (NumberSpaceType::Between(7, 9), None),
+
+    ], &[25, 33, 31, 26, 18], false);
+    assert!("[NumberSpaceItem { number_space_type: Between(1, 3), needs: [1, 1], has: [1, 1] }, NumberSpaceItem { number_space_type: Between(4, 6), needs: [1], has: [1] }, NumberSpaceItem { number_space_type: Between(7, 9), needs: [1], has: [1] }]" == format!("{:?}", number_space), "{:?}", number_space);
+}
+
+#[test]
+fn number_space_item_from_number_2() {
+    //Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
+    let number_space = NumberSpaceItem::from_numbers(&[
+        (NumberSpaceType::Between(4, 6), None),
+
+    ], &[7, 12, 16, 20, 25], false);
+    assert!("[NumberSpaceItem { number_space_type: Between(4, 6), needs: [4], has: [4] }]" == format!("{:?}", number_space), "{:?}", number_space);
+}
+
+#[test]
+fn number_space_item_from_number_3() {
+    //Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
+    let number_space = NumberSpaceItem::from_numbers(&[
+        (NumberSpaceType::Between(1, 3), None),
+        (NumberSpaceType::Between(19, 21), None),
+        (NumberSpaceType::Between(7, 9), None),
+    ], &[31, 22, 24, 3, 39], false);
+    assert!("[NumberSpaceItem { number_space_type: Between(1, 3), needs: [1], has: [1] }, NumberSpaceItem { number_space_type: Between(19, 21), needs: [1], has: [1] }, NumberSpaceItem { number_space_type: Between(7, 9), needs: [2], has: [2] }]" == format!("{:?}", number_space), "{:?}", number_space);
+}
+
+#[test]
 #[cfg_attr(feature = "rand", ignore)]
 #[cfg(not(feature="rand"))]
 fn no_default_rand() {

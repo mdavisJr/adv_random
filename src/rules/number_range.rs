@@ -72,7 +72,7 @@ impl Display for NumberRange {
 
 impl Debug for NumberRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 
