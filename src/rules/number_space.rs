@@ -5,7 +5,7 @@ use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
 use std::collections::HashMap;
-use std::fmt;
+use std::{cmp, fmt};
 use std::fmt::{Debug, Display, Formatter, Result};
 
 use super::{ExcludeRuleTrait, is_excluded_helper};
@@ -32,6 +32,7 @@ impl NumberSpaceType {
         };
     }
 
+    #[allow(unused_assignments)]
     pub fn has(&self, num_spaces: &[usize]) -> Vec<usize> {
         let mut matches: Vec<usize> = Vec::new();
         let mut match_count = 0;
@@ -64,22 +65,22 @@ impl NumberSpaceType {
         return matches; 
     }
 
-    pub fn get_number(&self, number_space_base: usize, max: usize) -> usize {
+    pub fn get_number(&self, number_space_base: usize, _min: usize, max: usize) -> usize {
         return match *self {//TODO check dereference 7;3 between(1-3)
-            NumberSpaceType::Lt(v) => get_random_trait().get_number(number_space_base + 1, number_space_base + v - 1),     //7+1=8;7+3-1=9 -- 8,9
-            NumberSpaceType::Lte(v) => get_random_trait().get_number(number_space_base + 1, number_space_base + v),        //7+1=8;7+3=10  -- 8,9,10
+            NumberSpaceType::Lt(v) => get_random_trait().get_number(number_space_base + 1, cmp::min(number_space_base + v - 1, max)),     //7+1=8;7+3-1=9 -- 8,9
+            NumberSpaceType::Lte(v) => get_random_trait().get_number(number_space_base + 1, cmp::min(number_space_base + v, max)),        //7+1=8;7+3=10  -- 8,9,10
             NumberSpaceType::Eq(v) => number_space_base + v,                                                                        //7+3=10        -- 10
             NumberSpaceType::Gt(v) => {
-                if (number_space_base + v + 1) <= max { 
+                if number_space_base + v < max {
                     get_random_trait().get_number(number_space_base + v + 1, max)
                 } else {
                     0
                 }
             },                                                                                                                                                                                                                                                 
             NumberSpaceType::Gte(v) => {
-                if (number_space_base + v) <= max { 
+                if number_space_base + v <= max {
                     get_random_trait().get_number(number_space_base + v, max)
-                } else {
+                } else { 
                     0
                 }
             },                               
@@ -153,15 +154,15 @@ impl NumberSpaceItem {
     ) -> Vec<NumberSpaceItem> {
         let mut number_space_items: Vec<NumberSpaceItem> = Vec::new();
         for number_space_type in number_space_types {            
-            let match_count = number_space_type.0.has(number_spaces);
+            let has_count = number_space_type.0.has(number_spaces);
             number_space_items.push(
                 NumberSpaceItem {
                     number_space_type: number_space_type.0,
                     needs: match &number_space_type.1 {
                         Some(v) => v.clone(),
-                        None => match_count.clone()
+                        None => has_count.clone()
                     },
-                    has: match_count.clone()
+                    has: has_count.clone()
                 },
             );
         }
@@ -185,11 +186,7 @@ impl NumberSpaceItem {
         let mut missing_list: Vec<usize> = Vec::new();
         for i in 0..self.needs.len() {
             if i < self.has.len() {
-                let missing = if self.has[i] > self.needs[i] {
-                    0
-                } else {
-                    self.needs[i] - self.has[i]
-                };
+                let missing = self.needs[i].saturating_sub(self.has[i]);
                 missing_list.push(missing);
             } else {
                 missing_list.push(self.needs[i]);
@@ -302,13 +299,13 @@ impl RuleTrait for NumberSpace {
         NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
         for number_space_item in &other_number_pool.number_space_items {
-            if number_space_item.process_missing_count() > 0 {            
+            if number_space_item.process_missing_count() > 0 {      
+                let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());      
                 let mut number_space_base: usize = if numbers.len() == 1 || (numbers.len() > 1 && number_space_item.number_space_type.has(&[numbers[numbers.len() -1] - numbers[numbers.len() -2]]).is_empty()) {
                     *numbers.last().unwrap()
                 } else if current_data.selected_numbers_sorted().len() == 1 || (current_data.selected_numbers_sorted().len() > 1 && number_space_item.number_space_type.has(&[current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -1] - current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -2]]).is_empty()) {
                     *current_data.selected_numbers_sorted().last().unwrap()
-                } else {
-                    let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
+                } else {                    
                     let val = get_random_trait().get_number(min, max);
                     numbers.push(val);
                     val
@@ -316,7 +313,8 @@ impl RuleTrait for NumberSpace {
                 for _ in 0..number_space_item.process_missing_count() {
                     numbers.push(number_space_item.number_space_type.get_number(
                             number_space_base,
-                            Settings::get_min_max("NumberRange", current_data.shared_data()).1
+                            min,
+                            max
                         )
                     );
                     number_space_base = *numbers.last().unwrap();

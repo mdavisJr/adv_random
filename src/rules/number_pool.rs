@@ -241,11 +241,7 @@ impl NumberPool {
         let mut number_pool_items_full: HashMap<String, NumberPoolItemFull> = HashMap::new();
         for number_pool_item in number_pool_items {
             let match_count = number_pool_item.pool.has(numbers_set);
-            let missing = if match_count > number_pool_item.needs {
-                0
-            } else {
-                number_pool_item.needs - match_count
-            };
+            let missing = number_pool_item.needs.saturating_sub(match_count);
             number_pool_items_full.insert(
                 number_pool_item.key.to_owned(),
                 NumberPoolItemFull {

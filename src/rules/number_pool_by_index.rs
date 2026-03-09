@@ -16,6 +16,7 @@ pub struct NumberPoolByIndex {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct NumberPoolItemByIndex {
     pool: PoolType,
     indexes: HashSet<usize>,

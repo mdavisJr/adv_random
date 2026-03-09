@@ -22,7 +22,8 @@ pub struct RandomResult {
     numbers: Vec<usize>,
     attempts: usize,
     logs: Vec<Log>,
-    clear_err_tracker: Vec<usize>
+    clear_err_tracker: Vec<usize>,
+    settings: String
 }
 
 impl Debug for RandomResult {
@@ -73,10 +74,11 @@ impl RandomResult {
 }
 
 impl fmt::Display for RandomResult {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {        
         write!(
             fmt,
-            "\n\nStatus - {:?}\nNumbers - {:?}\nAttempts - {}\nClear Errs - {:?}\n{}",
+            "\n\nSettings:\n\n{}\n\nStatus - {:?}\nNumbers - {:?}\nAttempts - {}\nClear Errs - {:?}\n{}",
+            self.settings,
             self.status(),
             self.numbers(),
             self.attempts,
@@ -118,6 +120,7 @@ fn clear_numbers(
 pub enum Log {
     Error { msg: String },
     Info { msg: String },
+    UserInfo { msg: String },
 }
 
 impl fmt::Display for Log {
@@ -125,6 +128,7 @@ impl fmt::Display for Log {
         match self {
             Log::Error { msg } => write!(fmt, "Error : {}", msg.to_owned())?,
             Log::Info { msg } => write!(fmt, "Info  : {}", msg.to_owned())?,
+            Log::UserInfo { msg } => write!(fmt, "UserInfo  : {}", msg.to_owned())?,
         }
         Ok(())
     }
@@ -321,6 +325,32 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 continue;
             }
 
+            match is_within_range_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
+                Ok(_) => {
+                    set_numbers(
+                        &mut numbers,
+                        settings,
+                        current_data_with_potential_numbers.selected_numbers(),
+                    );
+                },
+                Err(e) => {
+                    if e.0 == IsWithinErrorType::MakePriority {
+                        key_to_make_priority = Some(e.2);
+                    }
+                    halt_from_error(
+                        &format!("iwrc-{}", e.3),
+                        &e.1,
+                        &mut logs,
+                        &mut err_tracker,
+                        attempts,
+                        &mut numbers,
+                        settings,
+                        &mut clear_err_tracker,
+                    );
+                    continue;
+                },
+            }
+
             if current_data_with_potential_numbers.selected_numbers().len() == settings.count() {
                 is_match_attempts += 1;
 
@@ -336,7 +366,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             numbers,
                             attempts,
                             logs,
-                            clear_err_tracker
+                            clear_err_tracker,
+                            settings: String::new()
                         };
                     },
                     Err(e) => {
@@ -360,32 +391,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                         continue;
                     }                    
                 }
-            } else {
-                match is_within_range_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
-                    Ok(_) => {
-                        set_numbers(
-                            &mut numbers,
-                            settings,
-                            current_data_with_potential_numbers.selected_numbers(),
-                        );
-                    },
-                    Err(e) => {
-                        if e.0 == IsWithinErrorType::MakePriority {
-                            key_to_make_priority = Some(e.2);
-                        }
-                        halt_from_error(
-                            &format!("iwrc-{}", e.3),
-                            &e.1,
-                            &mut logs,
-                            &mut err_tracker,
-                            attempts,
-                            &mut numbers,
-                            settings,
-                            &mut clear_err_tracker,
-                        );
-                        continue;
-                    },
-                }
             }
         }
     }
@@ -395,7 +400,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         numbers: Vec::new(),
         attempts: num_attempts,
         logs,
-        clear_err_tracker
+        clear_err_tracker,
+        settings: format!("{:#?}", settings)
     };
 }
 

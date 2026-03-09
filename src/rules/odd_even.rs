@@ -47,7 +47,7 @@ impl OddEven {
         return !OddEven::is_even(number);
     }
     pub fn is_even(number: usize) -> bool {
-        if number % 2 == 0 {
+        if number.is_multiple_of(2) {
             return true;
         }
         return false;
