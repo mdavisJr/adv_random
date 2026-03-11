@@ -1,5 +1,5 @@
-use crate::random::CurrentData;
-use crate::random_trait::{get_random_trait, get_random_vec_item};
+use crate::random::{CurrentData, NumberType, SHARED_DATA_EXCLUSION_SET};
+use crate::random_trait::get_random_trait;
 use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
@@ -34,16 +34,8 @@ impl PoolType {
         return PoolType::Set(char_set.iter().map(|x| *x as usize).collect());
     }
 
-    pub fn random_number(&self) -> usize {
-        match self {
-            PoolType::Set(set) => {
-                let rand_pool: Vec<usize> = set.iter().copied().collect();
-                return *get_random_vec_item(&rand_pool);
-            }
-            PoolType::MinMax(min, max) => {
-                return get_random_trait().get_number(*min, *max);
-            }
-        }
+    pub fn random_number(&self, current_data: &CurrentData) -> usize {
+        return current_data.get_rand(NumberType::Any, Some(self), None);
     }
 
     pub fn has(&self, numbers_set: &HashSet<usize>) -> usize {
@@ -315,8 +307,14 @@ impl RuleTrait for NumberPool {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
-        None
+    ) -> Option<Vec<(String, MapAnyValue)>> {
+        let pool_types: Vec<PoolType> = self.number_pool_items().values().filter(|x| x.needs() == 0).map(|x|x.pool().clone()).collect();
+        
+        if pool_types.is_empty() {
+            None
+        } else {
+            Some(vec![(SHARED_DATA_EXCLUSION_SET.to_owned(), MapAnyValue::PoolTypes(pool_types))])
+        }
     }
 
     fn get_numbers(
@@ -333,7 +331,7 @@ impl RuleTrait for NumberPool {
                 } else {
                     numbers.push(number_pool_item
                         .pool
-                        .random_number()
+                        .random_number(current_data)
                     );
                 }
             }

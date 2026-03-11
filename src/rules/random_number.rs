@@ -1,9 +1,8 @@
-use crate::random::CurrentData;
+use crate::random::{CurrentData, NumberType};
 use crate::random_trait::get_random_trait;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -48,7 +47,7 @@ impl RuleTrait for RandomNumber {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         None
     }
 
@@ -56,8 +55,7 @@ impl RuleTrait for RandomNumber {
         &self,
         current_data: &CurrentData,
     ) -> std::result::Result<Vec<usize>, String> {
-        let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
-        return Ok(vec![get_random_trait().get_number(min, max)]);
+        return Ok(vec![current_data.get_rand(NumberType::Any, None, None)]);
     }
 
     fn is_within_range(

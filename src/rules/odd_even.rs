@@ -1,9 +1,8 @@
-use crate::random::CurrentData;
+use crate::random::{CurrentData, NumberType};
 use crate::random_trait::{get_random_trait, get_random_vec_item};
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::Hash;
@@ -53,27 +52,6 @@ impl OddEven {
         return false;
     }
 
-    pub fn even_number(min: usize, max: usize) -> usize {
-        let number = get_random_trait().get_number(min, max);
-        if OddEven::is_even(number) {
-            return number;
-        } else if number == max {
-            return number - 1;
-        } else {
-            return number + 1;
-        }
-    }
-    pub fn odd_number(min: usize, max: usize) -> usize {
-        let number = get_random_trait().get_number(min, max);
-        if OddEven::is_odd(number) {
-            return number;
-        } else if number == max {
-            return number - 1;
-        } else {
-            return number + 1;
-        }
-    }
-
     pub fn needs_even(&self, other: &Self) -> bool {
         return self.even < other.even;
     }
@@ -121,7 +99,7 @@ impl RuleTrait for OddEven {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         None
     }
 
@@ -138,13 +116,12 @@ impl RuleTrait for OddEven {
             pool_keys.push(OddEvenKey::Odd);
         }
         if !pool_keys.is_empty() {
-            let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
             let selected_pool_key = get_random_vec_item(&pool_keys);
             let mut number = 0_usize;
             if *selected_pool_key == OddEvenKey::Odd {
-                number = OddEven::odd_number(min, max);
+                number = current_data.get_rand(NumberType::Odd, None, None);
             } else if *selected_pool_key == OddEvenKey::Even {
-                number = OddEven::even_number(min, max);
+                number = current_data.get_rand(NumberType::Even, None, None);
             }
             return Ok(vec![number]);
         }

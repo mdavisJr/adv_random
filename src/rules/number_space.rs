@@ -1,10 +1,9 @@
 
-use crate::random::CurrentData;
+use crate::random::{CurrentData, NumberType};
 use crate::random_trait::get_random_trait;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::HashMap;
 use std::{cmp, fmt};
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -65,26 +64,27 @@ impl NumberSpaceType {
         return matches; 
     }
 
-    pub fn get_number(&self, number_space_base: usize, _min: usize, max: usize) -> usize {
+    pub fn get_number(&self, number_space_base: usize, current_data: &CurrentData) -> usize {        
+        let (_min, max) = Settings::get_min_max(current_data.shared_data());  
         return match *self {//TODO check dereference 7;3 between(1-3)
-            NumberSpaceType::Lt(v) => get_random_trait().get_number(number_space_base + 1, cmp::min(number_space_base + v - 1, max)),     //7+1=8;7+3-1=9 -- 8,9
-            NumberSpaceType::Lte(v) => get_random_trait().get_number(number_space_base + 1, cmp::min(number_space_base + v, max)),        //7+1=8;7+3=10  -- 8,9,10
+            NumberSpaceType::Lt(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v - 1, max)))),     //7+1=8;7+3-1=9 -- 8,9
+            NumberSpaceType::Lte(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v, max)))),        //7+1=8;7+3=10  -- 8,9,10
             NumberSpaceType::Eq(v) => number_space_base + v,                                                                        //7+3=10        -- 10
             NumberSpaceType::Gt(v) => {
                 if number_space_base + v < max {
-                    get_random_trait().get_number(number_space_base + v + 1, max)
+                    current_data.get_rand(NumberType::Any, None, Some((number_space_base + v + 1, max)))
                 } else {
                     0
                 }
             },                                                                                                                                                                                                                                                 
             NumberSpaceType::Gte(v) => {
                 if number_space_base + v <= max {
-                    get_random_trait().get_number(number_space_base + v, max)
+                    current_data.get_rand(NumberType::Any, None, Some((number_space_base + v, max)))
                 } else { 
                     0
                 }
             },                               
-            NumberSpaceType::Between(lower_bound, upper_bound) => get_random_trait().get_number(number_space_base + lower_bound, number_space_base + upper_bound), //7+1=8;7+3=10  -- 8,9,10
+            NumberSpaceType::Between(lower_bound, upper_bound) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + lower_bound, number_space_base + upper_bound))), //7+1=8;7+3=10  -- 8,9,10
         };
     }
 }
@@ -287,7 +287,7 @@ impl RuleTrait for NumberSpace {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         None
     }
 
@@ -299,22 +299,20 @@ impl RuleTrait for NumberSpace {
         NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
         for number_space_item in &other_number_pool.number_space_items {
-            if number_space_item.process_missing_count() > 0 {      
-                let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());      
+            if number_space_item.process_missing_count() > 0 {          
                 let mut number_space_base: usize = if numbers.len() == 1 || (numbers.len() > 1 && number_space_item.number_space_type.has(&[numbers[numbers.len() -1] - numbers[numbers.len() -2]]).is_empty()) {
                     *numbers.last().unwrap()
                 } else if current_data.selected_numbers_sorted().len() == 1 || (current_data.selected_numbers_sorted().len() > 1 && number_space_item.number_space_type.has(&[current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -1] - current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -2]]).is_empty()) {
                     *current_data.selected_numbers_sorted().last().unwrap()
                 } else {                    
-                    let val = get_random_trait().get_number(min, max);
+                    let val = current_data.get_rand(NumberType::Any, None, None);
                     numbers.push(val);
                     val
                 };
                 for _ in 0..number_space_item.process_missing_count() {
                     numbers.push(number_space_item.number_space_type.get_number(
                             number_space_base,
-                            min,
-                            max
+                            current_data
                         )
                     );
                     number_space_base = *numbers.last().unwrap();

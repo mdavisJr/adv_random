@@ -3,7 +3,7 @@ use crate::rules::{
     IsWithinErrorType, MapAnyValue, RuleTrait, PoolType,
 };
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -61,7 +61,7 @@ impl RuleTrait for NumberPoolByIndex {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         None
     }
 
@@ -71,7 +71,7 @@ impl RuleTrait for NumberPoolByIndex {
     ) -> std::result::Result<Vec<usize>, String> {
         for number_pool_item in &self.number_pool_items {
             if number_pool_item.indexes.contains(&current_data.selected_numbers().len()) {
-                let number = number_pool_item.pool.random_number();
+                let number = number_pool_item.pool.random_number(current_data);
                 return Ok(vec![number]);
             }
         }

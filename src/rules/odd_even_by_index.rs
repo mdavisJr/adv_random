@@ -1,4 +1,4 @@
-use crate::random::CurrentData;
+use crate::random::{CurrentData, NumberType};
 use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait, OddEvenKey, OddEven};
 use crate::settings::Settings;
 use std::any::Any;
@@ -67,7 +67,7 @@ impl RuleTrait for OddEvenByIndex {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         None
     }
 
@@ -75,13 +75,11 @@ impl RuleTrait for OddEvenByIndex {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
-        if self.odd_even.contains_key(&current_data.selected_numbers().len()) {
-            let (min, max) = Settings::get_min_max("NumberRange", current_data.shared_data());
-            
+        if self.odd_even.contains_key(&current_data.selected_numbers().len()) {            
             if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Odd {
-                return Ok(vec![OddEven::odd_number(min, max)]);
+                return Ok(vec![current_data.get_rand(NumberType::Odd, None, None)]);
             } else if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Even {
-                return Ok(vec![OddEven::even_number(min, max)]);
+                return Ok(vec![current_data.get_rand(NumberType::Even, None, None)]);
             } else {
                 return Err(String::from("Skip"));
             }

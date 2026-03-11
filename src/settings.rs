@@ -1,4 +1,4 @@
-use crate::random::CurrentData;
+use crate::random::{CurrentData, SHARED_DATA_MAX, SHARED_DATA_MIN};
 use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, ExcludeRuleTrait};
 use std::collections::HashMap;
 
@@ -45,18 +45,15 @@ impl Settings {
     }
 
     pub fn get_min_max(
-        key: &str,
-        shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
+        shared_data: &HashMap<String, MapAnyValue>,
     ) -> (usize, usize) {
         let mut min = usize::MIN;
         let mut max = usize::MAX;
-        if let Some(number_range_data) = shared_data.get(key) {
-            if let Some(MapAnyValue::Usize(v)) = number_range_data.get("min") {
-                min = *v;
-            }
-            if let Some(MapAnyValue::Usize(v)) = number_range_data.get("max") {
-                max = *v;
-            }
+        if let Some(MapAnyValue::Usize(v)) = shared_data.get(SHARED_DATA_MIN) {
+            min = *v;
+        }
+        if let Some(MapAnyValue::Usize(v)) = shared_data.get(SHARED_DATA_MAX) {
+            max = *v;
         }
         return (min, max);
     }

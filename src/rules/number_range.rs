@@ -1,4 +1,4 @@
-use crate::random::CurrentData;
+use crate::random::{CurrentData, SHARED_DATA_MAX, SHARED_DATA_MIN};
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::collections::HashMap;
@@ -84,21 +84,14 @@ impl RuleTrait for NumberRange {
     fn share_data(
         &self,
         current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {        
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         let key = if self.use_0_idx_for_all {0} else {current_data.selected_numbers().len()};
         if self.ranges.contains_key(&key) {
-            let mut map: HashMap<String, MapAnyValue> = HashMap::new();
             let (min, max) = self.ranges[&key];
-            map.insert(
-                "min".to_owned(),
-                MapAnyValue::Usize(min),
-            );
-            map.insert(
-                "max".to_owned(),
-                MapAnyValue::Usize(max),
-            );
-        
-            return Option::from(map);
+            return Option::from(vec![
+                (SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(min)), 
+                (SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(max))
+            ]);
         }
         return None;
     }

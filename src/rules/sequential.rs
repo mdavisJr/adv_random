@@ -3,7 +3,6 @@ use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -112,7 +111,7 @@ impl RuleTrait for Sequential {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         None
     }
 

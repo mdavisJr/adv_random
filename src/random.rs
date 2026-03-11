@@ -1,14 +1,19 @@
 use once_cell::sync::OnceCell;
 
-use crate::random_trait::shuffle_vec;
+use crate::random_trait::{get_random_trait, get_random_vec_item, shuffle_vec};
 use crate::rules::{
-    IsWithinErrorType, MapAnyValue, RuleTrait, ExcludeRuleTrait,
+    ExcludeRuleTrait, IsWithinErrorType, MapAnyValue, OddEven, PoolType, RuleTrait
 };
 use crate::settings::Settings;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::Hash;
+
+pub const SHARED_DATA_MIN: &str = "min";
+pub const SHARED_DATA_MAX: &str = "max";
+pub const SHARED_DATA_NO_DUPLICATES: &str = "no_duplicates";
+pub const SHARED_DATA_EXCLUSION_SET: &str = "exclusion_set";
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum RandomResultType {
@@ -171,21 +176,27 @@ fn reset(
     err_tracker.clear();
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum NumberType {
+    Any,
+    Odd,
+    Even
+}
 pub struct CurrentData<'a> {
     selected_numbers: &'a Vec<usize>,
     selected_numbers_set: OnceCell<HashSet<usize>>,
     selected_numbers_sorted: OnceCell<Vec<usize>>,
     settings: &'a Settings,
-    shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>,
+    shared_data: &'a HashMap<String, MapAnyValue>,
 }
 
 impl<'a> CurrentData<'a> {
 
-    pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>) -> CurrentData<'a> {
+    pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a HashMap<String, MapAnyValue>) -> CurrentData<'a> {
         return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: OnceCell::new(), selected_numbers_sorted: OnceCell::new() };
     }
 
-    pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a HashMap<String, HashMap<String, MapAnyValue>>) -> CurrentData<'a> {
+    pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a HashMap<String, MapAnyValue>) -> CurrentData<'a> {
         let new_current_data = CurrentData { 
             selected_numbers: current_data.selected_numbers, 
             settings: current_data.settings, 
@@ -202,6 +213,75 @@ impl<'a> CurrentData<'a> {
         return new_current_data;
     }
 
+    pub fn get_rand(&self, number_type: NumberType, from_pool_type: Option<&PoolType>, min_max: Option<(usize, usize)>) -> usize {
+        let (min, max) = if let Some((min, max)) = min_max {
+            (min, max)
+        } else {
+            Settings::get_min_max(self.shared_data)
+        };
+        let no_duplicates = if self.shared_data.contains_key(SHARED_DATA_NO_DUPLICATES) {
+            if let MapAnyValue::Bool(v) = self.shared_data[SHARED_DATA_NO_DUPLICATES] {
+                v
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        let exclusion_pools: &Vec<PoolType> = 
+        if self.shared_data.contains_key(SHARED_DATA_EXCLUSION_SET) {
+            if let MapAnyValue::PoolTypes(v) = &self.shared_data[SHARED_DATA_EXCLUSION_SET] {
+                v
+            } else{
+                &Vec::new()
+            }
+        } else {
+            &Vec::new()
+        };
+        for _ in 1..=30 {
+            let val = if let Some(v) = &from_pool_type {
+                match &v {
+                    PoolType::Set(set) => {
+                        let rand_pool: Vec<usize> = set.iter().copied().collect();
+                        *get_random_vec_item(&rand_pool)
+                    }
+                    PoolType::MinMax(pool_type_min, pool_type_max) => {
+                        get_random_trait().get_number(*pool_type_min, *pool_type_max)
+                    }
+                }
+            } else {
+                get_random_trait().get_number(min, max)
+            };
+            if exclusion_pools.iter().any(|x| x.contains(val)) {
+                continue;
+            }
+            if no_duplicates {
+                if let Some(set) = self.selected_numbers_set.get() {
+                    if set.contains(&val) {
+                        continue;
+                    }
+                }
+            }
+            match number_type {
+                NumberType::Any => {},
+                NumberType::Odd => {
+                    if OddEven::is_even(val) {
+                        continue;
+                    }
+                },
+                NumberType::Even => {
+                    if OddEven::is_odd(val) {
+                        continue;
+                    }
+                }
+            }
+
+            return val;
+        }
+
+        return 0;
+    }
+
     pub fn selected_numbers(&self) -> &'a Vec<usize> {
         return self.selected_numbers;
     }
@@ -210,7 +290,7 @@ impl<'a> CurrentData<'a> {
         return self.settings;
     }
 
-    pub fn shared_data(&self) -> &'a HashMap<String, HashMap<String, MapAnyValue>> {
+    pub fn shared_data(&self) -> &'a HashMap<String, MapAnyValue> {
         return self.shared_data;
     }
 
@@ -248,9 +328,9 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let mut gen_type = String::from("");
 
         let current_data_numbers: Vec<usize> = numbers.to_vec();
-        let current_data_shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+        let current_data_shared_data: HashMap<String, MapAnyValue> = HashMap::new();
         let current_data_selected_numbers_sd = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
-        let mut shared_data: HashMap<String, HashMap<String, MapAnyValue>> = HashMap::new();
+        let mut shared_data: HashMap<String, MapAnyValue> = HashMap::new();
         shuffle_vec(&mut expected_rules);
         //expected_rules.shuffle(&mut thread_rng()); TODO remove
         if let Some(v) = key_to_make_priority {
@@ -266,7 +346,20 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
             if let Some(actual_rule_shared_data) =
                 expected_rule.share_data(&current_data_selected_numbers_sd)
             {
-                shared_data.insert(expected_rule.name(), actual_rule_shared_data);
+                for item in actual_rule_shared_data {
+                    match item.0.as_str() {
+                        SHARED_DATA_EXCLUSION_SET => {
+                            shared_data.entry(item.0.to_owned()).and_modify(|x| {
+                                if let (MapAnyValue::PoolTypes(pool_types),MapAnyValue::PoolTypes(new_pool_types)) = (x, item.1) {
+                                    pool_types.extend(new_pool_types);
+                                }
+                            });
+                        },
+                        _ => {
+                            shared_data.insert(item.0.to_owned(), item.1);
+                        }
+                    }                    
+                }
             }
         }
 

@@ -1,12 +1,14 @@
 use crate::random::CurrentData;
+use crate::rules::PoolType;
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum MapAnyValue {
     String(String),
     Usize(usize),
+    PoolTypes(Vec<PoolType>),
+    Bool(bool)
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -36,7 +38,7 @@ pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug {
     fn share_data(
         &self,
         current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>>;
+    ) -> Option<Vec<(String, MapAnyValue)>>;
 
     fn check_count(
         &self,

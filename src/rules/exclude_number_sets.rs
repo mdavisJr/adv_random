@@ -1,7 +1,7 @@
 use crate::random::CurrentData;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -51,7 +51,7 @@ impl RuleTrait for ExcludeNumberSets {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<HashMap<String, MapAnyValue>> {
+    ) -> Option<Vec<(String, MapAnyValue)>> {
         None
     }
 
