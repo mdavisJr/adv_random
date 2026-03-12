@@ -182,6 +182,8 @@ pub enum NumberType {
     Odd,
     Even
 }
+
+#[derive(Debug, Clone)]
 pub struct CurrentData<'a> {
     selected_numbers: &'a Vec<usize>,
     selected_numbers_set: OnceCell<HashSet<usize>>,
@@ -349,11 +351,13 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 for item in actual_rule_shared_data {
                     match item.0.as_str() {
                         SHARED_DATA_EXCLUSION_SET => {
-                            shared_data.entry(item.0.to_owned()).and_modify(|x| {
-                                if let (MapAnyValue::PoolTypes(pool_types),MapAnyValue::PoolTypes(new_pool_types)) = (x, item.1) {
-                                    pool_types.extend(new_pool_types);
-                                }
-                            });
+                            if let MapAnyValue::PoolTypes(new_pool_types) = item.1 {
+                                shared_data.entry(item.0.to_owned()).and_modify(|x| {
+                                    if let MapAnyValue::PoolTypes(pool_types) = x {
+                                        pool_types.extend(new_pool_types.clone());
+                                    }
+                                }).or_insert_with(|| MapAnyValue::PoolTypes(new_pool_types.clone()));
+                            }
                         },
                         _ => {
                             shared_data.insert(item.0.to_owned(), item.1);
@@ -364,6 +368,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         }
 
         let current_data_selected_numbers_gn = CurrentData::from_current_data(&current_data_selected_numbers_sd, &shared_data);
+        //println!("{:#?}", current_data_selected_numbers_gn);
         for expected_rule in &expected_rules {
             match expected_rule.get_numbers(&current_data_selected_numbers_gn) {
                 Ok(v) => {

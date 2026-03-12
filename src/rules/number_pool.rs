@@ -278,12 +278,7 @@ impl NumberPool {
     }
 
     pub fn find_first_has_value(&self) -> Option<&NumberPoolItemFull> {
-        for number_pool_item in self.number_pool_items().values() {
-            if number_pool_item.has() > 0 {
-                return Some(number_pool_item);
-            }
-        }
-        return None;
+        return self.number_pool_items().values().find(|&number_pool_item| number_pool_item.has() > 0);        
     }
 }
 
