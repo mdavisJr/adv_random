@@ -6,6 +6,6 @@ pub mod rules;
 pub mod random_trait;
 pub mod default_random;
 
+
 #[cfg(test)]
 mod tests;
-
