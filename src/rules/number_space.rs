@@ -1,6 +1,5 @@
 
 use crate::random::{CurrentData, NumberType};
-use crate::random_trait::get_random_trait;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use crate::settings::Settings;
 use std::any::Any;
@@ -10,7 +9,7 @@ use std::fmt::{Debug, Display, Formatter, Result};
 use super::{ExcludeRuleTrait, is_excluded_helper};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum NumberSpaceType {
+pub enum OperatorType {
     Lt(usize),
     Lte(usize),
     Eq(usize),
@@ -19,15 +18,53 @@ pub enum NumberSpaceType {
     Between(usize, usize)
 }
 
-impl NumberSpaceType {
-    pub fn is_match(&self, num_space: usize) -> bool {
-        return match *self {//TODO check dereference 
-            NumberSpaceType::Lt(v) => num_space < v,
-            NumberSpaceType::Lte(v) => num_space <= v,
-            NumberSpaceType::Eq(v) => num_space == v,
-            NumberSpaceType::Gte(v) => num_space >= v,               
-            NumberSpaceType::Gt(v) => num_space > v, 
-            NumberSpaceType::Between(lower_bound, upper_bound) => num_space >= lower_bound && num_space <= upper_bound 
+impl OperatorType {
+    pub fn is_absolute_zero(&self) -> bool {
+        return match *self {
+            OperatorType::Lt(v) => v == 1,
+            OperatorType::Lte(v) => v == 0,
+            OperatorType::Eq(v) => v == 0,
+            // NumberSpaceType::Gte(v) => *,               
+            // NumberSpaceType::Gt(v) => *, 
+            OperatorType::Between(lower_bound, upper_bound) => lower_bound == 0 && upper_bound == 0,
+            _ => false
+        };
+    }
+
+    pub fn get_missing_without_has(&self) -> usize {
+        return self.get_missing(0);
+    }
+
+    pub fn get_missing(&self, value: usize) -> usize {
+        return match *self {
+            OperatorType::Lt(_v) => 0,
+            OperatorType::Lte(_v) => 0,
+            OperatorType::Eq(v) => v.saturating_sub(value),
+            OperatorType::Gte(v) => v.saturating_sub(value),               
+            OperatorType::Gt(v) => (v+1).saturating_sub(value), 
+            OperatorType::Between(lower_bound, _upper_bound) => lower_bound.saturating_sub(value),
+        };
+    }
+
+    pub fn is_within_range(&self, value: usize) -> bool {
+        return match *self {
+            OperatorType::Lt(v) => value < v,
+            OperatorType::Lte(v) => value <= v,
+            OperatorType::Eq(v) => value <= v,
+            OperatorType::Gte(_v) => true,               
+            OperatorType::Gt(_v) => true, 
+            OperatorType::Between(_lower_bound, upper_bound) => value <= upper_bound 
+        };
+    }
+
+    pub fn is_match(&self, value: usize) -> bool {
+        return match *self {
+            OperatorType::Lt(v) => value < v,
+            OperatorType::Lte(v) => value <= v,
+            OperatorType::Eq(v) => value == v,
+            OperatorType::Gte(v) => value >= v,               
+            OperatorType::Gt(v) => value > v, 
+            OperatorType::Between(lower_bound, upper_bound) => value >= lower_bound && value <= upper_bound 
         };
     }
 
@@ -67,54 +104,54 @@ impl NumberSpaceType {
     pub fn get_number(&self, number_space_base: usize, current_data: &CurrentData) -> usize {        
         let (_min, max) = Settings::get_min_max(current_data.shared_data());  
         return match *self {//TODO check dereference 7;3 between(1-3)
-            NumberSpaceType::Lt(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v - 1, max)))),     //7+1=8;7+3-1=9 -- 8,9
-            NumberSpaceType::Lte(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v, max)))),        //7+1=8;7+3=10  -- 8,9,10
-            NumberSpaceType::Eq(v) => number_space_base + v,                                                                        //7+3=10        -- 10
-            NumberSpaceType::Gt(v) => {
+            OperatorType::Lt(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v - 1, max)))),     //7+1=8;7+3-1=9 -- 8,9
+            OperatorType::Lte(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v, max)))),        //7+1=8;7+3=10  -- 8,9,10
+            OperatorType::Eq(v) => number_space_base + v,                                                                        //7+3=10        -- 10
+            OperatorType::Gt(v) => {
                 if number_space_base + v < max {
                     current_data.get_rand(NumberType::Any, None, Some((number_space_base + v + 1, max)))
                 } else {
                     0
                 }
             },                                                                                                                                                                                                                                                 
-            NumberSpaceType::Gte(v) => {
+            OperatorType::Gte(v) => {
                 if number_space_base + v <= max {
                     current_data.get_rand(NumberType::Any, None, Some((number_space_base + v, max)))
                 } else { 
                     0
                 }
             },                               
-            NumberSpaceType::Between(lower_bound, upper_bound) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + lower_bound, number_space_base + upper_bound))), //7+1=8;7+3=10  -- 8,9,10
+            OperatorType::Between(lower_bound, upper_bound) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + lower_bound, number_space_base + upper_bound))), //7+1=8;7+3=10  -- 8,9,10
         };
     }
 }
 
-impl Display for NumberSpaceType {
+impl Display for OperatorType {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match self {
-            NumberSpaceType::Gte(v) => write!(f, "Gte:{}", v),
-            NumberSpaceType::Eq(v) => write!(f, "Eq:{}", v),
-            NumberSpaceType::Lt(v) => write!(f, "Lt:{}", v),
-            NumberSpaceType::Lte(v) => write!(f, "Lte:{}", v),
-            NumberSpaceType::Gt(v) => write!(f, "Gt:{}", v),
-            NumberSpaceType::Between(lower_bound, upper_bound) => write!(f, "Gte:{}-Lte:{}", lower_bound, upper_bound),
+            OperatorType::Gte(v) => write!(f, "Gte:{}", v),
+            OperatorType::Eq(v) => write!(f, "Eq:{}", v),
+            OperatorType::Lt(v) => write!(f, "Lt:{}", v),
+            OperatorType::Lte(v) => write!(f, "Lte:{}", v),
+            OperatorType::Gt(v) => write!(f, "Gt:{}", v),
+            OperatorType::Between(lower_bound, upper_bound) => write!(f, "Gte:{}-Lte:{}", lower_bound, upper_bound),
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct NumberSpaceItem {
-    number_space_type: NumberSpaceType,
+    number_space_type: OperatorType,
     needs: Vec<usize>,
     has: Vec<usize>
 }
 
 impl NumberSpaceItem {
-    pub fn new(number_space_type: &NumberSpaceType, needs: usize) -> NumberSpaceItem {
+    pub fn new(number_space_type: &OperatorType, needs: usize) -> NumberSpaceItem {
         return NumberSpaceItem::new_full(number_space_type, &[needs], &Vec::new());
     }
 
-    pub fn new_full(number_space_type: &NumberSpaceType, needs: &[usize], has: &[usize]) -> NumberSpaceItem {
+    pub fn new_full(number_space_type: &OperatorType, needs: &[usize], has: &[usize]) -> NumberSpaceItem {
         return NumberSpaceItem {
             number_space_type: *number_space_type,
             needs: needs.to_vec(),
@@ -141,7 +178,7 @@ impl NumberSpaceItem {
     }
 
     pub fn from_numbers(
-        number_space_types: &[(NumberSpaceType, Option<Vec<usize>>)],
+        number_space_types: &[(OperatorType, Option<Vec<usize>>)],
         numbers: &[usize],
         is_sorted: bool
     ) -> Vec<NumberSpaceItem> {
@@ -149,7 +186,7 @@ impl NumberSpaceItem {
     }
 
     pub fn from_number_spaces(
-        number_space_types: &[(NumberSpaceType, Option<Vec<usize>>)],
+        number_space_types: &[(OperatorType, Option<Vec<usize>>)],
         number_spaces: &[usize]
     ) -> Vec<NumberSpaceItem> {
         let mut number_space_items: Vec<NumberSpaceItem> = Vec::new();
@@ -170,7 +207,7 @@ impl NumberSpaceItem {
         return number_space_items;
     }
 
-    pub fn number_space_type(&self) -> &NumberSpaceType {
+    pub fn number_space_type(&self) -> &OperatorType {
         return &self.number_space_type;
     }
 

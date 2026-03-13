@@ -1,6 +1,5 @@
 use crate::random::{CurrentData, NumberType};
 use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait, OddEvenKey, OddEven};
-use crate::settings::Settings;
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;

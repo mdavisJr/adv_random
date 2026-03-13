@@ -1,7 +1,6 @@
 use crate::random::{CurrentData, NumberType};
-use crate::random_trait::{get_random_trait, get_random_vec_item};
+use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
-use crate::settings::Settings;
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};

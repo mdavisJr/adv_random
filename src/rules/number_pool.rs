@@ -1,6 +1,6 @@
 use crate::random::{CurrentData, NumberType, SHARED_DATA_EXCLUSION_SET};
 use crate::random_trait::get_random_trait;
-use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait};
+use crate::rules::{IsWithinErrorType, MapAnyValue, OperatorType, RuleTrait};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -100,12 +100,12 @@ impl PoolType {
 #[derive(Clone, Debug)]
 pub struct NumberPoolItem {
     pool: PoolType,
-    needs: usize,
+    needs: OperatorType,
     key: String,
 }
 
 impl NumberPoolItem {
-    pub fn new(key: &str, pool: &PoolType, needs: usize) -> NumberPoolItem {
+    pub fn new(key: &str, pool: &PoolType, needs: OperatorType) -> NumberPoolItem {
         return NumberPoolItem {
             pool: pool.clone(),
             needs,
@@ -117,13 +117,13 @@ impl NumberPoolItem {
 #[derive(Clone, Debug)]
 pub struct NumberPoolItemFull {
     pool: PoolType,
-    needs: usize,
+    needs: OperatorType,
     has: usize,
     missing: usize,
 }
 
 impl NumberPoolItemFull {
-    pub fn new(pool: &PoolType, needs: usize, has: usize, missing: usize) -> NumberPoolItemFull {
+    pub fn new(pool: &PoolType, needs: OperatorType, has: usize, missing: usize) -> NumberPoolItemFull {
         return NumberPoolItemFull {
             pool: pool.clone(),
             needs,
@@ -135,7 +135,7 @@ impl NumberPoolItemFull {
         return &self.pool;
     }
 
-    pub fn needs(&self) -> usize {
+    pub fn needs(&self) -> OperatorType {
         return self.needs;
     }
 
@@ -175,9 +175,9 @@ impl NumberPool {
     pub fn alphanumeric_specs(alpha_count: usize, numeric_count: usize, special_char_count: usize) -> NumberPool {
         
         return NumberPool::new(&[
-            NumberPoolItem::new("alpha_set", &PoolType::new(&NP_ALPHABET_SET.lock().unwrap()), alpha_count),
-            NumberPoolItem::new("numeric_set", &PoolType::new(&NP_NUMERIC_SET.lock().unwrap()), numeric_count),
-            NumberPoolItem::new("special_char_set", &PoolType::new(&NP_SPECIAL_CHAR_SET.lock().unwrap()), special_char_count),         
+            NumberPoolItem::new("alpha_set", &PoolType::new(&NP_ALPHABET_SET.lock().unwrap()), OperatorType::Eq(alpha_count)),
+            NumberPoolItem::new("numeric_set", &PoolType::new(&NP_NUMERIC_SET.lock().unwrap()), OperatorType::Eq(numeric_count)),
+            NumberPoolItem::new("special_char_set", &PoolType::new(&NP_SPECIAL_CHAR_SET.lock().unwrap()), OperatorType::Eq(special_char_count)),         
         ]);
     }
 
@@ -192,7 +192,7 @@ impl NumberPool {
                             pool: x.pool.clone(),
                             needs: x.needs,
                             has: 0,
-                            missing: x.needs,
+                            missing: x.needs.get_missing_without_has(),
                         },
                     )
                 })
@@ -233,13 +233,13 @@ impl NumberPool {
         let mut number_pool_items_full: HashMap<String, NumberPoolItemFull> = HashMap::new();
         for number_pool_item in number_pool_items {
             let match_count = number_pool_item.pool.has(numbers_set);
-            let missing = number_pool_item.needs.saturating_sub(match_count);
+            let missing = number_pool_item.needs.get_missing(match_count);
             number_pool_items_full.insert(
                 number_pool_item.key.to_owned(),
                 NumberPoolItemFull {
                     pool: number_pool_item.pool.clone(),
                     needs: if set_needs_eq_match {
-                        match_count
+                        OperatorType::Eq(match_count)
                     } else {
                         number_pool_item.needs
                     },
@@ -269,7 +269,7 @@ impl NumberPool {
         return self.number_pool_items.get(key).map(|v| v.has);
     }
 
-    pub fn needs(&self, key: &str) -> Option<usize> {
+    pub fn needs(&self, key: &str) -> Option<OperatorType> {
         return self.number_pool_items.get(key).map(|v| v.needs);
     }
 
@@ -303,7 +303,7 @@ impl RuleTrait for NumberPool {
         &self,
         _current_data: &CurrentData,
     ) -> Option<Vec<(String, MapAnyValue)>> {
-        let pool_types: Vec<PoolType> = self.number_pool_items().values().filter(|x| x.needs() == 0).map(|x|x.pool().clone()).collect();
+        let pool_types: Vec<PoolType> = self.number_pool_items().values().filter(|x| x.needs.is_absolute_zero()).map(|x|x.pool().clone()).collect();
         
         if pool_types.is_empty() {
             None
@@ -318,17 +318,21 @@ impl RuleTrait for NumberPool {
     ) -> std::result::Result<Vec<usize>, String> {
         let other_number_pool =
             NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
+        //println!("{:#?}", other_number_pool);
         let mut numbers: Vec<usize> = Vec::new();
         for number_pool_item in other_number_pool.number_pool_items.values() {
             if number_pool_item.missing > 0 {
-                if number_pool_item.pool.len() == number_pool_item.needs {
-                    numbers.extend(number_pool_item.pool.difference(current_data.selected_numbers_set()));
-                } else {
-                    numbers.push(number_pool_item
-                        .pool
-                        .random_number(current_data)
-                    );
+                if let OperatorType::Eq(v) = number_pool_item.needs {
+                    if number_pool_item.pool.len() == v {
+                        numbers.extend(number_pool_item.pool.difference(current_data.selected_numbers_set()));
+                        continue;
+                    }
                 }
+
+                numbers.push(number_pool_item
+                    .pool
+                    .random_number(current_data)
+                );                
             }
         }
         if !numbers.is_empty() {
@@ -347,13 +351,13 @@ impl RuleTrait for NumberPool {
 
         let mut total_missing: usize = 0;
         for (key, number_pool_item) in &other_number_pool.number_pool_items {
-            if number_pool_item.has > number_pool_item.needs {
+            if !number_pool_item.needs.is_within_range(number_pool_item.has) {
                 return Err((IsWithinErrorType::Regular, format!(
                     "Too many from pool {:?}, \"needs\" is {} and \"has\" {} from this pool",
                     key, number_pool_item.needs, number_pool_item.has
                 )));
             }
-            if number_pool_item.needs > 0 {
+            if !number_pool_item.needs.is_absolute_zero() {
                 total_missing += number_pool_item.missing;
             }
         }
@@ -378,7 +382,7 @@ impl RuleTrait for NumberPool {
         let other_number_pool =
             NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
         for (key, number_pool_item) in other_number_pool.number_pool_items {
-            if number_pool_item.has != number_pool_item.needs {
+            if !number_pool_item.needs.is_match(number_pool_item.has) {
                 return Err(format!(
                     "Expected--Pool:{:?}--{:?}--Needs:{}. Actual Count:{}",
                     key, number_pool_item.pool, number_pool_item.needs, number_pool_item.has
@@ -396,7 +400,7 @@ impl RuleTrait for NumberPool {
         &self,
         count: usize,
     ) -> std::result::Result<bool, String> {
-        let needs_count:usize = self.number_pool_items.values().map(|x| x.needs).sum::<usize>();
+        let needs_count:usize = self.number_pool_items.values().map(|x| x.needs.get_missing_without_has()).sum::<usize>();
         if needs_count <= count {
             return Ok(true);
         }
