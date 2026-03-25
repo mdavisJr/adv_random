@@ -479,6 +479,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             settings,
                             &mut clear_err_tracker,
                         );
+                        //clear_numbers(&mut logs, &mut numbers, settings);
                         if is_match_attempts == settings.max_is_match_attempts() {                        
                             clear_numbers(&mut logs, &mut numbers, settings);
                             is_match_attempts = 0;
@@ -486,7 +487,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                                 msg: "Clear - Reached Is Match Attempts".to_string(),
                             });
                         }
-                        continue;
+                        // continue;
                     }                    
                 }
             }

@@ -101,28 +101,57 @@ impl OperatorType {
         return matches; 
     }
 
-    pub fn get_number(&self, number_space_base: usize, current_data: &CurrentData) -> usize {        
-        let (_min, max) = Settings::get_min_max(current_data.shared_data());  
-        return match *self {//TODO check dereference 7;3 between(1-3)
-            OperatorType::Lt(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v - 1, max)))),     //7+1=8;7+3-1=9 -- 8,9
-            OperatorType::Lte(v) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + 1, cmp::min(number_space_base + v, max)))),        //7+1=8;7+3=10  -- 8,9,10
-            OperatorType::Eq(v) => number_space_base + v,                                                                        //7+3=10        -- 10
-            OperatorType::Gt(v) => {
-                if number_space_base + v < max {
-                    current_data.get_rand(NumberType::Any, None, Some((number_space_base + v + 1, max)))
+    pub fn get_number(&self, current_data: &CurrentData, count: usize) -> Vec<usize> {
+        let mut numbers: Vec<usize> = Vec::new();
+        for _ in 0..5 {
+            numbers = Vec::new();    
+            let (min, max) = Settings::get_min_max(current_data.shared_data());
+            numbers.push(
+                if current_data.selected_numbers_sorted().is_empty() {            
+                    current_data.get_rand(NumberType::Any, None, None)
                 } else {
-                    0
+                    *current_data.selected_numbers_sorted().last().unwrap()
                 }
-            },                                                                                                                                                                                                                                                 
-            OperatorType::Gte(v) => {
-                if number_space_base + v <= max {
-                    current_data.get_rand(NumberType::Any, None, Some((number_space_base + v, max)))
-                } else { 
-                    0
+            );
+            for _ in 0..count*2 {
+                let base_number = *numbers.last().unwrap();
+                let (lower_b, upper_b) = match *self {//TODO check dereference 7;3 between(1-3)
+                    OperatorType::Lt(v) => (Some(base_number + 1), Some(cmp::min(base_number + v - 1, max))),     //7+1=8;7+3-1=9 -- 8,9
+                    OperatorType::Lte(v) => (Some(base_number + 1), Some(cmp::min(base_number + v, max))),        //7+1=8;7+3=10  -- 8,9,10
+                    OperatorType::Eq(v) => (Some(base_number + v), None),                                                                        //7+3=10        -- 10
+                    OperatorType::Gt(v) => (Some(base_number + v + 1), Some(max)),                                                                                                                                                                                                                                       
+                    OperatorType::Gte(v) => (Some(base_number + v), Some(max)),                         
+                    OperatorType::Between(lower_bound, upper_bound) => (Some(base_number + lower_bound), Some(base_number + upper_bound)),
+                };
+
+                let new_num: Option<usize> = match (lower_b, upper_b) {
+                    (None, None) => None,
+                    (None, Some(_)) => None,
+                    (Some(v), None) => Some(v),
+                    (Some(lb), Some(ub)) => {
+                        if lb >= ub || lb < min || ub > max {
+                            None
+                        } else {
+                            Some(current_data.get_rand(NumberType::Any, None, Some((lb, ub))))
+                        }
+                    }
+                };
+
+                if let Some(v) = new_num {
+                    numbers.push(v);
                 }
-            },                               
-            OperatorType::Between(lower_bound, upper_bound) => current_data.get_rand(NumberType::Any, None, Some((number_space_base + lower_bound, number_space_base + upper_bound))), //7+1=8;7+3=10  -- 8,9,10
-        };
+
+                if numbers.len() == count {
+                    break;
+                }
+            }
+
+            if numbers.len() == count {
+                break;
+            }
+        }
+
+        return numbers;
     }
 }
 
@@ -336,24 +365,8 @@ impl RuleTrait for NumberSpace {
         NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
         for number_space_item in &other_number_pool.number_space_items {
-            if number_space_item.process_missing_count() > 0 {          
-                let mut number_space_base: usize = if numbers.len() == 1 || (numbers.len() > 1 && number_space_item.number_space_type.has(&[numbers[numbers.len() -1] - numbers[numbers.len() -2]]).is_empty()) {
-                    *numbers.last().unwrap()
-                } else if current_data.selected_numbers_sorted().len() == 1 || (current_data.selected_numbers_sorted().len() > 1 && number_space_item.number_space_type.has(&[current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -1] - current_data.selected_numbers_sorted()[current_data.selected_numbers_sorted().len() -2]]).is_empty()) {
-                    *current_data.selected_numbers_sorted().last().unwrap()
-                } else {                    
-                    let val = current_data.get_rand(NumberType::Any, None, None);
-                    numbers.push(val);
-                    val
-                };
-                for _ in 0..number_space_item.process_missing_count() {
-                    numbers.push(number_space_item.number_space_type.get_number(
-                            number_space_base,
-                            current_data
-                        )
-                    );
-                    number_space_base = *numbers.last().unwrap();
-                }
+            if number_space_item.process_missing_count() > 0 {
+                numbers.extend(number_space_item.number_space_type.get_number(current_data, number_space_item.process_missing_count()));                    
                 if self.process_number_space_items == ProcessNumberSpaceItems::OnePerRequest && !numbers.is_empty() { break; }
             }
         }
@@ -389,7 +402,7 @@ impl RuleTrait for NumberSpace {
             current_data.settings().count() - current_data.selected_numbers().len()
         };
         if total_missing > 0 && total_missing > len_remaining {
-            return Err((IsWithinErrorType::MakePriority, format!(
+            return Err((IsWithinErrorType::Regular, format!(
                 "Need to pull from number pool, \"missing\" {} and there are {} numbers left to pick",
                 total_missing, len_remaining
             )));
