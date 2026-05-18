@@ -27,7 +27,7 @@ pub struct RandomResult {
     numbers: Vec<usize>,
     attempts: usize,
     logs: Vec<Log>,
-    clear_err_tracker: Vec<usize>,
+    clear_err_tracker: HashSet<usize>,
     settings: String
 }
 
@@ -73,13 +73,15 @@ impl RandomResult {
     pub fn logs(&self) -> &Vec<Log> {
         return &self.logs;
     }
-    pub fn clear_err_tracker(&self) -> &Vec<usize> {
+    pub fn clear_err_tracker(&self) -> &HashSet<usize> {
         return &self.clear_err_tracker;
     }
 }
 
 impl fmt::Display for RandomResult {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {        
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        let mut sorted_clear_err_tracker: Vec<usize> = self.clear_err_tracker().iter().cloned().collect();
+        sorted_clear_err_tracker.sort_unstable();      
         write!(
             fmt,
             "\n\nSettings:\n\n{}\n\nStatus - {:?}\nNumbers - {:?}\nAttempts - {}\nClear Errs - {:?}\n{}",
@@ -87,7 +89,7 @@ impl fmt::Display for RandomResult {
             self.status(),
             self.numbers(),
             self.attempts,
-            self.clear_err_tracker(),
+            sorted_clear_err_tracker,
             self.logs
                 .iter()
                 .map(|x| if x.to_string().starts_with("Info  : Attempt - ") {
@@ -148,7 +150,7 @@ pub fn halt_from_error(
     attempts: usize,
     numbers: &mut Vec<usize>,
     settings: &Settings,
-    clear_err_tracker: &mut Vec<usize>,
+    clear_err_tracker: &mut HashSet<usize>,
 ) {
     logs.push(Log::Error {
         msg: err.to_owned(),
@@ -162,7 +164,7 @@ pub fn halt_from_error(
             msg: format!("Reset Because Of Too Many Same Errors - {}: {}", err_for_err_tracker, err),
         });
         reset(logs, numbers, settings, err_tracker);
-        clear_err_tracker.push(attempts);
+        clear_err_tracker.insert(attempts);
     }
 }
 
@@ -317,7 +319,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
     let mut err_tracker: HashMap<String, usize> = HashMap::new();
     let mut num_attempts = 1;
     let mut logs: Vec<Log> = Vec::new();
-    let mut clear_err_tracker: Vec<usize> = Vec::new();
+    let mut clear_err_tracker: HashSet<usize> = HashSet::new();
     let mut expected_rules: Vec<Box<dyn RuleTrait>> = settings.expected_rules().clone();
     let mut key_to_make_priority: Option<String> = None;
     clear_numbers(&mut logs, &mut numbers, settings);
@@ -425,11 +427,55 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
             match is_within_range_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
                 Ok(_) => {
-                    set_numbers(
-                        &mut numbers,
-                        settings,
-                        current_data_with_potential_numbers.selected_numbers(),
-                    );
+                    if current_data_with_potential_numbers.selected_numbers().len() == settings.count() {
+                        is_match_attempts += 1;
+
+                        match is_match_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
+                            Ok(_) => {
+                                set_numbers(
+                                    &mut numbers,
+                                    settings,
+                                    current_data_with_potential_numbers.selected_numbers(),
+                                );
+                                return RandomResult {
+                                    status: RandomResultType::Success,
+                                    numbers,
+                                    attempts,
+                                    logs,
+                                    clear_err_tracker,
+                                    settings: String::new()
+                                };
+                            },
+                            Err(e) => {
+                                halt_from_error(
+                                    &format!("imc-{}", e.1),
+                                    &format!("is_match_check failed. {}", e.0),
+                                    &mut logs,
+                                    &mut err_tracker,
+                                    attempts,
+                                    &mut numbers,
+                                    settings,
+                                    &mut clear_err_tracker,
+                                );
+                                //clear_numbers(&mut logs, &mut numbers, settings);
+                                if is_match_attempts - 1 == settings.max_is_match_attempts() {                        
+                                    clear_numbers(&mut logs, &mut numbers, settings);
+                                    is_match_attempts = 0;
+                                    logs.push(Log::Info {
+                                        msg: "Clear - Reached Is Match Attempts".to_string(),
+                                    });
+                                    clear_err_tracker.insert(attempts);
+                                }
+                                // continue;
+                            }                    
+                        }
+                    } else {
+                        set_numbers(
+                            &mut numbers,
+                            settings,
+                            current_data_with_potential_numbers.selected_numbers(),
+                        );
+                    }
                 },
                 Err(e) => {
                     if e.0 == IsWithinErrorType::MakePriority {
@@ -447,50 +493,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                     );
                     continue;
                 },
-            }
-
-            if current_data_with_potential_numbers.selected_numbers().len() == settings.count() {
-                is_match_attempts += 1;
-
-                match is_match_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
-                    Ok(_) => {
-                        set_numbers(
-                            &mut numbers,
-                            settings,
-                            current_data_with_potential_numbers.selected_numbers(),
-                        );
-                        return RandomResult {
-                            status: RandomResultType::Success,
-                            numbers,
-                            attempts,
-                            logs,
-                            clear_err_tracker,
-                            settings: String::new()
-                        };
-                    },
-                    Err(e) => {
-                        halt_from_error(
-                            &format!("imc-{}", e.1),
-                            &format!("is_match_check failed. {}", e.0),
-                            &mut logs,
-                            &mut err_tracker,
-                            attempts,
-                            &mut numbers,
-                            settings,
-                            &mut clear_err_tracker,
-                        );
-                        //clear_numbers(&mut logs, &mut numbers, settings);
-                        if is_match_attempts == settings.max_is_match_attempts() {                        
-                            clear_numbers(&mut logs, &mut numbers, settings);
-                            is_match_attempts = 0;
-                            logs.push(Log::Info {
-                                msg: "Clear - Reached Is Match Attempts".to_string(),
-                            });
-                        }
-                        // continue;
-                    }                    
-                }
-            }
+            }            
         }
     }
 
