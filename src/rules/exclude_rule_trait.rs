@@ -11,7 +11,7 @@ pub fn is_excluded_helper(is_match_results: &std::result::Result<(), String>, ru
     };
 }
 
-pub trait ExcludeRuleTrait: ExcludeRuleTraitClone + Display + std::fmt::Debug {
+pub trait ExcludeRuleTrait: ExcludeRuleTraitClone + Display + std::fmt::Debug + Send + Sync {
 
     fn as_any(&self) -> &dyn Any;
 

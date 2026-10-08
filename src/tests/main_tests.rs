@@ -6,8 +6,6 @@ use crate::settings::*;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 #[cfg(not(feature="rand"))]
-use once_cell::sync::OnceCell;
-#[cfg(not(feature="rand"))]
 use std::sync::OnceLock;
 
 #[test]
@@ -380,9 +378,9 @@ fn uc_random_string_3() {
             for c in s.chars() {
                 if c.is_numeric() {
                     number_count += 1;
-                } else if NP_SPECIAL_CHAR_SET.lock().unwrap().contains(&c) {
+                } else if NP_SPECIAL_CHAR_SET.contains(&c) {
                     special_char_count += 1;
-                } else if NP_ALPHABET_SET.lock().unwrap().contains(&c) {
+                } else if NP_ALPHABET_SET.contains(&c) {
                     char_count += 1;
                 }
             }
@@ -412,9 +410,9 @@ fn uc_random_string_4() {
             for c in s.chars() {
                 if c.is_numeric() {
                     number_count += 1;
-                } else if NP_SPECIAL_CHAR_SET.lock().unwrap().contains(&c) {
+                } else if NP_SPECIAL_CHAR_SET.contains(&c) {
                     special_char_count += 1;
-                } else if NP_ALPHABET_SET.lock().unwrap().contains(&c) {
+                } else if NP_ALPHABET_SET.contains(&c) {
                     char_count += 1;
                 }
             }
@@ -446,9 +444,9 @@ fn uc_random_string_5() {
             for c in s.chars() {
                 if c.is_numeric() {
                     number_count += 1;
-                } else if NP_SPECIAL_CHAR_SET.lock().unwrap().contains(&c) {
+                } else if NP_SPECIAL_CHAR_SET.contains(&c) {
                     special_char_count += 1;
-                } else if NP_ALPHABET_SET.lock().unwrap().contains(&c) {
+                } else if NP_ALPHABET_SET.contains(&c) {
                     char_count += 1;
                 }
             }

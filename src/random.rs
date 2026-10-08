@@ -1,4 +1,4 @@
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
 use crate::random_trait::{get_random_trait, get_random_vec_item, shuffle_vec};
 use crate::rules::{
@@ -188,8 +188,8 @@ pub enum NumberType {
 #[derive(Debug, Clone)]
 pub struct CurrentData<'a> {
     selected_numbers: &'a Vec<usize>,
-    selected_numbers_set: OnceCell<HashSet<usize>>,
-    selected_numbers_sorted: OnceCell<Vec<usize>>,
+    selected_numbers_set: OnceLock<HashSet<usize>>,
+    selected_numbers_sorted: OnceLock<Vec<usize>>,
     settings: &'a Settings,
     shared_data: &'a HashMap<String, MapAnyValue>,
 }
@@ -197,7 +197,7 @@ pub struct CurrentData<'a> {
 impl<'a> CurrentData<'a> {
 
     pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a HashMap<String, MapAnyValue>) -> CurrentData<'a> {
-        return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: OnceCell::new(), selected_numbers_sorted: OnceCell::new() };
+        return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: OnceLock::new(), selected_numbers_sorted: OnceLock::new() };
     }
 
     pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a HashMap<String, MapAnyValue>) -> CurrentData<'a> {
@@ -205,8 +205,8 @@ impl<'a> CurrentData<'a> {
             selected_numbers: current_data.selected_numbers, 
             settings: current_data.settings, 
             shared_data, 
-            selected_numbers_set: OnceCell::new(), 
-            selected_numbers_sorted: OnceCell::new(), 
+            selected_numbers_set: OnceLock::new(), 
+            selected_numbers_sorted: OnceLock::new(), 
         };
         if current_data.selected_numbers_set.get().is_some() {
             let _ = new_current_data.selected_numbers_set.set(current_data.selected_numbers_set.get().unwrap().clone());

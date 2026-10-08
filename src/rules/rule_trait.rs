@@ -17,7 +17,7 @@ pub enum IsWithinErrorType {
     MakePriority,
 }
 
-pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug {
+pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
     fn is_within_range(
         &self,
         current_data: &CurrentData,

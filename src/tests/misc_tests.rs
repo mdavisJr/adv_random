@@ -7,15 +7,12 @@ use crate::random::*;
 use crate::settings::*;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use std::sync::Mutex;
-use once_cell::sync::Lazy;
-#[cfg(not(feature="rand"))]
-use once_cell::sync::OnceCell;
+use std::sync::{LazyLock, Mutex};
 #[cfg(not(feature="rand"))]
 use std::sync::OnceLock;
 
 const MAX_TRIES: usize = 2000;
-static NUMBER_RANGE: Lazy<Mutex<NumberRange>> = Lazy::new(|| { Mutex::new(NumberRange::all(1, 100)) });
+static NUMBER_RANGE: LazyLock<Mutex<NumberRange>> = LazyLock::new(|| { Mutex::new(NumberRange::all(1, 100)) });
 
 #[test]
 fn odd_even_with_order_2() {
@@ -632,3 +629,21 @@ fn number_space_item_from_number_3() {
     assert!("[NumberSpaceItem { number_space_type: Between(1, 3), needs: [1], has: [1] }, NumberSpaceItem { number_space_type: Between(19, 21), needs: [1], has: [1] }, NumberSpaceItem { number_space_type: Between(7, 9), needs: [2], has: [2] }]" == format!("{:?}", number_space), "{:?}", number_space);
 }
 
+
+#[test]
+fn settings_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Settings>();
+}
+
+#[test]
+fn number_space_item_has_too_many() {
+    let lte = OperatorType::Lte(3);
+    //longest run of 5 is more than the longest needed run of 3
+    assert!(NumberSpaceItem::new_full(&lte, &[2, 3], &[1, 5]).has_too_many());
+    //more runs than needed
+    assert!(NumberSpaceItem::new_full(&lte, &[2], &[1, 1]).has_too_many());
+    assert!(!NumberSpaceItem::new_full(&lte, &[3, 2], &[1, 3]).has_too_many());
+    assert!(!NumberSpaceItem::new_full(&lte, &[2, 3], &[2]).has_too_many());
+    assert!(!NumberSpaceItem::new_full(&lte, &[2, 3], &[]).has_too_many());
+}

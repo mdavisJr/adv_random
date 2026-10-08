@@ -1,9 +1,9 @@
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
 
-static RANDOM_TRAIT: OnceCell<Box<dyn RandomTrait + Send + Sync>> = OnceCell::new();
+static RANDOM_TRAIT: OnceLock<Box<dyn RandomTrait + Send + Sync>> = OnceLock::new();
 
 #[cfg(feature="rand")]
 pub fn get_random_trait() -> &'static Box<dyn RandomTrait + Send + Sync> {

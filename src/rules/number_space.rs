@@ -262,6 +262,13 @@ impl NumberSpaceItem {
         return missing_list;
     }
 
+    pub fn has_too_many(&self) -> bool {
+        let mut needs_desc = self.needs.clone();
+        needs_desc.sort_unstable_by(|a, b| b.cmp(a));
+        //has is sorted ascending, so compare largest to largest
+        return self.has.len() > needs_desc.len() || self.has.iter().rev().zip(needs_desc.iter()).any(|(has, needs)| has > needs);
+    }
+
     pub fn process_missing_count(&self) -> usize {
         let missing_list = self.missing();
         for missing in missing_list {
@@ -386,7 +393,7 @@ impl RuleTrait for NumberSpace {
 
         let mut total_missing: usize = 0;
         for number_space_item in &other_number_space.number_space_items {
-            if number_space_item.has > number_space_item.needs {
+            if number_space_item.has_too_many() {
                 return Err((IsWithinErrorType::Regular, format!(
                     "Too many from pool {:?}, \"needs\" is {:?} and \"has\" {:?} from this pool",
                     number_space_item.number_space_type, number_space_item.needs, number_space_item.has

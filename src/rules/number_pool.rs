@@ -4,23 +4,15 @@ use crate::rules::{IsWithinErrorType, MapAnyValue, OperatorType, RuleTrait};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::sync::Mutex;
 use std::fmt::{Debug, Display, Formatter, Result};
-use once_cell::sync::Lazy;
 
 use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 
-pub static NP_ALPHABET_SET: Lazy<Mutex<HashSet<char>>> = Lazy::new(|| {
-    Mutex::new(HashSet::from_iter(['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']))
-});
-pub static NP_NUMERIC_SET: Lazy<Mutex<HashSet<char>>> = Lazy::new(|| {
-    Mutex::new(HashSet::from_iter(['0','1','2','3','4','5','6','7','8','9']))
-});
-pub static NP_SPECIAL_CHAR_SET: Lazy<Mutex<HashSet<char>>> = Lazy::new(|| {
-    Mutex::new(HashSet::from_iter(['!','@','#','$','%','^','&','*','(',')','-','+','=']))
-});
+pub const NP_ALPHABET_SET: [char; 52] = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+pub const NP_NUMERIC_SET: [char; 10] = ['0','1','2','3','4','5','6','7','8','9'];
+pub const NP_SPECIAL_CHAR_SET: [char; 13] = ['!','@','#','$','%','^','&','*','(',')','-','+','='];
 
 
 #[derive(Clone, Debug)]
@@ -32,6 +24,10 @@ pub enum PoolType {
 impl PoolType {
     pub fn new(char_set: &HashSet<char>) -> PoolType {
         return PoolType::Set(char_set.iter().map(|x| *x as usize).collect());
+    }
+
+    pub fn from_chars(chars: &[char]) -> PoolType {
+        return PoolType::Set(chars.iter().map(|x| *x as usize).collect());
     }
 
     pub fn random_number(&self, current_data: &CurrentData) -> usize {
@@ -175,9 +171,9 @@ impl NumberPool {
     pub fn alphanumeric_specs(alpha_count: usize, numeric_count: usize, special_char_count: usize) -> NumberPool {
         
         return NumberPool::new(&[
-            NumberPoolItem::new("alpha_set", &PoolType::new(&NP_ALPHABET_SET.lock().unwrap()), OperatorType::Eq(alpha_count)),
-            NumberPoolItem::new("numeric_set", &PoolType::new(&NP_NUMERIC_SET.lock().unwrap()), OperatorType::Eq(numeric_count)),
-            NumberPoolItem::new("special_char_set", &PoolType::new(&NP_SPECIAL_CHAR_SET.lock().unwrap()), OperatorType::Eq(special_char_count)),         
+            NumberPoolItem::new("alpha_set", &PoolType::from_chars(&NP_ALPHABET_SET), OperatorType::Eq(alpha_count)),
+            NumberPoolItem::new("numeric_set", &PoolType::from_chars(&NP_NUMERIC_SET), OperatorType::Eq(numeric_count)),
+            NumberPoolItem::new("special_char_set", &PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count)),         
         ]);
     }
 
