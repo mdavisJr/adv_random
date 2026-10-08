@@ -1,5 +1,7 @@
 use crate::random::{CurrentData, NumberType, SHARED_DATA_EXCLUSION_SET};
-use crate::random_trait::get_random_trait;
+#[cfg(feature="rand")]
+use crate::default_random::DefaultRandom;
+use crate::random_trait::RandomTrait;
 use crate::rules::{IsWithinErrorType, MapAnyValue, OperatorType, RuleTrait};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
@@ -55,8 +57,9 @@ impl PoolType {
     pub fn difference(&self, numbers_set: &HashSet<usize>) -> Vec<usize> {
         match self {
             PoolType::Set(set) => {
-                let difference = set.difference(numbers_set);
-                return difference.copied().collect();
+                let mut difference: Vec<usize> = set.difference(numbers_set).copied().collect();
+                difference.sort_unstable();
+                return difference;
             }
             PoolType::MinMax(min, max) => {
                 let mut differences: Vec<usize> = Vec::new();
@@ -146,7 +149,12 @@ pub struct NumberPool {
 }
 
 impl NumberPool {
+    #[cfg(feature="rand")]
     pub fn alphanumeric(count: usize, include_special_char: bool) -> NumberPool {
+        return NumberPool::alphanumeric_with_random(&DefaultRandom{}, count, include_special_char);
+    }
+
+    pub fn alphanumeric_with_random(random: &dyn RandomTrait, count: usize, include_special_char: bool) -> NumberPool {
         if (!include_special_char && count < 2) || (include_special_char && count < 3) {
             panic!("Count Must be {} or More", if include_special_char { 3 } else { 2 });
         }
@@ -154,11 +162,11 @@ impl NumberPool {
         let mut special_char_count: usize = if include_special_char { 1 } else { 0 };
 
         if count >= 10 {
-            numeric_count = get_random_trait().get_number(1, 3);
+            numeric_count = random.get_number(1, 3);
         }
 
         if include_special_char && count >= 10 {
-            special_char_count = get_random_trait().get_number(1, 2);
+            special_char_count = random.get_number(1, 2);
         }
 
         let alpha_count = count - numeric_count - special_char_count;
@@ -316,7 +324,11 @@ impl RuleTrait for NumberPool {
             NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
         //println!("{:#?}", other_number_pool);
         let mut numbers: Vec<usize> = Vec::new();
-        for number_pool_item in other_number_pool.number_pool_items.values() {
+        //sorted by key so a seeded random generator gives the same numbers every run
+        let mut keys: Vec<&String> = other_number_pool.number_pool_items.keys().collect();
+        keys.sort_unstable();
+        for key in keys {
+            let number_pool_item = &other_number_pool.number_pool_items[key];
             if number_pool_item.missing > 0 {
                 if let OperatorType::Eq(v) = number_pool_item.needs {
                     if number_pool_item.pool.len() == v {

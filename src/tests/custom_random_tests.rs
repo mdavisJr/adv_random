@@ -1,22 +1,68 @@
+use crate::random::{random_numbers, RandomResultType};
 use crate::random_trait::RandomTrait;
+use crate::rules::NumberRange;
+#[cfg(feature="rand")]
+use crate::rules::{NoDuplicate, NumberPool, OddEven};
+#[cfg(feature="rand")]
+use crate::seeded_random::SeededRandom;
+use crate::settings::Settings;
 
 #[test]
-#[cfg_attr(feature = "rand", ignore)]
-#[cfg(not(feature="rand"))]
-fn no_default_rand() {
-    let test: Box<dyn RandomTrait + Send + Sync> = Box::new(TestNoDefaultRandom{});
-    #[cfg(not(feature="rand"))]
-    set_random_trait(test);
+fn custom_random() {
     let random_result = random_numbers(&Settings::new(&[
         Box::new(NumberRange::all(1, 20))
-    ], 10));
+    ], 10).with_random(TestNoDefaultRandom{}));
     match random_result.numbers() {
         Ok(numbers) => {
             assert!(numbers.len() == 10);
-            assert!(numbers.iter().all(|x| *x >= 1 && *x <= 20));
-            println!("{:?}", numbers);
+            assert!(numbers.iter().all(|x| *x == 1), "{:?}", numbers);
         },
         _ => panic!("{}", random_result)
+    }
+    assert_eq!(random_result.string(true).unwrap().len(), 10);
+}
+
+#[test]
+#[cfg(not(feature="rand"))]
+fn no_random_is_bad_request() {
+    let random_result = random_numbers(&Settings::new(&[
+        Box::new(NumberRange::all(1, 20))
+    ], 10));
+    assert_eq!(random_result.status(), RandomResultType::BadRequest);
+    assert!(random_result.numbers().is_err());
+    assert!(random_result.string(true).is_err());
+    assert_eq!(random_result.logs().len(), 1);
+}
+
+#[test]
+#[cfg(feature="rand")]
+fn seeded_random_is_repeatable() {
+    let run = |seed: u64| -> (Vec<usize>, String) {
+        let random_result = random_numbers(&Settings::new(&[
+            Box::new(NoDuplicate{}),
+            Box::new(NumberRange::all(1, 100)),
+            Box::new(OddEven::new(5, 5))
+        ], 10).with_random(SeededRandom::new(seed)));
+        assert_eq!(random_result.status(), RandomResultType::Success, "{}", random_result);
+        return (random_result.numbers().unwrap().clone(), random_result.string(true).unwrap());
+    };
+    assert_eq!(run(42), run(42));
+    assert_ne!(run(42).0, run(43).0);
+}
+
+#[test]
+#[cfg(feature="rand")]
+fn seeded_random_password_is_repeatable() {
+    let run = |seed: u64| -> String {
+        let random = SeededRandom::new(seed);
+        let random_result = random_numbers(&Settings::new(&[
+            Box::new(NumberPool::alphanumeric_with_random(&random, 12, true))
+        ], 12).with_random(random));
+        assert_eq!(random_result.status(), RandomResultType::Success, "{}", random_result);
+        return random_result.string(true).unwrap();
+    };
+    for seed in 0..20 {
+        assert_eq!(run(seed), run(seed));
     }
 }
 

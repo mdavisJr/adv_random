@@ -1,6 +1,6 @@
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
-use crate::random_trait::{get_random_trait, get_random_vec_item, shuffle_vec};
+use crate::random_trait::{get_random_vec_item, shuffle_vec, RandomTrait};
 use crate::rules::{
     ExcludeRuleTrait, IsWithinErrorType, MapAnyValue, OddEven, PoolType, RuleTrait
 };
@@ -15,6 +15,8 @@ pub const SHARED_DATA_MAX: &str = "max";
 pub const SHARED_DATA_NO_DUPLICATES: &str = "no_duplicates";
 pub const SHARED_DATA_EXCLUSION_SET: &str = "exclusion_set";
 
+const NO_RANDOM_ERR: &str = "No random number generator. Please call Settings::with_random or use feature \"rand\"";
+
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum RandomResultType {
     Success,
@@ -28,7 +30,8 @@ pub struct RandomResult {
     attempts: usize,
     logs: Vec<Log>,
     clear_err_tracker: HashSet<usize>,
-    settings: String
+    settings: String,
+    random: Option<Arc<dyn RandomTrait + Send + Sync>>
 }
 
 impl Debug for RandomResult {
@@ -56,7 +59,9 @@ impl RandomResult {
                 let mut random_string = String::new();
                 let mut numbers: Vec<usize> = self.numbers.clone();
                 if shuffle {
-                    shuffle_vec(&mut numbers);
+                    if let Some(random) = &self.random {
+                        shuffle_vec(random.as_ref(), &mut numbers);
+                    }
                     //numbers.shuffle(&mut thread_rng()); TODO remove
                 }
                 for digit in numbers {
@@ -246,15 +251,17 @@ impl<'a> CurrentData<'a> {
             let val = if let Some(v) = &from_pool_type {
                 match &v {
                     PoolType::Set(set) => {
-                        let rand_pool: Vec<usize> = set.iter().copied().collect();
-                        *get_random_vec_item(&rand_pool)
+                        //sorted so a seeded random generator picks the same number every run
+                        let mut rand_pool: Vec<usize> = set.iter().copied().collect();
+                        rand_pool.sort_unstable();
+                        *get_random_vec_item(self.random(), &rand_pool)
                     }
                     PoolType::MinMax(pool_type_min, pool_type_max) => {
-                        get_random_trait().get_number(*pool_type_min, *pool_type_max)
+                        self.random().get_number(*pool_type_min, *pool_type_max)
                     }
                 }
             } else {
-                get_random_trait().get_number(min, max)
+                self.random().get_number(min, max)
             };
             if exclusion_pools.iter().any(|x| x.contains(val)) {
                 continue;
@@ -294,6 +301,13 @@ impl<'a> CurrentData<'a> {
         return self.settings;
     }
 
+    pub fn random(&self) -> &'a dyn RandomTrait {
+        return match self.settings.random() {
+            Some(v) => v.as_ref(),
+            None => panic!("{}", NO_RANDOM_ERR),
+        };
+    }
+
     pub fn shared_data(&self) -> &'a HashMap<String, MapAnyValue> {
         return self.shared_data;
     }
@@ -314,6 +328,20 @@ impl<'a> CurrentData<'a> {
 }
 
 pub fn random_numbers(settings: &Settings) -> RandomResult {
+    let random: Arc<dyn RandomTrait + Send + Sync> = match settings.random() {
+        Some(v) => v.clone(),
+        None => {
+            return RandomResult {
+                status: RandomResultType::BadRequest,
+                numbers: Vec::new(),
+                attempts: 0,
+                logs: vec![Log::Error { msg: NO_RANDOM_ERR.to_owned() }],
+                clear_err_tracker: HashSet::new(),
+                settings: format!("{:#?}", settings),
+                random: None
+            };
+        }
+    };
     let mut numbers: Vec<usize> = Vec::new();
     let mut is_match_attempts: usize = 0;
     let mut err_tracker: HashMap<String, usize> = HashMap::new();
@@ -335,7 +363,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let current_data_shared_data: HashMap<String, MapAnyValue> = HashMap::new();
         let current_data_selected_numbers_sd = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
         let mut shared_data: HashMap<String, MapAnyValue> = HashMap::new();
-        shuffle_vec(&mut expected_rules);
+        shuffle_vec(random.as_ref(), &mut expected_rules);
         //expected_rules.shuffle(&mut thread_rng()); TODO remove
         if let Some(v) = key_to_make_priority {
             let idx = expected_rules
@@ -443,7 +471,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                                     attempts,
                                     logs,
                                     clear_err_tracker,
-                                    settings: String::new()
+                                    settings: String::new(),
+                                    random: Some(random)
                                 };
                             },
                             Err(e) => {
@@ -503,7 +532,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         attempts: num_attempts,
         logs,
         clear_err_tracker,
-        settings: format!("{:#?}", settings)
+        settings: format!("{:#?}", settings),
+        random: None
     };
 }
 

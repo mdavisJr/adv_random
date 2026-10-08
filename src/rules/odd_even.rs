@@ -115,7 +115,7 @@ impl RuleTrait for OddEven {
             pool_keys.push(OddEvenKey::Odd);
         }
         if !pool_keys.is_empty() {
-            let selected_pool_key = get_random_vec_item(&pool_keys);
+            let selected_pool_key = get_random_vec_item(current_data.random(), &pool_keys);
             let mut number = 0_usize;
             if *selected_pool_key == OddEvenKey::Odd {
                 number = current_data.get_rand(NumberType::Odd, None, None);

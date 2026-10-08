@@ -1,12 +1,8 @@
-#[cfg(not(feature="rand"))]
-use crate::random_trait::set_random_trait;
 use crate::rules::*;
 use crate::random::*;
 use crate::settings::*;
 use std::collections::HashSet;
 use std::iter::FromIterator;
-#[cfg(not(feature="rand"))]
-use std::sync::OnceLock;
 
 #[test]
 fn uc_random_numbers() {

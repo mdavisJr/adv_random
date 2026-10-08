@@ -5,6 +5,17 @@ This framework comes with some standard rules that you can use.  If you don't se
 
 Please see examples of using rules below.  The framework can handle more combinations of rules than what is shown below.  If you would like to see an example that isn't shown, send me a request and I'll add that example.
 
+# Random Number Generator
+By default every `Settings` uses `DefaultRandom` (feature `rand`, on by default).  Call `with_random` to use your own generator for that `Settings`.  A generator is anything that implements `RandomTrait`.
+```
+// Same seed, same numbers
+let settings = Settings::new(&[
+    Box::new(NumberRange::all(1, 20))
+], 10).with_random(SeededRandom::new(42));
+let random_result = random_numbers(&settings);
+```
+If the `rand` feature is turned off there is no default generator.  `random_numbers` returns a result with status `RandomResultType::BadRequest` unless `with_random` was called.  `NumberPool::alphanumeric` also needs the `rand` feature; use `NumberPool::alphanumeric_with_random` to pass your own generator.
+
 # Examples
 ### Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
 ```

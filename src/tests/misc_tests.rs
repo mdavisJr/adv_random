@@ -1,6 +1,5 @@
-use crate::random_trait::get_random_trait;
-#[cfg(not(feature="rand"))]
-use crate::random_trait::set_random_trait;
+use crate::default_random::DefaultRandom;
+use crate::random_trait::RandomTrait;
 use crate::rules::RuleTrait;
 use crate::rules::*;
 use crate::random::*;
@@ -8,8 +7,6 @@ use crate::settings::*;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::sync::{LazyLock, Mutex};
-#[cfg(not(feature="rand"))]
-use std::sync::OnceLock;
 
 const MAX_TRIES: usize = 2000;
 static NUMBER_RANGE: LazyLock<Mutex<NumberRange>> = LazyLock::new(|| { Mutex::new(NumberRange::all(1, 100)) });
@@ -579,7 +576,7 @@ fn random_trait_get_number_1() {
     let min = 1;
     let max = 200;
     for _ in 0..2000 {
-        let number = get_random_trait().get_number(min, max);
+        let number = DefaultRandom{}.get_number(min, max);
         set.insert(number);
         assert!(number >= min && number <= max, "{}", number);
     }
@@ -590,7 +587,7 @@ fn random_trait_get_number_1() {
 fn random_trait_get_bool_1() {
     let mut set = HashSet::new();
     for _ in 0..100 {
-        let bool_value = get_random_trait().get_bool();
+        let bool_value = DefaultRandom{}.get_bool();
         set.insert(bool_value);
     }
     assert!(set.len() == 2);    

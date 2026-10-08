@@ -1,7 +1,6 @@
 use crate::random::CurrentData;
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
-use crate::settings::Settings;
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -62,8 +61,8 @@ impl Sequential {
         return self.not;
     }
 
-    pub fn needs_seq(&self, other: &Self, settings: &Settings) -> usize {
-        if other.not == settings.count() {
+    pub fn needs_seq(&self, other: &Self, current_data: &CurrentData) -> usize {
+        if other.not == current_data.settings().count() {
             return 0;
         }
         let mut other_seq_counts: Vec<usize> = other.seq_counts.clone();
@@ -73,7 +72,7 @@ impl Sequential {
             }
         }
         if !other_seq_counts.is_empty() {
-            return *get_random_vec_item(&other_seq_counts);
+            return *get_random_vec_item(current_data.random(), &other_seq_counts);
         }
         return 0;
     }
@@ -120,13 +119,13 @@ impl RuleTrait for Sequential {
         current_data: &CurrentData
     ) -> std::result::Result<Vec<usize>, String> {
         let act_seq = Sequential::from_numbers(current_data, false);
-        let seq_count_needed = act_seq.needs_seq(self, current_data.settings());
+        let seq_count_needed = act_seq.needs_seq(self, current_data);
         if seq_count_needed > 0 {
             let range = if current_data.selected_numbers().is_empty() {
                 let num = current_data.settings().get_number_within_number_range(current_data).unwrap()[0];
                 num..=(num + seq_count_needed - 1)
             } else {
-                let num = *get_random_vec_item(current_data.selected_numbers());
+                let num = *get_random_vec_item(current_data.random(), current_data.selected_numbers());
                 (num + 1)..=(num + seq_count_needed - 1)
             };
             let mut seq_digits: Vec<usize> = Vec::new();

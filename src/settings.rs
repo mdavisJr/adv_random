@@ -1,6 +1,10 @@
+#[cfg(feature="rand")]
+use crate::default_random::DefaultRandom;
 use crate::random::{CurrentData, SHARED_DATA_MAX, SHARED_DATA_MIN};
+use crate::random_trait::RandomTrait;
 use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, ExcludeRuleTrait};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct Settings {
@@ -9,7 +13,8 @@ pub struct Settings {
     exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>,
     max_tries: usize,
     max_is_match_attempts: usize,
-    max_specific_error_count: usize
+    max_specific_error_count: usize,
+    random: Option<Arc<dyn RandomTrait + Send + Sync>>
 }
 
 impl Settings {
@@ -40,8 +45,28 @@ impl Settings {
             exclude_rules,
             max_tries: 500,
             max_is_match_attempts: 10,
-            max_specific_error_count: 3 * count
+            max_specific_error_count: 3 * count,
+            random: Settings::default_random()
         };
+    }
+
+    #[cfg(feature="rand")]
+    fn default_random() -> Option<Arc<dyn RandomTrait + Send + Sync>> {
+        return Some(Arc::new(DefaultRandom{}));
+    }
+
+    #[cfg(not(feature="rand"))]
+    fn default_random() -> Option<Arc<dyn RandomTrait + Send + Sync>> {
+        return None;
+    }
+
+    pub fn with_random(mut self, random: impl RandomTrait + Send + Sync + 'static) -> Settings {
+        self.random = Some(Arc::new(random));
+        return self;
+    }
+
+    pub fn random(&self) -> Option<&Arc<dyn RandomTrait + Send + Sync>> {
+        return self.random.as_ref();
     }
 
     pub fn get_min_max(

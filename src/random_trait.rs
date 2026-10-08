@@ -1,45 +1,15 @@
-use std::sync::OnceLock;
-
-#[cfg(feature="rand")]
-use crate::default_random::DefaultRandom;
-
-static RANDOM_TRAIT: OnceLock<Box<dyn RandomTrait + Send + Sync>> = OnceLock::new();
-
-#[cfg(feature="rand")]
-pub fn get_random_trait() -> &'static Box<dyn RandomTrait + Send + Sync> {
-    let value: &Box<dyn RandomTrait + Send + Sync> = RANDOM_TRAIT.get_or_init(|| {
-        Box::new(DefaultRandom{})
-    });
-    return value;
+pub fn get_random_vec_item<'a, T>(random: &dyn RandomTrait, vec: &'a [T]) -> &'a T {
+    return &vec[random.get_number(0, vec.len() - 1)];
 }
 
-#[cfg(not(feature="rand"))]
-pub fn get_random_trait() -> &'static Box<dyn RandomTrait + Send + Sync> {
-    let value: &Box<dyn RandomTrait + Send + Sync> = match RANDOM_TRAIT.get() {
-        Some(v) => v,
-        None => panic!("Please call set_random_trait function or use feature \"rand\""),
-    };
-    return value;
-}
-
-#[cfg(not(feature="rand"))]
-pub fn set_random_trait(random_trait: Box<dyn RandomTrait + Send + Sync>) {
-    let _ = RANDOM_TRAIT.set(random_trait);
-}
-
-pub fn get_random_vec_item<T>(vec: &[T]) -> &T {
-    return &vec[get_random_trait().get_number(0, vec.len() - 1)];
-}
-
-// pub fn shuffle<T>(list: &mut [T]) {
-//     list.shuffle(&mut thread_rng());
-// }
-
-pub fn shuffle_vec<T>(vector: &mut [T])
+pub fn shuffle_vec<T>(random: &dyn RandomTrait, vector: &mut [T])
 {
+    if vector.is_empty() {
+        return;
+    }
     let len = vector.len() - 1;
     for i in 0..=len {
-        vector.swap(i, get_random_trait().get_number(i, len));
+        vector.swap(i, random.get_number(i, len));
     }
 }
 

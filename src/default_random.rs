@@ -5,13 +5,13 @@ use crate::random_trait::RandomTrait;
 
 
 #[cfg(feature="rand")]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DefaultRandom {}
 
 #[cfg(feature="rand")]
 impl DefaultRandom {
-    pub fn new() -> Box<dyn RandomTrait> {
-        return Box::new(DefaultRandom {  });
+    pub fn new() -> DefaultRandom {
+        return DefaultRandom {  };
     }
 }
 
