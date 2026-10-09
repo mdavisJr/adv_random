@@ -8,7 +8,7 @@ use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 #[derive(Clone)]
-pub struct NoDuplicate {}
+pub struct NoDuplicate;
 
 impl Display for NoDuplicate {
     fn fmt(&self, f: &mut Formatter) -> Result {

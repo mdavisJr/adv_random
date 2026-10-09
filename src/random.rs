@@ -49,26 +49,47 @@ impl RandomResult {
             _ => Err("Error! Please Check Logs!".to_string())
         }
     }
-    pub fn string(&self, shuffle: bool) -> std::result::Result<String, String> {
+
+    //The numbers as characters, in the order they were created
+    pub fn string(&self) -> std::result::Result<String, String> {
         match self.status {
-            RandomResultType::Success => {
-                let mut random_string = String::new();
-                let mut numbers: Vec<usize> = self.numbers.clone();
-                if shuffle {
-                    if let Some(random) = &self.random {
-                        shuffle_vec(random.as_ref(), &mut numbers);
-                    }
-                }
-                for digit in numbers {
-                    match u32::try_from(digit).ok().and_then(char::from_u32) {
-                        Some(c) => random_string.push(c),
-                        None => return Err(format!("Number {} is not a valid character", digit))
-                    }
-                }
-                return Ok(random_string);
-            },
+            RandomResultType::Success => numbers_to_string(&self.numbers),
             _ => Err("Error! Please Check Logs!".to_string())
         }
+    }
+
+    //The numbers as characters, in a random order
+    pub fn shuffled_string(&self) -> std::result::Result<String, String> {
+        match self.status {
+            RandomResultType::Success => numbers_to_string(&shuffled_numbers(&self.numbers, &self.random)),
+            _ => Err("Error! Please Check Logs!".to_string())
+        }
+    }
+
+    //Ok with the numbers when the status is Success, and Err with what went wrong when it is not
+    pub fn into_result(self) -> std::result::Result<RandomNumbers, RandomError> {
+        return match self.status {
+            RandomResultType::Success => Ok(RandomNumbers {
+                numbers: self.numbers,
+                attempts: self.attempts,
+                logs: self.logs,
+                random: self.random
+            }),
+            RandomResultType::BadRequest => Err(RandomError {
+                error_type: RandomErrorType::BadRequest,
+                messages: self.logs.iter().filter_map(|x| if let Log::Error { msg } = x { Some(msg.to_owned()) } else { None }).collect(),
+                attempts: self.attempts,
+                logs: self.logs,
+                settings: self.settings
+            }),
+            RandomResultType::Failed => Err(RandomError {
+                error_type: RandomErrorType::Failed,
+                messages: vec![format!("Could not find numbers that match the rules in {} attempts", self.attempts)],
+                attempts: self.attempts,
+                logs: self.logs,
+                settings: self.settings
+            })
+        };
     }
     pub fn attempts(&self) -> usize {
         return self.attempts;
@@ -105,6 +126,138 @@ impl fmt::Display for RandomResult {
         )
     }
 }
+
+fn numbers_to_string(numbers: &[usize]) -> std::result::Result<String, String> {
+    let mut random_string = String::new();
+    for digit in numbers {
+        match u32::try_from(*digit).ok().and_then(char::from_u32) {
+            Some(c) => random_string.push(c),
+            None => return Err(format!("Number {} is not a valid character", digit))
+        }
+    }
+    return Ok(random_string);
+}
+
+fn shuffled_numbers(numbers: &[usize], random: &Option<Arc<dyn RandomTrait + Send + Sync>>) -> Vec<usize> {
+    let mut numbers = numbers.to_vec();
+    if let Some(random) = random {
+        shuffle_vec(random.as_ref(), &mut numbers);
+    }
+    return numbers;
+}
+
+//The random numbers from Settings::generate
+pub struct RandomNumbers {
+    numbers: Vec<usize>,
+    attempts: usize,
+    logs: Vec<Log>,
+    random: Option<Arc<dyn RandomTrait + Send + Sync>>
+}
+
+impl RandomNumbers {
+    pub fn numbers(&self) -> &Vec<usize> {
+        return &self.numbers;
+    }
+
+    pub fn into_numbers(self) -> Vec<usize> {
+        return self.numbers;
+    }
+
+    //The numbers as characters, in the order they were created
+    pub fn string(&self) -> std::result::Result<String, RandomError> {
+        return numbers_to_string(&self.numbers).map_err(|x| self.invalid_character(x));
+    }
+
+    //The numbers as characters, in a random order
+    pub fn shuffled_string(&self) -> std::result::Result<String, RandomError> {
+        return numbers_to_string(&shuffled_numbers(&self.numbers, &self.random)).map_err(|x| self.invalid_character(x));
+    }
+
+    pub fn attempts(&self) -> usize {
+        return self.attempts;
+    }
+
+    pub fn logs(&self) -> &Vec<Log> {
+        return &self.logs;
+    }
+
+    fn invalid_character(&self, message: String) -> RandomError {
+        return RandomError {
+            error_type: RandomErrorType::InvalidCharacter,
+            messages: vec![message],
+            attempts: self.attempts,
+            logs: Vec::new(),
+            settings: String::new()
+        };
+    }
+}
+
+impl Debug for RandomNumbers {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "RandomNumbers {{ numbers: {:?}, attempts: {} }}", self.numbers, self.attempts)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum RandomErrorType {
+    //The settings can not work.  The messages say why.
+    BadRequest,
+    //No numbers that match the rules were found in the attempts that are allowed
+    Failed,
+    //A number is not a valid character, so the numbers can not be a string
+    InvalidCharacter,
+}
+
+//Why Settings::generate, or a string from its numbers, did not work
+pub struct RandomError {
+    error_type: RandomErrorType,
+    messages: Vec<String>,
+    attempts: usize,
+    logs: Vec<Log>,
+    settings: String
+}
+
+impl RandomError {
+    pub fn error_type(&self) -> RandomErrorType {
+        return self.error_type;
+    }
+
+    pub fn messages(&self) -> &Vec<String> {
+        return &self.messages;
+    }
+
+    pub fn attempts(&self) -> usize {
+        return self.attempts;
+    }
+
+    //Everything that happened in every attempt
+    pub fn logs(&self) -> &Vec<Log> {
+        return &self.logs;
+    }
+}
+
+//The short version, such as "BadRequest: NumberRange min: 20 is greater than max: 1"
+impl fmt::Display for RandomError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "{:?}: {}", self.error_type, self.messages.join("; "))
+    }
+}
+
+//The long version, with the settings and the logs
+impl Debug for RandomError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(
+            f,
+            "{}\n\nSettings:\n\n{}\n\nAttempts - {}\n{}",
+            self,
+            self.settings,
+            self.attempts,
+            self.logs.iter().map(|x| x.to_string()).collect::<Vec<String>>().join("\n")
+        )
+    }
+}
+
+impl std::error::Error for RandomError {}
 
 fn set_numbers(
     numbers: &mut Vec<usize>,
