@@ -16,7 +16,7 @@ pub const SHARED_DATA_NO_DUPLICATES: &str = "no_duplicates";
 pub const SHARED_DATA_EXCLUSION_SET: &str = "exclusion_set";
 
 pub const NO_NUMBER_FOUND_ERR: &str = "Could not find a number that fits the rules";
-const NO_RANDOM_ERR: &str = "No random number generator. Please call Settings::with_random or use feature \"rand\"";
+pub const NO_RANDOM_ERR: &str = "No random number generator. Please call Settings::with_random or use feature \"rand\"";
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum RandomResultType {
@@ -228,6 +228,7 @@ impl<'a> CurrentData<'a> {
 
     //Returns None when no number that fits could be found
     pub fn get_rand(&self, number_type: NumberType, from_pool_type: Option<&PoolType>, min_max: Option<(usize, usize)>) -> Option<usize> {
+        let random = self.random()?;
         let (min, max) = if let Some((min, max)) = min_max {
             (min, max)
         } else {
@@ -259,20 +260,20 @@ impl<'a> CurrentData<'a> {
                         //sorted so a seeded random generator picks the same number every run
                         let mut rand_pool: Vec<usize> = set.iter().copied().collect();
                         rand_pool.sort_unstable();
-                        *get_random_vec_item(self.random(), &rand_pool)?
+                        *get_random_vec_item(random, &rand_pool)?
                     }
                     PoolType::MinMax(pool_type_min, pool_type_max) => {
                         if pool_type_min > pool_type_max {
                             return None;
                         }
-                        self.random().get_number(*pool_type_min, *pool_type_max)
+                        random.get_number(*pool_type_min, *pool_type_max)
                     }
                 }
             } else {
                 if min > max {
                     return None;
                 }
-                self.random().get_number(min, max)
+                random.get_number(min, max)
             };
             if exclusion_pools.iter().any(|x| x.contains(val)) {
                 continue;
@@ -308,10 +309,11 @@ impl<'a> CurrentData<'a> {
         return self.settings;
     }
 
-    pub fn random(&self) -> &'a dyn RandomTrait {
+    //Returns None when the settings have no random number generator
+    pub fn random(&self) -> Option<&'a dyn RandomTrait> {
         return match self.settings.random() {
-            Some(v) => v.as_ref(),
-            None => panic!("{}", NO_RANDOM_ERR),
+            Some(v) => Some(v.as_ref()),
+            None => None,
         };
     }
 

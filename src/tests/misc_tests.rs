@@ -579,7 +579,7 @@ fn random_trait_get_number_1() {
     let mut set = HashSet::new();
     let min = 1;
     let max = 200;
-    for _ in 0..2000 {
+    for _ in 0..20000 {
         let number = DefaultRandom{}.get_number(min, max);
         set.insert(number);
         assert!(number >= min && number <= max, "{}", number);
@@ -829,7 +829,13 @@ fn empty_and_large_values() {
     let settings = Settings::new(&[Box::new(Sequential::new(0, &[3]))], 3);
     let selected = vec![usize::MAX - 1];
     let shared_data = HashMap::new();
-    assert!(Sequential::new(0, &[3]).get_numbers(&CurrentData::new(&selected, &settings, &shared_data)).is_err());
+    for _ in 0..50 {
+        //extending usize::MAX - 1 into a sequence of 3 does not fit, starting a new sequence does
+        match Sequential::new(0, &[3]).get_numbers(&CurrentData::new(&selected, &settings, &shared_data)) {
+            Ok(numbers) => assert_eq!(numbers.unwrap().len(), 3),
+            Err(e) => assert!(e.contains("does not fit"), "{}", e)
+        }
+    }
 }
 
 #[test]
@@ -850,4 +856,67 @@ fn number_range_min_greater_than_max() {
 fn number_range_min_greater_than_max_by_index() {
     assert!(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 1000, 9999)]).check_count(3).is_ok());
     assert!(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 9999, 1000)]).check_count(3).is_err());
+}
+
+#[test]
+fn sequential_more_than_one_sequence() {
+    //(min, max, not, seq_counts)
+    let data: Vec<(usize, usize, usize, Vec<usize>)> = vec![
+        (1, 10, 1, vec![2, 2]),
+        (1, 10, 0, vec![2, 3]),
+        (1, 100, 0, vec![2, 2, 2, 2]),
+        (1, 20, 2, vec![3, 3]),
+        (1, 30, 4, vec![2, 3, 4]),
+    ];
+    for (min, max, not, seq_counts) in data {
+        let count = not + seq_counts.iter().sum::<usize>();
+        for _ in 0..200 {
+            let random_result = random_numbers(&Settings::new(&[
+                Box::new(NoDuplicate{}),
+                Box::new(NumberRange::all(min, max)),
+                Box::new(Sequential::new(not, &seq_counts)),
+            ], count));
+            assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
+            let numbers = random_result.numbers().unwrap();
+            assert!(numbers.iter().all(|x| *x >= min && *x <= max), "{:?}", numbers);
+            let actual = Sequential::from_numbers(&CurrentData::new(numbers, &Settings::new(&[], count), &HashMap::new()), false);
+            assert_eq!(actual.not(), not, "{:?}", numbers);
+            assert_eq!(actual.seq_counts(), &seq_counts, "{:?}", numbers);
+        }
+    }
+}
+
+#[test]
+fn sequential_is_within_range_sequence_too_long() {
+    let rule = Sequential::new(1, &[2, 2]);
+    let settings = Settings::new(&[], 5);
+    let shared_data = HashMap::new();
+    //a sequence of 3 can never become a sequence of 2
+    let numbers = vec![5, 6, 7];
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_err());
+    let numbers = vec![5, 6];
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_ok());
+    let numbers = vec![5, 6, 9];
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_ok());
+}
+
+#[test]
+fn number_space_item_missing() {
+    let lte = OperatorType::Lte(3);
+    //the run of 3 that is already there is the run of 3 that is needed, so the run of 2 is missing
+    let item = NumberSpaceItem::new_full(&lte, &[2, 3], &[3]);
+    assert_eq!(item.missing(), vec![2, 0]);
+    assert_eq!(item.process_missing_count(), 2);
+
+    let item = NumberSpaceItem::new_full(&lte, &[1, 4], &[1]);
+    assert_eq!(item.missing(), vec![1, 3]);
+    assert_eq!(item.process_missing_count(), 3);
+
+    let item = NumberSpaceItem::new_full(&lte, &[2, 3], &[]);
+    assert_eq!(item.missing(), vec![2, 3]);
+    assert_eq!(item.process_missing_count(), 3);
+
+    let item = NumberSpaceItem::new_full(&lte, &[2, 3], &[2, 3]);
+    assert_eq!(item.missing(), vec![0, 0]);
+    assert_eq!(item.process_missing_count(), 0);
 }

@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
+use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR, NO_RANDOM_ERR};
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use std::any::Any;
@@ -114,14 +114,15 @@ impl RuleTrait for OddEven {
         if act_odd_even.needs_odd(self) {
             pool_keys.push(OddEvenKey::Odd);
         }
-        if let Some(selected_pool_key) = get_random_vec_item(current_data.random(), &pool_keys) {
-            let number_type = match selected_pool_key {
-                OddEvenKey::Odd => NumberType::Odd,
-                OddEvenKey::Even => NumberType::Even
-            };
-            return Ok(Some(vec![current_data.get_rand(number_type, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?]));
+        if pool_keys.is_empty() {
+            return Ok(None);
         }
-        return Ok(None);
+        let random = current_data.random().ok_or_else(|| NO_RANDOM_ERR.to_owned())?;
+        let number_type = match get_random_vec_item(random, &pool_keys) {
+            Some(OddEvenKey::Even) => NumberType::Even,
+            _ => NumberType::Odd
+        };
+        return Ok(Some(vec![current_data.get_rand(number_type, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?]));
     }
 
     fn is_within_range(

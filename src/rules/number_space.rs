@@ -255,10 +255,12 @@ impl NumberSpaceItem {
     }
 
     pub fn missing(&self) -> Vec<usize> {
+        //needs and has are both sorted, so the longest of each are paired with each other
         let mut missing_list: Vec<usize> = Vec::new();
         for i in 0..self.needs.len() {
-            if i < self.has.len() {
-                let missing = self.needs[i].saturating_sub(self.has[i]);
+            let from_end = self.needs.len() - i;
+            if from_end <= self.has.len() {
+                let missing = self.needs[i].saturating_sub(self.has[self.has.len() - from_end]);
                 missing_list.push(missing);
             } else {
                 missing_list.push(self.needs[i]);
@@ -276,8 +278,9 @@ impl NumberSpaceItem {
     }
 
     pub fn process_missing_count(&self) -> usize {
+        //the longest missing run is processed first
         let missing_list = self.missing();
-        for missing in missing_list {
+        for missing in missing_list.into_iter().rev() {
             if missing > 0 {
                 return missing;
             }

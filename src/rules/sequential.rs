@@ -1,4 +1,5 @@
-use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
+use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR, NO_RANDOM_ERR};
+use crate::settings::Settings;
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use std::any::Any;
@@ -74,7 +75,10 @@ impl Sequential {
                 other_seq_counts.remove(idx);
             }
         }
-        return get_random_vec_item(current_data.random(), &other_seq_counts).copied().unwrap_or(0);
+        return match current_data.random() {
+            Some(random) => get_random_vec_item(random, &other_seq_counts).copied().unwrap_or(0),
+            None => other_seq_counts.first().copied().unwrap_or(0)
+        };
     }
 }
 
@@ -121,12 +125,28 @@ impl RuleTrait for Sequential {
         let act_seq = Sequential::from_numbers(current_data, false);
         let seq_count_needed = act_seq.needs_seq(self, current_data);
         if seq_count_needed > 0 {
-            let (first, last) = if current_data.selected_numbers().is_empty() {
-                let num = current_data.get_rand(NumberType::Any, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?;
-                (Some(num), num.checked_add(seq_count_needed - 1))
-            } else {
-                let num = *get_random_vec_item(current_data.random(), current_data.selected_numbers()).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?;
-                (num.checked_add(1), num.checked_add(seq_count_needed - 1))
+            let random = current_data.random().ok_or_else(|| NO_RANDOM_ERR.to_owned())?;
+            //A selected number that is not part of a sequence can be extended into one.  None starts a new sequence.
+            let selected_numbers_set = current_data.selected_numbers_set();
+            let mut starts: Vec<Option<usize>> = current_data.selected_numbers_sorted().iter().copied()
+                .filter(|x| {
+                    let has_lower = x.checked_sub(1).is_some_and(|v| selected_numbers_set.contains(&v));
+                    let has_higher = x.checked_add(1).is_some_and(|v| selected_numbers_set.contains(&v));
+                    !has_lower && !has_higher
+                })
+                .map(Some)
+                .collect();
+            starts.push(None);
+            let (first, last) = match get_random_vec_item(random, &starts).copied().flatten() {
+                Some(num) => (num.checked_add(1), num.checked_add(seq_count_needed - 1)),
+                None => {
+                    //leave room for the whole sequence before max
+                    let (min, max) = Settings::get_min_max(current_data.shared_data());
+                    let max_start = max.checked_sub(seq_count_needed - 1).filter(|v| *v >= min)
+                        .ok_or_else(|| format!("Sequence of {} numbers does not fit between min: {} and max: {}", seq_count_needed, min, max))?;
+                    let num = current_data.get_rand(NumberType::Any, None, Some((min, max_start))).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?;
+                    (Some(num), num.checked_add(seq_count_needed - 1))
+                }
             };
             return match (first, last) {
                 (Some(first), Some(last)) => Ok(Some((first..=last).collect())),
@@ -159,6 +179,13 @@ impl RuleTrait for Sequential {
                     self.not, self.seq_counts, other.not, other.seq_counts, idx
                 )));
             }
+        }
+        //a sequence never gets shorter, so the longest sequences have to fit in the longest expected sequences
+        if self.seq_counts.iter().rev().zip(other.seq_counts.iter().rev()).any(|(a, b)| b > a) {
+            return Err((IsWithinErrorType::Regular, format!(
+                "Sequence is too long. Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}.",
+                self.not, self.seq_counts, other.not, other.seq_counts
+            )));
         }
         return Ok(());
     }

@@ -1,6 +1,12 @@
 use crate::random::{random_numbers, RandomResultType};
+#[cfg(not(feature="rand"))]
+use crate::random::{CurrentData, NumberType};
 use crate::random_trait::RandomTrait;
 use crate::rules::NumberRange;
+#[cfg(not(feature="rand"))]
+use crate::rules::{NumberPool, NumberPoolItem, NumberSpace, NumberSpaceItem, OddEven, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential};
+#[cfg(not(feature="rand"))]
+use std::collections::HashMap;
 #[cfg(feature="rand")]
 use crate::rules::{NoDuplicate, NumberPool, OddEven};
 #[cfg(feature="rand")]
@@ -32,6 +38,23 @@ fn no_random_is_bad_request() {
     assert!(random_result.numbers().is_err());
     assert!(random_result.string(true).is_err());
     assert_eq!(random_result.logs().len(), 1);
+}
+
+#[test]
+#[cfg(not(feature="rand"))]
+fn no_random_rules_return_errors() {
+    //rules called directly without a random number generator return errors instead of panicking
+    let settings = Settings::new(&[], 5);
+    let shared_data = HashMap::new();
+    let selected = vec![];
+    let current_data = CurrentData::new(&selected, &settings, &shared_data);
+    assert!(current_data.random().is_none());
+    assert_eq!(current_data.get_rand(NumberType::Any, None, None), None);
+    assert!(RandomNumber{}.get_numbers(&current_data).is_err());
+    assert!(OddEven::new(3, 2).get_numbers(&current_data).is_err());
+    assert!(Sequential::new(3, &[2]).get_numbers(&current_data).is_err());
+    assert!(NumberPool::new(&[NumberPoolItem::new("a", &PoolType::MinMax(1, 5), OperatorType::Eq(1))]).get_numbers(&current_data).is_err());
+    assert!(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lte(3), 4)]).get_numbers(&current_data).unwrap().is_none());
 }
 
 #[test]
