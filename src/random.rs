@@ -2,18 +2,13 @@ use std::sync::{Arc, OnceLock};
 
 use crate::random_trait::{get_random_vec_item, shuffle_vec, RandomTrait};
 use crate::rules::{
-    ExcludeRuleTrait, IsWithinErrorType, MapAnyValue, OddEven, PoolType, RuleTrait
+    ExcludeRuleTrait, IsWithinErrorType, OddEven, PoolType, RuleTrait, SharedData
 };
 use crate::settings::Settings;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::Hash;
-
-pub const SHARED_DATA_MIN: &str = "min";
-pub const SHARED_DATA_MAX: &str = "max";
-pub const SHARED_DATA_NO_DUPLICATES: &str = "no_duplicates";
-pub const SHARED_DATA_EXCLUSION_SET: &str = "exclusion_set";
 
 pub const NO_NUMBER_FOUND_ERR: &str = "Could not find a number that fits the rules";
 pub const NO_RANDOM_ERR: &str = "No random number generator. Please call Settings::with_random or use feature \"rand\"";
@@ -63,7 +58,6 @@ impl RandomResult {
                     if let Some(random) = &self.random {
                         shuffle_vec(random.as_ref(), &mut numbers);
                     }
-                    //numbers.shuffle(&mut thread_rng()); TODO remove
                 }
                 for digit in numbers {
                     match u32::try_from(digit).ok().and_then(char::from_u32) {
@@ -150,12 +144,28 @@ impl fmt::Display for Log {
     }
 }
 
+//A rule in the settings.  The number is its index in expected_rules or exclude_rules.
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+enum RuleRef {
+    Expected(usize),
+    Exclude(usize),
+}
+
+//What went wrong and for which rule.  The numbers are reset when the same one happens too many times.
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+enum ErrKey {
+    GetNumbers(usize),
+    IsWithinRange(RuleRef),
+    IsMatch(RuleRef),
+    TooManyNumbers,
+}
+
 #[allow(clippy::too_many_arguments)]
-pub fn halt_from_error(
-    err_for_err_tracker: &str,
+fn halt_from_error(
+    err_key: ErrKey,
     err: &str,
     logs: &mut Vec<Log>,
-    err_tracker: &mut HashMap<String, usize>,
+    err_tracker: &mut HashMap<ErrKey, usize>,
     attempts: usize,
     numbers: &mut Vec<usize>,
     settings: &Settings,
@@ -165,12 +175,12 @@ pub fn halt_from_error(
         msg: err.to_owned(),
     });
     let count = *err_tracker
-        .entry(err_for_err_tracker.to_owned())
+        .entry(err_key)
         .and_modify(|x| *x += 1)
         .or_insert(1);
     if count > (settings.max_specific_error_count()) {
         logs.push(Log::Error {
-            msg: format!("Reset Because Of Too Many Same Errors - {}: {}", err_for_err_tracker, err),
+            msg: format!("Reset Because Of Too Many Same Errors - {:?}: {}", err_key, err),
         });
         reset(logs, numbers, settings, err_tracker);
         clear_err_tracker.insert(attempts);
@@ -181,7 +191,7 @@ fn reset(
     logs: &mut Vec<Log>,
     numbers: &mut Vec<usize>,
     settings: &Settings,
-    err_tracker: &mut HashMap<String, usize>,
+    err_tracker: &mut HashMap<ErrKey, usize>,
 ) {
     clear_numbers(logs, numbers, settings);
     err_tracker.clear();
@@ -200,16 +210,16 @@ pub struct CurrentData<'a> {
     selected_numbers_set: OnceLock<HashSet<usize>>,
     selected_numbers_sorted: OnceLock<Vec<usize>>,
     settings: &'a Settings,
-    shared_data: &'a HashMap<String, MapAnyValue>,
+    shared_data: &'a SharedData,
 }
 
 impl<'a> CurrentData<'a> {
 
-    pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a HashMap<String, MapAnyValue>) -> CurrentData<'a> {
+    pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a SharedData) -> CurrentData<'a> {
         return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: OnceLock::new(), selected_numbers_sorted: OnceLock::new() };
     }
 
-    pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a HashMap<String, MapAnyValue>) -> CurrentData<'a> {
+    pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a SharedData) -> CurrentData<'a> {
         let new_current_data = CurrentData { 
             selected_numbers: current_data.selected_numbers, 
             settings: current_data.settings, 
@@ -229,30 +239,9 @@ impl<'a> CurrentData<'a> {
     //Returns None when no number that fits could be found
     pub fn get_rand(&self, number_type: NumberType, from_pool_type: Option<&PoolType>, min_max: Option<(usize, usize)>) -> Option<usize> {
         let random = self.random()?;
-        let (min, max) = if let Some((min, max)) = min_max {
-            (min, max)
-        } else {
-            Settings::get_min_max(self.shared_data)
-        };
-        let no_duplicates = if self.shared_data.contains_key(SHARED_DATA_NO_DUPLICATES) {
-            if let MapAnyValue::Bool(v) = self.shared_data[SHARED_DATA_NO_DUPLICATES] {
-                v
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-        let exclusion_pools: &Vec<PoolType> = 
-        if self.shared_data.contains_key(SHARED_DATA_EXCLUSION_SET) {
-            if let MapAnyValue::PoolTypes(v) = &self.shared_data[SHARED_DATA_EXCLUSION_SET] {
-                v
-            } else{
-                &Vec::new()
-            }
-        } else {
-            &Vec::new()
-        };
+        let (min, max) = min_max.unwrap_or_else(|| self.shared_data.min_max());
+        let no_duplicates = self.shared_data.no_duplicates();
+        let exclusion_pools = self.shared_data.exclusion_pools();
         for _ in 1..=30 {
             let val = if let Some(v) = &from_pool_type {
                 match &v {
@@ -314,7 +303,7 @@ impl<'a> CurrentData<'a> {
         };
     }
 
-    pub fn shared_data(&self) -> &'a HashMap<String, MapAnyValue> {
+    pub fn shared_data(&self) -> &'a SharedData {
         return self.shared_data;
     }
 
@@ -334,14 +323,18 @@ impl<'a> CurrentData<'a> {
 }
 
 pub fn random_numbers(settings: &Settings) -> RandomResult {
+    let mut errors: Vec<Log> = settings.errors().iter().map(|x| Log::Error { msg: x.to_owned() }).collect();
+    if settings.random().is_none() {
+        errors.push(Log::Error { msg: NO_RANDOM_ERR.to_owned() });
+    }
     let random: Arc<dyn RandomTrait + Send + Sync> = match settings.random() {
-        Some(v) => v.clone(),
-        None => {
+        Some(v) if errors.is_empty() => v.clone(),
+        _ => {
             return RandomResult {
                 status: RandomResultType::BadRequest,
                 numbers: Vec::new(),
                 attempts: 0,
-                logs: vec![Log::Error { msg: NO_RANDOM_ERR.to_owned() }],
+                logs: errors,
                 clear_err_tracker: HashSet::new(),
                 settings: format!("{:#?}", settings),
                 random: None
@@ -361,7 +354,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
     }
     let mut numbers: Vec<usize> = Vec::new();
     let mut is_match_attempts: usize = 0;
-    let mut err_tracker: HashMap<String, usize> = HashMap::new();
+    let mut err_tracker: HashMap<ErrKey, usize> = HashMap::new();
     let mut num_attempts = 1;
     let mut logs: Vec<Log> = Vec::new();
     let mut clear_err_tracker: HashSet<usize> = HashSet::new();
@@ -378,11 +371,10 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let mut gen_type = String::from("");
 
         let current_data_numbers: Vec<usize> = numbers.to_vec();
-        let current_data_shared_data: HashMap<String, MapAnyValue> = HashMap::new();
+        let current_data_shared_data = SharedData::new();
         let current_data_selected_numbers_sd = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
-        let mut shared_data: HashMap<String, MapAnyValue> = HashMap::new();
+        let mut shared_data = SharedData::new();
         shuffle_vec(random.as_ref(), &mut expected_rules);
-        //expected_rules.shuffle(&mut thread_rng()); TODO remove
         if let Some(v) = rule_to_make_priority.take() {
             if let Some(idx) = expected_rules.iter().position(|x| x.0 == v) {
                 expected_rules.swap(0, idx);
@@ -393,28 +385,12 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
             if let Some(actual_rule_shared_data) =
                 expected_rule.share_data(&current_data_selected_numbers_sd)
             {
-                for item in actual_rule_shared_data {
-                    match item.0.as_str() {
-                        SHARED_DATA_EXCLUSION_SET => {
-                            if let MapAnyValue::PoolTypes(new_pool_types) = item.1 {
-                                shared_data.entry(item.0.to_owned()).and_modify(|x| {
-                                    if let MapAnyValue::PoolTypes(pool_types) = x {
-                                        pool_types.extend(new_pool_types.clone());
-                                    }
-                                }).or_insert_with(|| MapAnyValue::PoolTypes(new_pool_types.clone()));
-                            }
-                        },
-                        _ => {
-                            shared_data.insert(item.0.to_owned(), item.1);
-                        }
-                    }                    
-                }
+                shared_data.merge(actual_rule_shared_data);
             }
         }
 
         let current_data_selected_numbers_gn = CurrentData::from_current_data(&current_data_selected_numbers_sd, &shared_data);
-        //println!("{:#?}", current_data_selected_numbers_gn);
-        for (_, expected_rule) in &expected_rules {
+        for (idx, expected_rule) in &expected_rules {
             match expected_rule.get_numbers(&current_data_selected_numbers_gn) {
                 Ok(Some(v)) => {
                     gen_type = expected_rule.name();
@@ -424,8 +400,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 Ok(None) => {}
                 Err(e) => {
                     halt_from_error(
-                        &format!("gn-{}", expected_rule.name()),
-                        &e,
+                        ErrKey::GetNumbers(*idx),
+                        &format!("{} - {}", expected_rule.name(), e),
                         &mut logs,
                         &mut err_tracker,
                         attempts,
@@ -455,7 +431,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
             if current_data_with_potential_numbers.selected_numbers().len() > settings.count() {
                 halt_from_error(
-                    "Too Many Numbers Selected.",
+                    ErrKey::TooManyNumbers,
                     "Too Many Numbers Selected.",
                     &mut logs,
                     &mut err_tracker,
@@ -491,7 +467,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                             },
                             Err(e) => {
                                 halt_from_error(
-                                    &format!("imc-{}", e.1),
+                                    ErrKey::IsMatch(e.1),
                                     &format!("is_match_check failed. {}", e.0),
                                     &mut logs,
                                     &mut err_tracker,
@@ -500,7 +476,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                                     settings,
                                     &mut clear_err_tracker,
                                 );
-                                //clear_numbers(&mut logs, &mut numbers, settings);
                                 if is_match_attempts - 1 == settings.max_is_match_attempts() {                        
                                     clear_numbers(&mut logs, &mut numbers, settings);
                                     is_match_attempts = 0;
@@ -509,7 +484,6 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                                     });
                                     clear_err_tracker.insert(attempts);
                                 }
-                                // continue;
                             }                    
                         }
                     } else {
@@ -521,11 +495,12 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                     }
                 },
                 Err(e) => {
-                    if e.0 == IsWithinErrorType::MakePriority {
-                        rule_to_make_priority = e.2;
+                    //an exclude rule can not be made the priority because it does not get numbers
+                    if let (IsWithinErrorType::MakePriority, RuleRef::Expected(idx)) = (&e.0, e.2) {
+                        rule_to_make_priority = Some(idx);
                     }
                     halt_from_error(
-                        &format!("iwrc-{}", e.3),
+                        ErrKey::IsWithinRange(e.2),
                         &e.1,
                         &mut logs,
                         &mut err_tracker,
@@ -552,86 +527,59 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 }
 
 
+//Checks every rule in order and returns the error from the first rule that does not match, with which rule it was
 fn is_match_check(
     expected_rules: &[(usize, &dyn RuleTrait)], 
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, current_data: &CurrentData,
-    logs: &mut Vec<Log>) -> std::result::Result<(), (String, String)> {
-    let mut err: std::result::Result<(), String> = Ok(());
-    let mut rule_name = String::new();
-    for (_, expected_rule) in expected_rules {
-        err = expected_rule.is_match(current_data);
-        if err.is_err() {
+    logs: &mut Vec<Log>) -> std::result::Result<(), (String, RuleRef)> {
+    for (idx, expected_rule) in expected_rules {
+        if let Err(e) = expected_rule.is_match(current_data) {
             logs.push(Log::Info {
                 msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
             });
-            rule_name = expected_rule.name();
-            break;
+            return Err((e, RuleRef::Expected(*idx)));
         }
     }
-    if let Ok(()) = err {
-        if let Some(exc_rules) = exclude_rules {
-            for exclude_rule in exc_rules {
-                err = exclude_rule.is_excluded(current_data);
-                if err.is_err() {
-                    logs.push(Log::Info {
-                        msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
-                    });
-                    rule_name = format!("exr-{}", exclude_rule.exclude_name());
-                    break;
-                }
+    if let Some(exc_rules) = exclude_rules {
+        for (idx, exclude_rule) in exc_rules.iter().enumerate() {
+            if let Err(e) = exclude_rule.is_excluded(current_data) {
+                logs.push(Log::Info {
+                    msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
+                });
+                return Err((e, RuleRef::Exclude(idx)));
             }
         }
     }
 
-    return match err {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            Err((e, rule_name))
-        }
-    };
+    return Ok(());
 }
 
-//The Option<usize> in the error is the index of the expected rule that failed.  It is None for an exclude rule.
+//Checks every rule in order and returns the error from the first rule that is out of range, with which rule it was
 fn is_within_range_check(
     expected_rules: &[(usize, &dyn RuleTrait)], 
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, 
     current_data: &CurrentData,
-    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, Option<usize>, String)> {
-    let mut err: std::result::Result<(), (IsWithinErrorType, String)> = Ok(());
-    let mut priority_rule: Option<usize> = None;
-    let mut rule_name = String::new();
+    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
     for (idx, expected_rule) in expected_rules {
-        err = expected_rule.is_within_range(current_data);
-        if err.is_err() {
+        if let Err(e) = expected_rule.is_within_range(current_data) {
             logs.push(Log::Info {
                 msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
             });
-            priority_rule = Some(*idx);
-            rule_name = expected_rule.name();
-            break;
+            return Err((e.0, e.1, RuleRef::Expected(*idx)));
         }
     }
-    if let Ok(()) = err {
-        if let Some(exc_rules) = exclude_rules {
-            for exclude_rule in exc_rules {
-                err = exclude_rule.is_within_excluded_range(current_data);
-                if err.is_err() {
-                    logs.push(Log::Info {
-                        msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
-                    });
-                    rule_name = format!("exr-{}", exclude_rule.exclude_name());
-                    break;
-                }
+    if let Some(exc_rules) = exclude_rules {
+        for (idx, exclude_rule) in exc_rules.iter().enumerate() {
+            if let Err(e) = exclude_rule.is_within_excluded_range(current_data) {
+                logs.push(Log::Info {
+                    msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
+                });
+                return Err((e.0, e.1, RuleRef::Exclude(idx)));
             }
         }
     }
 
-    return match err {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            Err((e.0, e.1, priority_rule, rule_name))
-        }
-    };
+    return Ok(());
 }

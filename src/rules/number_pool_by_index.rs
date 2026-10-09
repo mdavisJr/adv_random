@@ -1,6 +1,6 @@
 use crate::random::{CurrentData, NO_NUMBER_FOUND_ERR};
 use crate::rules::{
-    IsWithinErrorType, MapAnyValue, RuleTrait, PoolType,
+    IsWithinErrorType, SharedData, RuleTrait, PoolType,
 };
 use std::any::Any;
 use std::collections::HashSet;
@@ -61,7 +61,7 @@ impl RuleTrait for NumberPoolByIndex {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
+    ) -> Option<SharedData> {
         None
     }
 

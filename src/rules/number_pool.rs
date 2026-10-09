@@ -1,8 +1,8 @@
-use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR, SHARED_DATA_EXCLUSION_SET};
+use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
 use crate::random_trait::RandomTrait;
-use crate::rules::{IsWithinErrorType, MapAnyValue, OperatorType, RuleTrait};
+use crate::rules::{IsWithinErrorType, SharedData, OperatorType, RuleTrait};
 use std::any::Any;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
@@ -161,6 +161,8 @@ impl NumberPoolItemFull {
 pub struct NumberPool {
     //sorted by key, so a seeded random generator gives the same numbers every run
     number_pool_items: BTreeMap<String, NumberPoolItemFull>,
+    //set when the number pool could not be created.  check_count returns it.
+    error: Option<String>,
 }
 
 impl NumberPool {
@@ -170,8 +172,12 @@ impl NumberPool {
     }
 
     pub fn alphanumeric_with_random(random: &dyn RandomTrait, count: usize, include_special_char: bool) -> NumberPool {
-        if (!include_special_char && count < 2) || (include_special_char && count < 3) {
-            panic!("Count Must be {} or More", if include_special_char { 3 } else { 2 });
+        let min_count = if include_special_char { 3 } else { 2 };
+        if count < min_count {
+            return NumberPool {
+                number_pool_items: BTreeMap::new(),
+                error: Some(format!("NumberPool alphanumeric count: {} must be {} or more", count, min_count)),
+            };
         }
         let mut numeric_count:usize = 1;
         let mut special_char_count: usize = if include_special_char { 1 } else { 0 };
@@ -185,9 +191,6 @@ impl NumberPool {
         }
 
         let alpha_count = count - numeric_count - special_char_count;
-        if (alpha_count + special_char_count + numeric_count) != count {
-            panic!("Counts do not match up. numeric_count:{}, special_char_count:{}, alpha_count:{}", numeric_count, special_char_count, alpha_count);
-        }
 
         return NumberPool::alphanumeric_specs(alpha_count, numeric_count, special_char_count);
     }
@@ -216,6 +219,7 @@ impl NumberPool {
                     )
                 })
                 .collect(),
+            error: None,
         };
     }
 
@@ -227,6 +231,7 @@ impl NumberPool {
                 .iter()
                 .map(|x| (x.0.to_owned(), x.1.to_owned()))
                 .collect(),
+            error: None,
         };
     }
 
@@ -263,6 +268,7 @@ impl NumberPool {
         }
         return NumberPool {
             number_pool_items: number_pool_items_full,
+            error: None,
         };
     }
 
@@ -315,13 +321,13 @@ impl RuleTrait for NumberPool {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
+    ) -> Option<SharedData> {
         let pool_types: Vec<PoolType> = self.number_pool_items().values().filter(|x| x.needs.is_absolute_zero()).map(|x|x.pool().clone()).collect();
         
         if pool_types.is_empty() {
             None
         } else {
-            Some(vec![(SHARED_DATA_EXCLUSION_SET.to_owned(), MapAnyValue::PoolTypes(pool_types))])
+            Some(SharedData::new().with_exclusion_pools(pool_types))
         }
     }
 
@@ -412,6 +418,9 @@ impl RuleTrait for NumberPool {
         &self,
         count: usize,
     ) -> std::result::Result<bool, String> {
+        if let Some(e) = &self.error {
+            return Err(e.to_owned());
+        }
         let needs_count:usize = self.number_pool_items.values().map(|x| x.needs.get_missing_without_has()).sum::<usize>();
         if needs_count <= count {
             return Ok(true);

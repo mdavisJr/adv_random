@@ -4,9 +4,7 @@ use crate::random::{CurrentData, NumberType};
 use crate::random_trait::RandomTrait;
 use crate::rules::NumberRange;
 #[cfg(not(feature="rand"))]
-use crate::rules::{NumberPool, NumberPoolItem, NumberSpace, NumberSpaceItem, OddEven, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential};
-#[cfg(not(feature="rand"))]
-use std::collections::HashMap;
+use crate::rules::{NumberPool, NumberPoolItem, NumberSpace, NumberSpaceItem, OddEven, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential, SharedData};
 #[cfg(feature="rand")]
 use crate::rules::{NoDuplicate, NumberPool, OddEven};
 #[cfg(feature="rand")]
@@ -45,7 +43,7 @@ fn no_random_is_bad_request() {
 fn no_random_rules_return_errors() {
     //rules called directly without a random number generator return errors instead of panicking
     let settings = Settings::new(&[], 5);
-    let shared_data = HashMap::new();
+    let shared_data = SharedData::new();
     let selected = vec![];
     let current_data = CurrentData::new(&selected, &settings, &shared_data);
     assert!(current_data.random().is_none());
@@ -90,28 +88,18 @@ fn seeded_random_password_is_repeatable() {
 }
 
 
-#[derive(Debug, Clone)]
+//A random number generator does not have to implement Clone
+#[derive(Debug)]
 pub struct TestNoDefaultRandom {}
 
 
-// impl TestNoDefaultRandom {
-//     pub fn new() -> Box<dyn RandomTrait> {
-//         return Box::new(TestNoDefaultRandom {  });
-//     }
-// }
 
 impl RandomTrait for TestNoDefaultRandom {
     fn get_number(&self, _min: usize, _max: usize) -> usize {
-        //static ARRAY: OnceLock<Mutex<Vec<u8>>> = OnceLock::new();
-        //ARRAY.get_or_init(|| Mutex::new(vec![1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]));
-        //return ARRAY.get().unwrap().lock().unwrap().pop().unwrap() as usize;
         return 1;
     }
 
     fn get_bool(&self) -> bool {
-        //static ARRAY: OnceLock<Mutex<Vec<bool>>> = OnceLock::new();
-        //ARRAY.get_or_init(|| Mutex::new(vec![true,false,true,false,true,false,true,false,true,false,true,false]));
-        //return ARRAY.get().unwrap().lock().unwrap().pop().unwrap();
         return true;
     }
 }

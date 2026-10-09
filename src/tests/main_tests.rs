@@ -639,24 +639,6 @@ fn uc_number_space_between() {
 
 
 
-// #[test]
-// fn num_space_type_get_num() {
-//     let number_space_base: usize = 7;
-//     let max: usize = 40;
-//     let min: usize = 1;
-//     let lt = NumberSpaceType::Lt(3).get_number(number_space_base, min, max);
-//     assert!(lt >= 8 && lt < 10);
-//     let lte = NumberSpaceType::Lte(3).get_number(number_space_base, min, max);
-//     assert!(lte >= 8 && lte <= 10);
-//     let eq = NumberSpaceType::Eq(3).get_number(number_space_base, min, max);
-//     assert!(eq == 10);
-//     let gt = NumberSpaceType::Gt(3).get_number(number_space_base, min, max);                 //7+3+1=11;max  -- 11,...      
-//     assert!(gt >= 11 && gt <= max);
-//     let gte = NumberSpaceType::Gte(3).get_number(number_space_base, min, max);               //7+3=10;max    -- 10,...
-//     assert!(gte >= 10 && gte <= max);
-//     let between = NumberSpaceType::Between(1, 3).get_number(number_space_base, min, max);
-//     assert!(between >= 8 && between <= 10);
-// }
 
 
 //Is within Range

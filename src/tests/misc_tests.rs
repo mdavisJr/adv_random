@@ -4,7 +4,7 @@ use crate::rules::RuleTrait;
 use crate::rules::*;
 use crate::random::*;
 use crate::settings::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::sync::{LazyLock, Mutex};
 
@@ -53,7 +53,7 @@ fn sequential_1() {
     for (main_idx, item) in data.iter().enumerate() {
         let current_data_numbers: Vec<usize> = item.2.to_vec();
         let current_data_settings: Settings = Settings::new(&[], item.2.len());
-        let current_data_shared_data: HashMap<String, MapAnyValue> = HashMap::new();
+        let current_data_shared_data: SharedData = SharedData::new();
         let current_data = CurrentData::new(&current_data_numbers, &current_data_settings, &current_data_shared_data);
         let seq_numbers = [item.1.clone(), Sequential::from_numbers(&current_data, false)];
         for (idx, seq_number) in seq_numbers.iter().enumerate() {
@@ -110,7 +110,9 @@ fn sequential_1() {
 
 #[test]
 fn number_range_1() {
-    let data: Vec<(&str, NumberRange, &[usize], std::result::Result<(), (IsWithinErrorType, String)>, std::result::Result<(), String>)> = vec![
+    type IsWithinRangeResult = std::result::Result<(), (IsWithinErrorType, String)>;
+    type IsMatchResult = std::result::Result<(), String>;
+    let data: Vec<(&str, NumberRange, &[usize], IsWithinRangeResult, IsMatchResult)> = vec![
         ("[(0, (1, 100))]", NumberRange::all(1, 100), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
         ("[(0, (1, 100)), (1, (1, 100)), (2, (1, 100)), (3, (1, 100)), (4, (1, 100))]", NumberRange::from_map(&[(&[0,1,2,3,4], 1 , 100)]), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
         ("[(0, (1, 1)), (1, (99, 99)), (2, (4, 4)), (3, (6, 6)), (4, (7, 7))]", NumberRange::from_map(&[(&[0], 1,1), (&[1], 99,99), (&[2], 4,4), (&[3], 6,6), (&[4], 7,7)]), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
@@ -122,7 +124,7 @@ fn number_range_1() {
     for (main_idx, item) in data.iter().enumerate() {
         let current_data_numbers: Vec<usize> = item.2.to_vec();
         let current_data_settings: Settings = Settings::new(&[], item.2.len());
-        let current_data_shared_data: HashMap<String, MapAnyValue> = HashMap::new();
+        let current_data_shared_data: SharedData = SharedData::new();
         let current_data = CurrentData::new(&current_data_numbers, &current_data_settings, &current_data_shared_data);
         assert_eq!(
             item.0,
@@ -156,7 +158,7 @@ fn number_range_1() {
         );
         assert_eq!(
             Ok(()),
-            item.1.is_match(&CurrentData::new(rand_result.numbers().unwrap(), &Settings::new(&[], item.2.len()), &HashMap::new())),
+            item.1.is_match(&CurrentData::new(rand_result.numbers().unwrap(), &Settings::new(&[], item.2.len()), &SharedData::new())),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
             main_idx,
             item.1,
@@ -261,7 +263,7 @@ fn odd_even_1() {
         for (idx, odd_even) in odd_evens.iter().enumerate() {
             let current_data_numbers: Vec<usize> = item.2.to_vec();
         let current_data_settings: Settings = Settings::new(&[], item.2.len());
-        let current_data_shared_data: HashMap<String, MapAnyValue> = HashMap::new();
+        let current_data_shared_data: SharedData = SharedData::new();
         let current_data = CurrentData::new(&current_data_numbers, &current_data_settings, &current_data_shared_data);
             assert_eq!(
                 item.0,
@@ -364,7 +366,7 @@ fn random_number() {
         );
         assert_eq!(
             Ok(()),
-            item.is_match(&CurrentData::new(rand_result.numbers().unwrap(), &Settings::new(&[], item.len()), &HashMap::new())),
+            item.is_match(&CurrentData::new(rand_result.numbers().unwrap(), &Settings::new(&[], item.len()), &SharedData::new())),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
             main_idx,
             item,
@@ -470,17 +472,17 @@ fn number_pool_2() {
 fn current_data_1() {
     let current_data_numbers_1: Vec<usize> = vec![5,4,3,2,1];
     let current_data_settings_1: Settings = Settings::new(&[], current_data_numbers_1.len());
-    let current_data_shared_data_1: HashMap<String, MapAnyValue> = HashMap::new();
+    let current_data_shared_data_1: SharedData = SharedData::new();
     let current_data_1 = CurrentData::new(&current_data_numbers_1, &current_data_settings_1, &current_data_shared_data_1);
 
     let current_data_numbers_2: Vec<usize> = vec![25,24,23,22,21];
     let current_data_settings_2: Settings = Settings::new(&[], current_data_numbers_2.len());
-    let current_data_shared_data_2: HashMap<String, MapAnyValue> = HashMap::new();
+    let current_data_shared_data_2: SharedData = SharedData::new();
     let current_data_2 = CurrentData::new(&current_data_numbers_2, &current_data_settings_2, &current_data_shared_data_2);
 
     let current_data_numbers_3: Vec<usize> = vec![35,35,33,32,31];
     let current_data_settings_3: Settings = Settings::new(&[], current_data_numbers_3.len());
-    let current_data_shared_data_3: HashMap<String, MapAnyValue> = HashMap::new();
+    let current_data_shared_data_3: SharedData = SharedData::new();
     let current_data_3 = CurrentData::new(&current_data_numbers_3, &current_data_settings_3, &current_data_shared_data_3);
 
 
@@ -505,7 +507,6 @@ fn current_data_1() {
     assert_eq!(format!("{:?}", current_data_1.selected_numbers_set().intersection(current_data_2.selected_numbers_set())), "[]");
     assert_eq!(format!("{:?}", current_data_2.selected_numbers_set().intersection(current_data_3.selected_numbers_set())), "[]");
     assert_eq!(format!("{:?}", current_data_1.selected_numbers_set().intersection(current_data_3.selected_numbers_set())), "[]");
-    //assert_ne!(Vec::from_iter(current_data_1.selected_numbers_set().clone()), current_data_numbers_1.iter.clone());
 }
 
 
@@ -525,17 +526,8 @@ fn get_num_spaces_2() {
 
 #[test]
 fn sequential_is_within_range() {
-    let mut map: HashMap<String, MapAnyValue> = HashMap::new();
-            map.insert(
-                "min".to_owned(),
-                MapAnyValue::Usize(1),
-            );
-            map.insert(
-                "max".to_owned(),
-                MapAnyValue::Usize(100),
-            );
     let rule = Sequential::new(5, &[]);
-    match rule.is_within_range(&CurrentData::new(&vec![5, 2, 7, 6/*20, 35, 4, 11, 12*/], &Settings::new(&[], 5), &HashMap::new())) {
+    match rule.is_within_range(&CurrentData::new(&vec![5, 2, 7, 6/*20, 35, 4, 11, 12*/], &Settings::new(&[], 5), &SharedData::new())) {
         Ok(_) => panic!("Should Have Thrown Error."),
         Err(e) => assert_eq!("Expected Not: 5 and Seq_Counts: [].  Actual Not: 1 and Seq_Counts: [3].", e.1)
     }
@@ -546,10 +538,7 @@ fn sequential_is_within_range() {
 fn even_number_1() {
     let expected_rules = &Vec::new();
     let settings = &Settings::new(&Vec::new(), 10);
-    let shared_data = &HashMap::from_iter([
-        (SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(1)), 
-        (SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(20))
-    ]);
+    let shared_data = &SharedData::new().with_min_max(1, 20);
     let current_data = &CurrentData::new(expected_rules, settings, shared_data);
     for _ in 0..2000 {
         let even_number = current_data.get_rand(NumberType::Even,None, None).unwrap();
@@ -562,10 +551,7 @@ fn even_number_1() {
 fn odd_number_1() {
     let expected_rules = &Vec::new();
     let settings = &Settings::new(&Vec::new(), 10);
-    let shared_data = &HashMap::from_iter([
-        (SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(1)), 
-        (SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(20))
-    ]);
+    let shared_data = &SharedData::new().with_min_max(1, 20);
     let current_data = &CurrentData::new(expected_rules, settings, shared_data);
     for _ in 0..2000 {
         let odd_number = current_data.get_rand(NumberType::Odd,None, None).unwrap();
@@ -654,7 +640,7 @@ fn number_pool_counts_duplicates() {
     let digits = PoolType::MinMax(48, 57);
     let rule = NumberPool::new(&[NumberPoolItem::new("digits", &digits, OperatorType::Eq(2))]);
     let settings = Settings::new(&[], 4);
-    let shared_data = HashMap::new();
+    let shared_data = SharedData::new();
     //48 is selected three times, so there are three numbers from the pool, not one
     let numbers = vec![48, 48, 48, 70];
     assert!(rule.is_match(&CurrentData::new(&numbers, &settings, &shared_data)).is_err());
@@ -706,9 +692,7 @@ fn number_space_single_value_spaces() {
 #[test]
 fn operator_type_get_number() {
     let settings = Settings::new(&[], 10);
-    let mut shared_data = HashMap::new();
-    shared_data.insert(SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(1));
-    shared_data.insert(SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(100));
+    let shared_data = SharedData::new().with_min_max(1, 100);
 
     //the highest selected number is the base and is not returned again
     let selected = vec![10, 40];
@@ -765,9 +749,15 @@ fn check_count_must_equal_count() {
 }
 
 #[test]
-#[should_panic(expected = "must add up to count")]
 fn settings_odd_even_count_mismatch() {
-    Settings::new(&[Box::new(OddEven::new(1, 1))], 5);
+    let settings = Settings::new(&[Box::new(OddEven::new(1, 1))], 5);
+    assert_eq!(settings.errors().len(), 1);
+    assert!(settings.errors()[0].contains("must add up to count"), "{:?}", settings.errors());
+    let random_result = random_numbers(&settings);
+    assert_eq!(RandomResultType::BadRequest, random_result.status());
+    assert_eq!(random_result.attempts(), 0);
+    assert!(random_result.numbers().is_err());
+    assert!(random_result.logs()[0].to_string().contains("must add up to count"));
 }
 
 #[test]
@@ -788,10 +778,7 @@ fn get_rand_number_not_found() {
     let settings = Settings::new(&[], 10);
     let selected = vec![];
     //11 is the only number in range and it is odd
-    let shared_data = HashMap::from_iter([
-        (SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(11)),
-        (SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(11))
-    ]);
+    let shared_data = SharedData::new().with_min_max(11, 11);
     let current_data = CurrentData::new(&selected, &settings, &shared_data);
     assert_eq!(current_data.get_rand(NumberType::Even, None, None), None);
     assert_eq!(current_data.get_rand(NumberType::Odd, None, None), Some(11));
@@ -828,7 +815,7 @@ fn empty_and_large_values() {
     //no number range, so the numbers go up to usize::MAX
     let settings = Settings::new(&[Box::new(Sequential::new(0, &[3]))], 3);
     let selected = vec![usize::MAX - 1];
-    let shared_data = HashMap::new();
+    let shared_data = SharedData::new();
     for _ in 0..50 {
         //extending usize::MAX - 1 into a sequence of 3 does not fit, starting a new sequence does
         match Sequential::new(0, &[3]).get_numbers(&CurrentData::new(&selected, &settings, &shared_data)) {
@@ -847,9 +834,39 @@ fn count_zero() {
 }
 
 #[test]
-#[should_panic(expected = "NumberRange min: 20 is greater than max: 1")]
 fn number_range_min_greater_than_max() {
-    Settings::new(&[Box::new(NumberRange::all(20, 1))], 3);
+    let settings = Settings::new(&[Box::new(NumberRange::all(20, 1))], 3);
+    assert_eq!(settings.errors(), ["NumberRange min: 20 is greater than max: 1"]);
+    assert_eq!(RandomResultType::BadRequest, random_numbers(&settings).status());
+}
+
+#[test]
+fn settings_with_more_than_one_error() {
+    let settings = Settings::new(&[
+        Box::new(NumberRange::all(20, 1)),
+        Box::new(OddEven::new(1, 1)),
+        Box::new(Sequential::new(1, &[2])),
+    ], 5);
+    assert_eq!(settings.errors().len(), 3);
+    let random_result = random_numbers(&settings);
+    assert_eq!(RandomResultType::BadRequest, random_result.status());
+    assert_eq!(random_result.logs().len(), 3);
+
+    assert!(Settings::new(&[Box::new(NumberRange::all(1, 20))], 5).errors().is_empty());
+}
+
+#[test]
+fn number_pool_alphanumeric_count_too_small() {
+    for (count, include_special_char) in [(1, false), (2, true)] {
+        let settings = Settings::new(&[Box::new(NumberPool::alphanumeric(count, include_special_char))], count);
+        assert_eq!(settings.errors().len(), 1);
+        assert!(settings.errors()[0].contains("or more"), "{:?}", settings.errors());
+        assert_eq!(RandomResultType::BadRequest, random_numbers(&settings).status());
+    }
+    for (count, include_special_char) in [(2, false), (3, true)] {
+        let random_result = random_numbers(&Settings::new(&[Box::new(NumberPool::alphanumeric(count, include_special_char))], count));
+        assert_eq!(random_result.string(true).unwrap().len(), count);
+    }
 }
 
 #[test]
@@ -879,7 +896,7 @@ fn sequential_more_than_one_sequence() {
             assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
             let numbers = random_result.numbers().unwrap();
             assert!(numbers.iter().all(|x| *x >= min && *x <= max), "{:?}", numbers);
-            let actual = Sequential::from_numbers(&CurrentData::new(numbers, &Settings::new(&[], count), &HashMap::new()), false);
+            let actual = Sequential::from_numbers(&CurrentData::new(numbers, &Settings::new(&[], count), &SharedData::new()), false);
             assert_eq!(actual.not(), not, "{:?}", numbers);
             assert_eq!(actual.seq_counts(), &seq_counts, "{:?}", numbers);
         }
@@ -890,7 +907,7 @@ fn sequential_more_than_one_sequence() {
 fn sequential_is_within_range_sequence_too_long() {
     let rule = Sequential::new(1, &[2, 2]);
     let settings = Settings::new(&[], 5);
-    let shared_data = HashMap::new();
+    let shared_data = SharedData::new();
     //a sequence of 3 can never become a sequence of 2
     let numbers = vec![5, 6, 7];
     assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_err());
@@ -947,4 +964,77 @@ fn pool_type_set() {
             _ => panic!("{:?}", pool)
         }
     }
+}
+
+#[test]
+fn number_space_item_process_missing() {
+    let eq = OperatorType::Eq(3);
+    //nothing is there yet, so the longest run is a new run
+    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[]).process_missing(), Some((3, true)));
+    //the run of 3 is there, so the next run is a new run of 2
+    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[3]).process_missing(), Some((2, true)));
+    //the run of 1 is the start of the run of 3, so the rest of it is not a new run
+    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[1]).process_missing(), Some((2, false)));
+    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[2, 2, 3]).process_missing(), None);
+    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[2, 2, 3]).process_missing_count(), 0);
+}
+
+#[test]
+fn operator_type_get_new_run() {
+    let settings = Settings::new(&[], 10);
+    let shared_data = SharedData::new().with_min_max(1, 100);
+    let selected = vec![10, 40, 98];
+    let current_data = CurrentData::new(&selected, &settings, &shared_data);
+    for _ in 0..200 {
+        //a new run does not continue from 98, so there is always room for it
+        let numbers = OperatorType::Eq(3).get_new_run(&current_data, 2);
+        assert_eq!(numbers.len(), 3, "{:?}", numbers);
+        assert!(numbers.windows(2).all(|x| x[1] - x[0] == 3), "{:?}", numbers);
+        assert!(numbers.iter().all(|x| *x >= 1 && *x <= 100), "{:?}", numbers);
+    }
+    //continuing from 98 does not fit
+    assert!(OperatorType::Eq(3).get_number(&current_data, 2).is_empty());
+}
+
+#[test]
+fn number_space_more_than_one_run() {
+    for operator_type in [OperatorType::Eq(3), OperatorType::Eq(1), OperatorType::Lte(3), OperatorType::Between(3, 6)] {
+        let mut success_count = 0;
+        for _ in 0..100 {
+            let random_result = random_numbers(&Settings::new(&[
+                Box::new(NumberRange::all(1, 100)),
+                Box::new(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, &[2, 2, 3], &[])])),
+            ], 12));
+            if let Ok(numbers) = random_result.numbers() {
+                success_count += 1;
+                let mut sorted_numbers = numbers.to_vec();
+                sorted_numbers.sort_unstable();
+                let spaces: Vec<usize> = sorted_numbers.windows(2).map(|x| x[1] - x[0]).collect();
+                assert_eq!(operator_type.has(&spaces), vec![2, 2, 3], "{:?}", sorted_numbers);
+            }
+        }
+        assert!(success_count >= 95, "{:?} {}", operator_type, success_count);
+    }
+}
+
+#[test]
+fn shared_data_merge() {
+    let mut shared_data = SharedData::new();
+    assert_eq!(shared_data.min_max(), (usize::MIN, usize::MAX));
+    assert!(!shared_data.no_duplicates());
+    assert!(shared_data.exclusion_pools().is_empty());
+
+    shared_data.merge(SharedData::new().with_min_max(1, 20));
+    shared_data.merge(SharedData::new().with_no_duplicates());
+    shared_data.merge(SharedData::new().with_exclusion_pools(vec![PoolType::MinMax(5, 6)]));
+    shared_data.merge(SharedData::new().with_exclusion_pools(vec![PoolType::set([9])]));
+    assert_eq!(shared_data.min_max(), (1, 20));
+    assert!(shared_data.no_duplicates());
+    assert_eq!(shared_data.exclusion_pools().len(), 2);
+
+    //the last min and max shared are the ones used, and everything else is kept
+    shared_data.merge(SharedData::new().with_min_max(3, 8));
+    assert_eq!(shared_data.min_max(), (3, 8));
+    assert!(shared_data.no_duplicates());
+    assert_eq!(shared_data.exclusion_pools().len(), 2);
 }

@@ -1,6 +1,6 @@
 use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR, NO_RANDOM_ERR};
 use crate::random_trait::get_random_vec_item;
-use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
+use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -98,7 +98,7 @@ impl RuleTrait for OddEven {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
+    ) -> Option<SharedData> {
         None
     }
 

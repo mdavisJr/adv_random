@@ -1,5 +1,5 @@
-use crate::random::{CurrentData, SHARED_DATA_NO_DUPLICATES};
-use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
+use crate::random::CurrentData;
+use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -30,8 +30,8 @@ impl RuleTrait for NoDuplicate {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
-        return Some(vec![(SHARED_DATA_NO_DUPLICATES.to_owned(), MapAnyValue::Bool(true))]);
+    ) -> Option<SharedData> {
+        return Some(SharedData::new().with_no_duplicates());
     }
 
     fn get_numbers(

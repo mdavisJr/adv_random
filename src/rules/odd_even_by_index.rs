@@ -1,5 +1,5 @@
 use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
-use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait, OddEvenKey, OddEven};
+use crate::rules::{IsWithinErrorType, SharedData, RuleTrait, OddEvenKey, OddEven};
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
@@ -66,7 +66,7 @@ impl RuleTrait for OddEvenByIndex {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
+    ) -> Option<SharedData> {
         None
     }
 

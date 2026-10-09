@@ -1,5 +1,5 @@
-use crate::random::{CurrentData, SHARED_DATA_MAX, SHARED_DATA_MIN};
-use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
+use crate::random::CurrentData;
+use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
@@ -84,14 +84,11 @@ impl RuleTrait for NumberRange {
     fn share_data(
         &self,
         current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
+    ) -> Option<SharedData> {
         let key = if self.use_0_idx_for_all {0} else {current_data.selected_numbers().len()};
         if self.ranges.contains_key(&key) {
             let (min, max) = self.ranges[&key];
-            return Option::from(vec![
-                (SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(min)), 
-                (SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(max))
-            ]);
+            return Some(SharedData::new().with_min_max(min, max));
         }
         return None;
     }

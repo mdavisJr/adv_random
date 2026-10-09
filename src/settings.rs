@@ -1,9 +1,7 @@
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
-use crate::random::{SHARED_DATA_MAX, SHARED_DATA_MIN};
 use crate::random_trait::RandomTrait;
-use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, ExcludeRuleTrait};
-use std::collections::HashMap;
+use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait};
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -14,7 +12,8 @@ pub struct Settings {
     max_tries: usize,
     max_is_match_attempts: usize,
     max_specific_error_count: usize,
-    random: Option<Arc<dyn RandomTrait + Send + Sync>>
+    random: Option<Arc<dyn RandomTrait + Send + Sync>>,
+    errors: Vec<String>
 }
 
 impl Settings {
@@ -34,9 +33,10 @@ impl Settings {
         if expected_rules_clone.iter().all(|x| !x.as_any().is::<RandomNumber>()) {
             expected_rules_clone.push(Box::new(RandomNumber{}));
         }
+        let mut errors: Vec<String> = Vec::new();
         for rule in &expected_rules_clone {
             if let Some(e) = rule.check_count(count).err() {
-                panic!("{}", e);
+                errors.push(e);
             }
         }
         return Settings {
@@ -46,7 +46,8 @@ impl Settings {
             max_tries: 500,
             max_is_match_attempts: 10,
             max_specific_error_count: 3 * count,
-            random: Settings::default_random()
+            random: Settings::default_random(),
+            errors
         };
     }
 
@@ -69,18 +70,9 @@ impl Settings {
         return self.random.as_ref();
     }
 
-    pub fn get_min_max(
-        shared_data: &HashMap<String, MapAnyValue>,
-    ) -> (usize, usize) {
-        let mut min = usize::MIN;
-        let mut max = usize::MAX;
-        if let Some(MapAnyValue::Usize(v)) = shared_data.get(SHARED_DATA_MIN) {
-            min = *v;
-        }
-        if let Some(MapAnyValue::Usize(v)) = shared_data.get(SHARED_DATA_MAX) {
-            max = *v;
-        }
-        return (min, max);
+    //Problems found with the rules.  random_numbers returns a BadRequest result when there are any.
+    pub fn errors(&self) -> &[String] {
+        return &self.errors;
     }
 
     pub fn expected_rules(&self) -> &Vec<Box<dyn RuleTrait>> {

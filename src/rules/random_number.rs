@@ -1,29 +1,11 @@
 use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
-use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
+use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
 #[derive(Clone)]
 pub struct RandomNumber {}
-
-impl RandomNumber {
-    // pub fn get_numbers_by_shared_data(
-    //     shared_data: &HashMap<String, HashMap<String, MapAnyValue>>,
-    //     settings: &Settings,
-    // ) -> Vec<usize> {
-    //     let (min, max) = Settings::get_min_max("NumberRange", shared_data);
-    //     return RandomNumber::get_numbers(min, max);
-    // }
-
-    // pub fn get_numbers(min: usize, max: usize) -> Vec<usize> {
-    //     let mut rng = thread_rng();
-    //     let range = Uniform::from(min..=max);
-    //     let number = range.sample(&mut rng);
-
-    //     return vec![number];
-    // }
-}
 
 impl Display for RandomNumber {
     fn fmt(&self, f: &mut Formatter) -> Result {
@@ -45,7 +27,7 @@ impl RuleTrait for RandomNumber {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
+    ) -> Option<SharedData> {
         None
     }
 

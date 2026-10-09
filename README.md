@@ -16,6 +16,9 @@ let random_result = random_numbers(&settings);
 ```
 If the `rand` feature is turned off there is no default generator.  `random_numbers` returns a result with status `RandomResultType::BadRequest` unless `with_random` was called.  `NumberPool::alphanumeric` also needs the `rand` feature; use `NumberPool::alphanumeric_with_random` to pass your own generator.
 
+# Invalid Settings
+`Settings::new` does not panic when the rules can not work, such as odd and even counts that do not add up to the count, or a `NumberRange` with a min greater than its max.  The problems are in `settings.errors()`, and `random_numbers` returns a result with status `RandomResultType::BadRequest` and the same problems in its logs.
+
 # Examples
 ### Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
 ```

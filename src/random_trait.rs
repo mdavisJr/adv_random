@@ -18,27 +18,7 @@ pub fn shuffle_vec<T>(random: &dyn RandomTrait, vector: &mut [T])
 }
 
 
-pub trait RandomTrait: RandomTraitClone + std::fmt::Debug {
+pub trait RandomTrait: std::fmt::Debug {
     fn get_number(&self, min: usize, max: usize) -> usize;
     fn get_bool(&self) -> bool;
-}
-
-pub trait RandomTraitClone {
-    fn clone_box(&self) -> Box<dyn RandomTrait>;
-}
-
-impl<T> RandomTraitClone for T
-where
-    T: 'static + RandomTrait + Clone,
-{
-    fn clone_box(&self) -> Box<dyn RandomTrait> {
-        Box::new(self.clone())
-    }
-}
-
-
-impl Clone for Box<dyn RandomTrait> {
-    fn clone(&self) -> Box<dyn RandomTrait> {
-        self.clone_box()
-    }
 }

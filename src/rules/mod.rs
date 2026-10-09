@@ -18,7 +18,7 @@ pub use self::number_pool_by_index::{NumberPoolByIndex, NumberPoolItemByIndex};
 pub use self::number_range::NumberRange;
 pub use self::number_space::{NumberSpace, OperatorType, NumberSpaceItem, ProcessNumberSpaceItems};
 pub use self::odd_even::{OddEven, OddEvenKey};
-pub use self::rule_trait::{MapAnyValue, RuleTrait, IsWithinErrorType};
+pub use self::rule_trait::{SharedData, RuleTrait, IsWithinErrorType};
 pub use self::exclude_rule_trait::{is_excluded_helper, ExcludeRuleTrait};
 pub use self::random_number::RandomNumber;
 pub use self::sequential::Sequential;

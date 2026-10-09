@@ -1,7 +1,6 @@
 
 use crate::random::{CurrentData, NumberType};
-use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
-use crate::settings::Settings;
+use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::{cmp, fmt};
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -24,8 +23,6 @@ impl OperatorType {
             OperatorType::Lt(v) => v == 1,
             OperatorType::Lte(v) => v == 0,
             OperatorType::Eq(v) => v == 0,
-            // NumberSpaceType::Gte(v) => *,               
-            // NumberSpaceType::Gt(v) => *, 
             OperatorType::Between(lower_bound, upper_bound) => lower_bound == 0 && upper_bound == 0,
             _ => false
         };
@@ -103,15 +100,25 @@ impl OperatorType {
 
     //Returns the new numbers needed to add "count" spaces after the highest selected number
     pub fn get_number(&self, current_data: &CurrentData, count: usize) -> Vec<usize> {
-        let (min, max) = Settings::get_min_max(current_data.shared_data());
+        return self.get_run(current_data, count, false);
+    }
+
+    //Returns the numbers for a new run of "count" spaces that starts at a random number
+    pub fn get_new_run(&self, current_data: &CurrentData, count: usize) -> Vec<usize> {
+        return self.get_run(current_data, count, true);
+    }
+
+    fn get_run(&self, current_data: &CurrentData, count: usize, new_run: bool) -> Vec<usize> {
+        let (min, max) = current_data.shared_data().min_max();
+        let highest_selected_number = if new_run { None } else { current_data.selected_numbers_sorted().last() };
         let mut numbers: Vec<usize> = Vec::new();
         for _ in 0..5 {
             numbers = Vec::new();
-            let (mut base_number, needed) = match current_data.selected_numbers_sorted().last() {
+            let (mut base_number, needed) = match highest_selected_number {
                 Some(v) => (*v, count),
                 None => {
-                    //nothing selected yet, so the starting number is new too
-                    let start = match current_data.get_rand(NumberType::Any, None, None) {
+                    //the starting number is new too
+                    let start = match self.get_start_number(current_data, count, min, max) {
                         Some(v) => v,
                         None => continue
                     };
@@ -135,6 +142,21 @@ impl OperatorType {
         }
 
         return numbers;
+    }
+
+    //Returns a random number that leaves room for "count" spaces before max, when there is room
+    fn get_start_number(&self, current_data: &CurrentData, count: usize, min: usize, max: usize) -> Option<usize> {
+        let smallest_space = match *self {
+            OperatorType::Lt(_) | OperatorType::Lte(_) => 1,
+            OperatorType::Eq(v) | OperatorType::Gte(v) => v,
+            OperatorType::Gt(v) => v.saturating_add(1),
+            OperatorType::Between(lower_bound, _) => lower_bound,
+        };
+        let highest_start = smallest_space.checked_mul(count).and_then(|v| max.checked_sub(v)).filter(|v| *v >= min);
+        return match highest_start {
+            Some(v) => current_data.get_rand(NumberType::Any, None, Some((min, v))),
+            None => current_data.get_rand(NumberType::Any, None, None)
+        };
     }
 
     fn get_next_number(&self, current_data: &CurrentData, base_number: usize, min: usize, max: usize) -> Option<usize> {
@@ -278,15 +300,20 @@ impl NumberSpaceItem {
     }
 
     pub fn process_missing_count(&self) -> usize {
-        //the longest missing run is processed first
-        let missing_list = self.missing();
-        for missing in missing_list.into_iter().rev() {
+        return self.process_missing().map(|x| x.0).unwrap_or(0);
+    }
+
+    //Returns how many spaces the longest missing run needs, and true when none of that run is there yet
+    pub fn process_missing(&self) -> Option<(usize, bool)> {
+        //missing is in the same order as needs, and only the last has.len() of them are paired with a run that is there
+        let new_runs = self.needs.len().saturating_sub(self.has.len());
+        for (i, missing) in self.missing().into_iter().enumerate().rev() {
             if missing > 0 {
-                return missing;
+                return Some((missing, i < new_runs));
             }
         }
 
-        return 0;
+        return None;
     }
 }
 
@@ -369,7 +396,7 @@ impl RuleTrait for NumberSpace {
     fn share_data(
         &self,
         _current_data: &CurrentData,
-    ) -> Option<Vec<(String, MapAnyValue)>> {
+    ) -> Option<SharedData> {
         None
     }
 
@@ -381,8 +408,18 @@ impl RuleTrait for NumberSpace {
         NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
         for number_space_item in &other_number_pool.number_space_items {
-            if number_space_item.process_missing_count() > 0 {
-                numbers.extend(number_space_item.number_space_type.get_number(current_data, number_space_item.process_missing_count()));                    
+            if let Some((count, is_new_run)) = number_space_item.process_missing() {
+                //The rest of a run continues from the highest selected number.  A new run can start anywhere.
+                //Gte and Gt match any large space, so a new run after the highest selected number would only make that run longer.
+                let start_new_run = is_new_run && !current_data.selected_numbers().is_empty() && match number_space_item.number_space_type {
+                    OperatorType::Gte(_) | OperatorType::Gt(_) => true,
+                    _ => current_data.random().is_some_and(|x| x.get_bool())
+                };
+                if start_new_run {
+                    numbers.extend(number_space_item.number_space_type.get_new_run(current_data, count));
+                } else {
+                    numbers.extend(number_space_item.number_space_type.get_number(current_data, count));
+                }
                 if self.process_number_space_items == ProcessNumberSpaceItems::OnePerRequest && !numbers.is_empty() { break; }
             }
         }
