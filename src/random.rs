@@ -379,6 +379,8 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let current_data_shared_data = SharedData::new();
         let current_data_selected_numbers_sd = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
         let mut shared_data = SharedData::new();
+        //which rule set each custom key in this attempt
+        let mut custom_key_rule_names: HashMap<String, String> = HashMap::new();
         shuffle_vec(random.as_ref(), &mut expected_rules);
         if let Some(v) = rule_to_make_priority.take() {
             if let Some(idx) = expected_rules.iter().position(|x| x.0 == v) {
@@ -390,7 +392,28 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
             if let Some(actual_rule_shared_data) =
                 expected_rule.share_data(&current_data_selected_numbers_sd)
             {
-                shared_data.merge(actual_rule_shared_data);
+                let custom_keys: Vec<String> = actual_rule_shared_data.custom_keys().cloned().collect();
+                if let Err(key) = shared_data.merge(actual_rule_shared_data) {
+                    //two rules that set the same custom key is a mistake in the rules, so trying again will not help
+                    logs.push(Log::Error {
+                        msg: format!(
+                            "Custom shared data key {:?} was set by both {} and {}",
+                            key, custom_key_rule_names.get(&key).map(|x| x.as_str()).unwrap_or("another rule"), expected_rule.name()
+                        ),
+                    });
+                    return RandomResult {
+                        status: RandomResultType::BadRequest,
+                        numbers: Vec::new(),
+                        attempts,
+                        logs,
+                        clear_err_tracker,
+                        settings: format!("{:#?}", settings),
+                        random: None
+                    };
+                }
+                for key in custom_keys {
+                    custom_key_rule_names.insert(key, expected_rule.name());
+                }
             }
         }
 

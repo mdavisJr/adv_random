@@ -1024,16 +1024,16 @@ fn shared_data_merge() {
     assert!(!shared_data.no_duplicates());
     assert!(shared_data.exclusion_pools().is_empty());
 
-    shared_data.merge(SharedData::new().with_min_max(1, 20));
-    shared_data.merge(SharedData::new().with_no_duplicates());
-    shared_data.merge(SharedData::new().with_exclusion_pools(vec![PoolType::MinMax(5, 6)]));
-    shared_data.merge(SharedData::new().with_exclusion_pools(vec![PoolType::set([9])]));
+    shared_data.merge(SharedData::new().with_min_max(1, 20)).unwrap();
+    shared_data.merge(SharedData::new().with_no_duplicates()).unwrap();
+    shared_data.merge(SharedData::new().with_exclusion_pools(vec![PoolType::MinMax(5, 6)])).unwrap();
+    shared_data.merge(SharedData::new().with_exclusion_pools(vec![PoolType::set([9])])).unwrap();
     assert_eq!(shared_data.min_max(), (1, 20));
     assert!(shared_data.no_duplicates());
     assert_eq!(shared_data.exclusion_pools().len(), 2);
 
     //the last min and max shared are the ones used, and everything else is kept
-    shared_data.merge(SharedData::new().with_min_max(3, 8));
+    shared_data.merge(SharedData::new().with_min_max(3, 8)).unwrap();
     assert_eq!(shared_data.min_max(), (3, 8));
     assert!(shared_data.no_duplicates());
     assert_eq!(shared_data.exclusion_pools().len(), 2);
@@ -1115,4 +1115,155 @@ fn number_space_no_spare_numbers() {
         }
         assert!(success_count >= 48, "{:?} {:?} {}", operator_type, runs, success_count);
     }
+}
+
+#[test]
+fn shared_data_custom() {
+    let mut shared_data = SharedData::new();
+    assert_eq!(shared_data.custom("multiple"), None);
+
+    shared_data.merge(SharedData::new()
+        .with_custom("multiple", CustomValue::Usize(5))
+        .with_custom("label", CustomValue::String("abc".to_owned()))).unwrap();
+    shared_data.merge(SharedData::new().with_custom("flag", CustomValue::Bool(true))).unwrap();
+    assert_eq!(shared_data.custom("multiple"), Some(&CustomValue::Usize(5)));
+    assert_eq!(shared_data.custom("label"), Some(&CustomValue::String("abc".to_owned())));
+    assert_eq!(shared_data.custom("flag"), Some(&CustomValue::Bool(true)));
+    assert_eq!(shared_data.custom_keys().count(), 3);
+
+    //"multiple" is already there, so nothing from this one is added
+    let other = SharedData::new().with_min_max(1, 9).with_custom("multiple", CustomValue::Usize(7)).with_custom("new", CustomValue::Bool(false));
+    assert_eq!(shared_data.merge(other), Err("multiple".to_owned()));
+    assert_eq!(shared_data.custom("multiple"), Some(&CustomValue::Usize(5)));
+    assert_eq!(shared_data.custom("new"), None);
+    assert_eq!(shared_data.min_max(), (usize::MIN, usize::MAX));
+}
+
+//Shares a custom value.  It does not get any numbers.
+#[derive(Clone, Debug)]
+struct ShareMultiple {
+    name: String,
+    multiple: usize,
+}
+
+impl std::fmt::Display for ShareMultiple {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}:{}", self.name, self.multiple)
+    }
+}
+
+impl RuleTrait for ShareMultiple {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
+        return Some(SharedData::new().with_custom("multiple", CustomValue::Usize(self.multiple)));
+    }
+
+    fn get_numbers(&self, _current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
+        return Ok(None);
+    }
+
+    fn is_within_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
+        return Ok(());
+    }
+
+    fn is_match(&self, _current_data: &CurrentData) -> std::result::Result<(), String> {
+        return Ok(());
+    }
+
+    fn check_count(&self, _count: usize) -> std::result::Result<bool, String> {
+        return Ok(true);
+    }
+
+    fn name(&self) -> String {
+        return self.name.to_owned();
+    }
+}
+
+//Only allows numbers that are a multiple of the custom value that another rule shared
+#[derive(Clone, Debug)]
+struct MultipleOfShared {}
+
+impl MultipleOfShared {
+    fn multiple(current_data: &CurrentData) -> usize {
+        return match current_data.shared_data().custom("multiple") {
+            Some(CustomValue::Usize(v)) => *v,
+            _ => 1
+        };
+    }
+}
+
+impl std::fmt::Display for MultipleOfShared {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "MultipleOfShared")
+    }
+}
+
+impl RuleTrait for MultipleOfShared {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
+        return None;
+    }
+
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
+        let multiple = MultipleOfShared::multiple(current_data);
+        let number = current_data.get_rand(NumberType::Any, None, None).ok_or_else(|| current_data.no_number_err())?;
+        return Ok(Some(vec![number - (number % multiple)]));
+    }
+
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
+        let multiple = MultipleOfShared::multiple(current_data);
+        if current_data.selected_numbers().iter().any(|x| !x.is_multiple_of(multiple)) {
+            return Err((IsWithinErrorType::MakePriority, format!("Not every number is a multiple of {}", multiple)));
+        }
+        return Ok(());
+    }
+
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
+        return self.is_within_range(current_data).map_err(|x| x.1);
+    }
+
+    fn check_count(&self, _count: usize) -> std::result::Result<bool, String> {
+        return Ok(true);
+    }
+
+    fn name(&self) -> String {
+        return String::from("MultipleOfShared");
+    }
+}
+
+#[test]
+fn custom_rules_share_custom_value() {
+    for _ in 0..50 {
+        let random_result = random_numbers(&Settings::new(&[
+            Box::new(NumberRange::all(10, 100)),
+            Box::new(ShareMultiple { name: "ShareMultiple".to_owned(), multiple: 5 }),
+            Box::new(MultipleOfShared {}),
+        ], 6));
+        assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
+        let numbers = random_result.numbers().unwrap();
+        assert_eq!(numbers.len(), 6);
+        assert!(numbers.iter().all(|x| x.is_multiple_of(5) && *x >= 10 && *x <= 100), "{:?}", numbers);
+    }
+}
+
+#[test]
+fn custom_rules_set_same_custom_key() {
+    let random_result = random_numbers(&Settings::new(&[
+        Box::new(NumberRange::all(10, 100)),
+        Box::new(ShareMultiple { name: "RuleA".to_owned(), multiple: 5 }),
+        Box::new(ShareMultiple { name: "RuleB".to_owned(), multiple: 7 }),
+        Box::new(MultipleOfShared {}),
+    ], 6));
+    assert_eq!(RandomResultType::BadRequest, random_result.status());
+    assert_eq!(random_result.attempts(), 1);
+    assert!(random_result.numbers().is_err());
+    let error = random_result.logs().last().unwrap().to_string();
+    assert!(error.contains("Custom shared data key \"multiple\" was set by both"), "{}", error);
+    assert!(error.contains("RuleA") && error.contains("RuleB"), "{}", error);
 }

@@ -1,7 +1,16 @@
 use crate::random::CurrentData;
 use crate::rules::PoolType;
 use std::any::Any;
+use std::collections::HashMap;
 use std::fmt::Display;
+
+//A value that custom rules share with each other.  See SharedData::with_custom.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CustomValue {
+    Usize(usize),
+    String(String),
+    Bool(bool),
+}
 
 //What the rules tell each other, and CurrentData::get_rand, about the next number
 #[derive(Debug, Clone, Default)]
@@ -10,6 +19,7 @@ pub struct SharedData {
     max: Option<usize>,
     no_duplicates: bool,
     exclusion_pools: Vec<PoolType>,
+    custom: HashMap<String, CustomValue>,
 }
 
 impl SharedData {
@@ -34,6 +44,21 @@ impl SharedData {
         return self;
     }
 
+    //Adds a value for other custom rules to read with custom.  Only one rule can set a key.  random_numbers returns a
+    //BadRequest result when two rules set the same key.
+    pub fn with_custom(mut self, key: &str, value: CustomValue) -> SharedData {
+        self.custom.insert(key.to_owned(), value);
+        return self;
+    }
+
+    pub fn custom(&self, key: &str) -> Option<&CustomValue> {
+        return self.custom.get(key);
+    }
+
+    pub fn custom_keys(&self) -> impl Iterator<Item = &String> {
+        return self.custom.keys();
+    }
+
     //Any number is allowed when no rule has shared a min or max
     pub fn min_max(&self) -> (usize, usize) {
         return (self.min.unwrap_or(usize::MIN), self.max.unwrap_or(usize::MAX));
@@ -48,7 +73,11 @@ impl SharedData {
     }
 
     //Adds what another rule shared.  Its min and max replace the ones that are already here.
-    pub fn merge(&mut self, other: SharedData) {
+    //Returns the key as the error, and adds nothing, when the other rule set a custom key that is already here.
+    pub fn merge(&mut self, other: SharedData) -> std::result::Result<(), String> {
+        if let Some(key) = other.custom.keys().filter(|x| self.custom.contains_key(*x)).min() {
+            return Err(key.to_owned());
+        }
         if other.min.is_some() {
             self.min = other.min;
         }
@@ -57,6 +86,8 @@ impl SharedData {
         }
         self.no_duplicates = self.no_duplicates || other.no_duplicates;
         self.exclusion_pools.extend(other.exclusion_pools);
+        self.custom.extend(other.custom);
+        return Ok(());
     }
 }
 
