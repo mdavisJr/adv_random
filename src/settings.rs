@@ -1,7 +1,7 @@
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
 use crate::random_trait::RandomTrait;
-use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait};
+use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait, NoDuplicate, NumberSpace};
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -37,6 +37,16 @@ impl Settings {
         for rule in &expected_rules_clone {
             if let Some(e) = rule.check_count(count).err() {
                 errors.push(e);
+            }
+        }
+        //checks that need to know about more than one rule
+        if expected_rules_clone.iter().any(|x| x.as_any().is::<NoDuplicate>()) {
+            for rule in &expected_rules_clone {
+                if let Some(number_space) = rule.as_any().downcast_ref::<NumberSpace>() {
+                    if let Some(e) = number_space.check_no_duplicates(count).err() {
+                        errors.push(e);
+                    }
+                }
             }
         }
         return Settings {

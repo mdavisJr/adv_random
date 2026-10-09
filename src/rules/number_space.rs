@@ -99,6 +99,16 @@ impl OperatorType {
         return matches; 
     }
 
+    //Returns true when the space between any two different numbers matches
+    pub fn is_match_for_all_different_numbers(&self) -> bool {
+        return match *self {
+            OperatorType::Gte(v) => v <= 1,
+            OperatorType::Gt(v) => v == 0,
+            OperatorType::Between(lower_bound, upper_bound) => lower_bound <= 1 && upper_bound == usize::MAX,
+            _ => false
+        };
+    }
+
     //Returns how many of the sorted numbers are not next to a space that matches, and if the highest number is one of them
     pub fn lone_numbers(&self, sorted_numbers: &[usize]) -> (usize, bool) {
         let mut lone_count = 0;
@@ -444,6 +454,24 @@ impl NumberSpace {
 
     pub fn number_space_items(&self) -> &Vec<NumberSpaceItem> {
         return &self.number_space_items;
+    }
+
+    //Checks the runs when no two numbers can be the same.  A type that matches the space between any two different
+    //numbers then has one run with every number in it, so any other runs can never be found.
+    pub fn check_no_duplicates(&self, count: usize) -> std::result::Result<(), String> {
+        for number_space_item in &self.number_space_items {
+            if number_space_item.number_space_type.is_match_for_all_different_numbers() {
+                let runs: Vec<usize> = number_space_item.needs.iter().copied().filter(|x| *x > 0).collect();
+                let only_possible_runs: Vec<usize> = if count >= 2 { vec![count - 1] } else { Vec::new() };
+                if runs != only_possible_runs {
+                    return Err(format!(
+                        "NumberSpace {:?} with runs {:?} is not possible with NoDuplicate. Every space between different numbers matches, so the only possible runs for count: {} are {:?}",
+                        number_space_item.number_space_type, runs, count, only_possible_runs
+                    ));
+                }
+            }
+        }
+        return Ok(());
     }
 
     pub fn from_numbers(

@@ -1267,3 +1267,41 @@ fn custom_rules_set_same_custom_key() {
     assert!(error.contains("Custom shared data key \"multiple\" was set by both"), "{}", error);
     assert!(error.contains("RuleA") && error.contains("RuleB"), "{}", error);
 }
+
+#[test]
+fn number_space_not_possible_with_no_duplicate() {
+    let settings = |operator_type: OperatorType, runs: &[usize], count: usize, no_duplicate: bool| -> Settings {
+        let mut rules: Vec<Box<dyn RuleTrait>> = vec![
+            Box::new(NumberRange::all(1, 100)),
+            Box::new(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, runs, &[])])),
+        ];
+        if no_duplicate {
+            rules.push(Box::new(NoDuplicate{}));
+        }
+        return Settings::new(&rules, count);
+    };
+
+    //the space between any two different numbers matches Gte(1), Gte(0) and Gt(0), so with no duplicates there is
+    //always one run of 7 for count 8
+    for operator_type in [OperatorType::Gte(1), OperatorType::Gte(0), OperatorType::Gt(0)] {
+        for runs in [vec![2, 2], vec![4], vec![6]] {
+            let settings = settings(operator_type, &runs, 8, true);
+            assert_eq!(settings.errors().len(), 1, "{:?} {:?}", operator_type, runs);
+            assert!(settings.errors()[0].contains("is not possible with NoDuplicate"), "{:?}", settings.errors());
+            let random_result = random_numbers(&settings);
+            assert_eq!(RandomResultType::BadRequest, random_result.status());
+            assert_eq!(random_result.attempts(), 0);
+        }
+    }
+
+    //one run of 7 is possible
+    let settings_1 = settings(OperatorType::Gte(1), &[7], 8, true);
+    assert!(settings_1.errors().is_empty());
+    assert_eq!(RandomResultType::Success, random_numbers(&settings_1).status());
+
+    //possible when duplicates are allowed, and for types that do not match every space
+    assert!(settings(OperatorType::Gte(1), &[2, 2], 8, false).errors().is_empty());
+    assert!(settings(OperatorType::Gte(2), &[2, 2], 8, true).errors().is_empty());
+    assert!(settings(OperatorType::Gt(1), &[2, 2], 8, true).errors().is_empty());
+    assert!(settings(OperatorType::Lte(3), &[2, 2], 8, true).errors().is_empty());
+}
