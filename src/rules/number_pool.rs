@@ -4,7 +4,7 @@ use crate::default_random::DefaultRandom;
 use crate::random_trait::RandomTrait;
 use crate::rules::{IsWithinErrorType, MapAnyValue, OperatorType, RuleTrait};
 use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
@@ -17,19 +17,48 @@ pub const NP_NUMERIC_SET: [char; 10] = ['0','1','2','3','4','5','6','7','8','9']
 pub const NP_SPECIAL_CHAR_SET: [char; 13] = ['!','@','#','$','%','^','&','*','(',')','-','+','='];
 
 
+//The numbers of a PoolType::Set.  They are kept sorted with no duplicates, so use PoolType::set to create one.
+#[derive(Clone, PartialEq, Eq)]
+pub struct PoolSet {
+    numbers: Vec<usize>,
+}
+
+impl PoolSet {
+    pub fn numbers(&self) -> &[usize] {
+        return &self.numbers;
+    }
+
+    pub fn contains(&self, number: usize) -> bool {
+        return self.numbers.binary_search(&number).is_ok();
+    }
+}
+
+impl Debug for PoolSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.numbers)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum PoolType {
-    Set(HashSet<usize>),
+    Set(PoolSet),
     MinMax(usize, usize),
 }
 
 impl PoolType {
+    pub fn set(numbers: impl IntoIterator<Item = usize>) -> PoolType {
+        let mut numbers: Vec<usize> = numbers.into_iter().collect();
+        numbers.sort_unstable();
+        numbers.dedup();
+        return PoolType::Set(PoolSet { numbers });
+    }
+
     pub fn new(char_set: &HashSet<char>) -> PoolType {
-        return PoolType::Set(char_set.iter().map(|x| *x as usize).collect());
+        return PoolType::set(char_set.iter().map(|x| *x as usize));
     }
 
     pub fn from_chars(chars: &[char]) -> PoolType {
-        return PoolType::Set(chars.iter().map(|x| *x as usize).collect());
+        return PoolType::set(chars.iter().map(|x| *x as usize));
     }
 
     pub fn random_number(&self, current_data: &CurrentData) -> Option<usize> {
@@ -44,9 +73,7 @@ impl PoolType {
     pub fn difference(&self, numbers_set: &HashSet<usize>) -> Vec<usize> {
         match self {
             PoolType::Set(set) => {
-                let mut difference: Vec<usize> = set.difference(numbers_set).copied().collect();
-                difference.sort_unstable();
-                return difference;
+                return set.numbers().iter().copied().filter(|x| !numbers_set.contains(x)).collect();
             }
             PoolType::MinMax(min, max) => {
                 let mut differences: Vec<usize> = Vec::new();
@@ -63,7 +90,7 @@ impl PoolType {
     pub fn contains(&self, number: usize) -> bool {
         match self {
             PoolType::Set(set) => {
-                return set.contains(&number);
+                return set.contains(number);
             }
             PoolType::MinMax(min, max) => {
                 return *min <= number && *max >= number;
@@ -77,7 +104,7 @@ impl PoolType {
 
     pub fn len(&self) -> usize {
         match self {
-            PoolType::Set(set) => set.len(),
+            PoolType::Set(set) => set.numbers().len(),
             PoolType::MinMax(min, max) => if min > max { 0 } else { (max - min).saturating_add(1) },
         }
     }
@@ -132,7 +159,8 @@ impl NumberPoolItemFull {
 
 #[derive(Clone)]
 pub struct NumberPool {
-    number_pool_items: HashMap<String, NumberPoolItemFull>,
+    //sorted by key, so a seeded random generator gives the same numbers every run
+    number_pool_items: BTreeMap<String, NumberPoolItemFull>,
 }
 
 impl NumberPool {
@@ -202,18 +230,12 @@ impl NumberPool {
         };
     }
 
-    fn from_numbers_2(
-        number_pool_items: &HashMap<String, NumberPoolItemFull>,
-        numbers: &[usize],
-    ) -> NumberPool {
-        return NumberPool::from_numbers(
-            &number_pool_items
-                .iter()
-                .map(|(k, v)| NumberPoolItem::new(k, &v.pool, v.needs))
-                .collect::<Vec<NumberPoolItem>>(),
-            numbers,
-            false,
-        );
+    //Returns the key, item, has and missing of every pool for these numbers
+    fn counts<'a>(&'a self, numbers: &'a [usize]) -> impl Iterator<Item = (&'a String, &'a NumberPoolItemFull, usize, usize)> + 'a {
+        return self.number_pool_items.iter().map(move |(key, number_pool_item)| {
+            let has = number_pool_item.pool.has(numbers);
+            (key, number_pool_item, has, number_pool_item.needs.get_missing(has))
+        });
     }
 
     pub fn from_numbers(
@@ -221,7 +243,7 @@ impl NumberPool {
         numbers: &[usize],
         set_needs_eq_match: bool,
     ) -> NumberPool {
-        let mut number_pool_items_full: HashMap<String, NumberPoolItemFull> = HashMap::new();
+        let mut number_pool_items_full: BTreeMap<String, NumberPoolItemFull> = BTreeMap::new();
         for number_pool_item in number_pool_items {
             let match_count = number_pool_item.pool.has(numbers);
             let missing = number_pool_item.needs.get_missing(match_count);
@@ -244,7 +266,7 @@ impl NumberPool {
         };
     }
 
-    pub fn number_pool_items(&self) -> &HashMap<String, NumberPoolItemFull> {
+    pub fn number_pool_items(&self) -> &BTreeMap<String, NumberPoolItemFull> {
         return &self.number_pool_items;
     }
 
@@ -307,21 +329,14 @@ impl RuleTrait for NumberPool {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<Option<Vec<usize>>, String> {
-        let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers());
-        //println!("{:#?}", other_number_pool);
         let mut numbers: Vec<usize> = Vec::new();
         let mut number_not_found = false;
-        //sorted by key so a seeded random generator gives the same numbers every run
-        let mut keys: Vec<&String> = other_number_pool.number_pool_items.keys().collect();
-        keys.sort_unstable();
-        for key in keys {
-            let number_pool_item = &other_number_pool.number_pool_items[key];
-            if number_pool_item.missing > 0 {
+        for (_, number_pool_item, _, missing) in self.counts(current_data.selected_numbers()) {
+            if missing > 0 {
                 if let OperatorType::Eq(v) = number_pool_item.needs {
                     if number_pool_item.pool.len() == v {
                         let difference = number_pool_item.pool.difference(current_data.selected_numbers_set());
-                        if difference.len() == number_pool_item.missing {
+                        if difference.len() == missing {
                             numbers.extend(difference);
                             continue;
                         }
@@ -348,19 +363,16 @@ impl RuleTrait for NumberPool {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers());
-
         let mut total_missing: usize = 0;
-        for (key, number_pool_item) in &other_number_pool.number_pool_items {
-            if !number_pool_item.needs.is_within_range(number_pool_item.has) {
+        for (key, number_pool_item, has, missing) in self.counts(current_data.selected_numbers()) {
+            if !number_pool_item.needs.is_within_range(has) {
                 return Err((IsWithinErrorType::Regular, format!(
                     "Too many from pool {:?}, \"needs\" is {} and \"has\" {} from this pool",
-                    key, number_pool_item.needs, number_pool_item.has
+                    key, number_pool_item.needs, has
                 )));
             }
             if !number_pool_item.needs.is_absolute_zero() {
-                total_missing += number_pool_item.missing;
+                total_missing += missing;
             }
         }
         let len_remaining = if current_data.selected_numbers().len() > current_data.settings().count() {
@@ -381,13 +393,11 @@ impl RuleTrait for NumberPool {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<(), String> {
-        let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers());
-        for (key, number_pool_item) in other_number_pool.number_pool_items {
-            if !number_pool_item.needs.is_match(number_pool_item.has) {
+        for (key, number_pool_item, has, _) in self.counts(current_data.selected_numbers()) {
+            if !number_pool_item.needs.is_match(has) {
                 return Err(format!(
                     "Expected--Pool:{:?}--{:?}--Needs:{}. Actual Count:{}",
-                    key, number_pool_item.pool, number_pool_item.needs, number_pool_item.has
+                    key, number_pool_item.pool, number_pool_item.needs, has
                 ));
             }
         }

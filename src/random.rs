@@ -257,10 +257,7 @@ impl<'a> CurrentData<'a> {
             let val = if let Some(v) = &from_pool_type {
                 match &v {
                     PoolType::Set(set) => {
-                        //sorted so a seeded random generator picks the same number every run
-                        let mut rand_pool: Vec<usize> = set.iter().copied().collect();
-                        rand_pool.sort_unstable();
-                        *get_random_vec_item(random, &rand_pool)?
+                        *get_random_vec_item(random, set.numbers())?
                     }
                     PoolType::MinMax(pool_type_min, pool_type_max) => {
                         if pool_type_min > pool_type_max {

@@ -380,9 +380,9 @@ fn number_pool_1() {
     let some_set: HashSet<usize> = HashSet::from_iter([17, 18, 19, 20, 21]);
     let rules_1: Vec<Box<dyn RuleTrait>> = vec![
         Box::new(NumberPool::new(&[
-            NumberPoolItem::new("exclude_set", &PoolType::Set(exclude_set.clone()), OperatorType::Eq(0)),
-            NumberPoolItem::new("all_set", &PoolType::Set(all_set.clone()), OperatorType::Eq(all_set.len())),
-            NumberPoolItem::new("some_set", &PoolType::Set(some_set.clone()), OperatorType::Eq(3)),
+            NumberPoolItem::new("exclude_set", &PoolType::set(exclude_set.clone()), OperatorType::Eq(0)),
+            NumberPoolItem::new("all_set", &PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len())),
+            NumberPoolItem::new("some_set", &PoolType::set(some_set.clone()), OperatorType::Eq(3)),
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
         Box::new(NoDuplicate{}),
@@ -391,7 +391,7 @@ fn number_pool_1() {
     let rules_2: Vec<Box<dyn RuleTrait>> = vec![
         Box::new(NumberPool::new(&[
             NumberPoolItem::new("exclude_set", &PoolType::MinMax(23, 23), OperatorType::Eq(0)),
-            NumberPoolItem::new("all_set", &PoolType::Set(all_set.clone()), OperatorType::Eq(all_set.len())),
+            NumberPoolItem::new("all_set", &PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len())),
             NumberPoolItem::new("some_set", &PoolType::MinMax(17, 21), OperatorType::Eq(3)),
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
@@ -428,8 +428,8 @@ fn number_pool_2() {
     let all_set: HashSet<usize> = HashSet::from_iter([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     let rules_1: Vec<Box<dyn RuleTrait>> = vec![
         Box::new(NumberPool::new(&[
-            NumberPoolItem::new("exclude_set", &PoolType::Set(exclude_set.clone()), OperatorType::Eq(0)),
-            NumberPoolItem::new("all_set", &PoolType::Set(all_set.clone()), OperatorType::Eq(all_set.len())),
+            NumberPoolItem::new("exclude_set", &PoolType::set(exclude_set.clone()), OperatorType::Eq(0)),
+            NumberPoolItem::new("all_set", &PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len())),
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
         Box::new(NoDuplicate{}),
@@ -799,7 +799,7 @@ fn get_rand_number_not_found() {
     //min is greater than max
     assert_eq!(current_data.get_rand(NumberType::Any, None, Some((20, 1))), None);
     assert_eq!(current_data.get_rand(NumberType::Any, Some(&PoolType::MinMax(20, 1)), None), None);
-    assert_eq!(current_data.get_rand(NumberType::Any, Some(&PoolType::Set(HashSet::new())), None), None);
+    assert_eq!(current_data.get_rand(NumberType::Any, Some(&PoolType::set([])), None), None);
 }
 
 #[test]
@@ -919,4 +919,32 @@ fn number_space_item_missing() {
     let item = NumberSpaceItem::new_full(&lte, &[2, 3], &[2, 3]);
     assert_eq!(item.missing(), vec![0, 0]);
     assert_eq!(item.process_missing_count(), 0);
+}
+
+#[test]
+fn pool_type_set() {
+    let pool = PoolType::set([21, 4, 1, 4, 17]);
+    //sorted with no duplicates
+    match &pool {
+        PoolType::Set(set) => assert_eq!(set.numbers(), &[1, 4, 17, 21]),
+        _ => panic!("{:?}", pool)
+    }
+    assert_eq!(pool.len(), 4);
+    assert!(pool.contains(17));
+    assert!(!pool.contains(18));
+    assert_eq!(pool.has(&[4, 4, 5, 21]), 3);
+    assert_eq!(pool.difference(&HashSet::from_iter([4, 99])), vec![1, 17, 21]);
+    assert!(PoolType::set([]).is_empty());
+
+    //the other ways to create a set give the same numbers
+    let from_chars = PoolType::from_chars(&['b', 'a', 'b']);
+    let from_hash_set = PoolType::new(&HashSet::from_iter(['a', 'b']));
+    let hash_set: HashSet<usize> = HashSet::from_iter([97, 98]);
+    let from_set = PoolType::set(hash_set);
+    for pool in [from_chars, from_hash_set, from_set] {
+        match &pool {
+            PoolType::Set(set) => assert_eq!(set.numbers(), &[97, 98]),
+            _ => panic!("{:?}", pool)
+        }
+    }
 }

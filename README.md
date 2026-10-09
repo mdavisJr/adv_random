@@ -94,9 +94,9 @@ match random_result.numbers() {
 let random_result = random_numbers(&Settings::new(&[
     Box::new(NoDuplicate{}),
     Box::new(NumberPool::new(&[
-        NumberPoolItem::new("exclude_23", &PoolType::Set(HashSet::from_iter([23])), 0),
-        NumberPoolItem::new("must_contain_1_4", &PoolType::Set(HashSet::from_iter([1, 4])), 2),
-        NumberPoolItem::new("some_set", &PoolType::Set(HashSet::from_iter([17, 18, 19, 20, 21])), 3),
+        NumberPoolItem::new("exclude_23", &PoolType::set([23]), 0),
+        NumberPoolItem::new("must_contain_1_4", &PoolType::set([1, 4]), 2),
+        NumberPoolItem::new("some_set", &PoolType::set([17, 18, 19, 20, 21]), 3),
     ])),
     Box::new(NumberRange::all(1, 100)),
 ], 10));
