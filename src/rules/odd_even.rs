@@ -105,7 +105,7 @@ impl RuleTrait for OddEven {
     fn get_numbers(
         &self,
         current_data: &CurrentData
-    ) -> std::result::Result<Vec<usize>, String> {
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
         let act_odd_even = OddEven::from_numbers(current_data.selected_numbers());
         let mut pool_keys: Vec<OddEvenKey> = Vec::with_capacity(2);
         if act_odd_even.needs_even(self) {
@@ -122,9 +122,9 @@ impl RuleTrait for OddEven {
             } else if *selected_pool_key == OddEvenKey::Even {
                 number = current_data.get_rand(NumberType::Even, None, None);
             }
-            return Ok(vec![number]);
+            return Ok(Some(vec![number]));
         }
-        return Err(String::from("Skip"));
+        return Ok(None);
     }
 
     fn is_within_range(

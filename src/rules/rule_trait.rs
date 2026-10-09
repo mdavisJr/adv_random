@@ -30,10 +30,11 @@ pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
         current_data: &CurrentData,
     ) -> std::result::Result<(), String>;
 
+    //Ok(None) means this rule has no numbers to add right now
     fn get_numbers(
         &self,
         current_data: &CurrentData,
-    ) -> std::result::Result<Vec<usize>, String>;
+    ) -> std::result::Result<Option<Vec<usize>>, String>;
 
     fn share_data(
         &self,

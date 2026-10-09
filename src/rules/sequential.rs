@@ -1,4 +1,4 @@
-use crate::random::CurrentData;
+use crate::random::{CurrentData, NumberType};
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use std::any::Any;
@@ -16,9 +16,12 @@ pub struct Sequential {
 
 impl Sequential {
     pub fn new(not: usize, seq_counts: &[usize]) -> Sequential {
+        //sorted because the counts from selected numbers are sorted before they are compared
+        let mut seq_counts = seq_counts.to_vec();
+        seq_counts.sort_unstable();
         return Sequential {
             not,
-            seq_counts: seq_counts.to_vec(),
+            seq_counts,
         };
     }
 
@@ -117,12 +120,12 @@ impl RuleTrait for Sequential {
     fn get_numbers(
         &self,
         current_data: &CurrentData
-    ) -> std::result::Result<Vec<usize>, String> {
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
         let act_seq = Sequential::from_numbers(current_data, false);
         let seq_count_needed = act_seq.needs_seq(self, current_data);
         if seq_count_needed > 0 {
             let range = if current_data.selected_numbers().is_empty() {
-                let num = current_data.settings().get_number_within_number_range(current_data).unwrap()[0];
+                let num = current_data.get_rand(NumberType::Any, None, None);
                 num..=(num + seq_count_needed - 1)
             } else {
                 let num = *get_random_vec_item(current_data.random(), current_data.selected_numbers());
@@ -132,9 +135,9 @@ impl RuleTrait for Sequential {
             for seq_digit in range {
                 seq_digits.push(seq_digit);
             }
-            return Ok(seq_digits);
+            return Ok(Some(seq_digits));
         }
-        return Err(String::from("Skip"));
+        return Ok(None);
     }
 
     fn is_within_range(

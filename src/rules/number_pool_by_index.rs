@@ -68,14 +68,14 @@ impl RuleTrait for NumberPoolByIndex {
     fn get_numbers(
         &self,
         current_data: &CurrentData
-    ) -> std::result::Result<Vec<usize>, String> {
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
         for number_pool_item in &self.number_pool_items {
             if number_pool_item.indexes.contains(&current_data.selected_numbers().len()) {
                 let number = number_pool_item.pool.random_number(current_data);
-                return Ok(vec![number]);
+                return Ok(Some(vec![number]));
             }
         }
-        return Err(String::from("Skip"));
+        return Ok(None);
     }
 
     fn is_within_range(

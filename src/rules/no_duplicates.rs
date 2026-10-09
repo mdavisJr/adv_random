@@ -37,8 +37,8 @@ impl RuleTrait for NoDuplicate {
     fn get_numbers(
         &self,
         _current_data: &CurrentData
-    ) -> std::result::Result<Vec<usize>, String> {
-        return Err(String::from("Skip"));
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
+        return Ok(None);
     }
 
     fn is_within_range(

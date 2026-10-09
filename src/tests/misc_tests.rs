@@ -385,6 +385,7 @@ fn number_pool_1() {
             NumberPoolItem::new("some_set", &PoolType::Set(some_set.clone()), OperatorType::Eq(3)),
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
+        Box::new(NoDuplicate{}),
     ];
     let settings_1 = Settings::new(&rules_1, 10);
     let rules_2: Vec<Box<dyn RuleTrait>> = vec![
@@ -394,6 +395,7 @@ fn number_pool_1() {
             NumberPoolItem::new("some_set", &PoolType::MinMax(17, 21), OperatorType::Eq(3)),
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
+        Box::new(NoDuplicate{}),
     ];
     let settings_2 = Settings::new(&rules_2, 10);
     for settings in [settings_1, settings_2] {
@@ -430,6 +432,7 @@ fn number_pool_2() {
             NumberPoolItem::new("all_set", &PoolType::Set(all_set.clone()), OperatorType::Eq(all_set.len())),
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
+        Box::new(NoDuplicate{}),
     ];
     let settings_1 = Settings::new(&rules_1, 10);
     let rules_2: Vec<Box<dyn RuleTrait>> = vec![
@@ -438,6 +441,7 @@ fn number_pool_2() {
             NumberPoolItem::new("all_set", &PoolType::MinMax(1, 10), OperatorType::Eq(all_set.len())),
         ])),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
+        Box::new(NoDuplicate{}),
     ];
     let settings_2 = Settings::new(&rules_2, 10);
     for settings in [settings_1, settings_2] {
@@ -643,4 +647,93 @@ fn number_space_item_has_too_many() {
     assert!(!NumberSpaceItem::new_full(&lte, &[3, 2], &[1, 3]).has_too_many());
     assert!(!NumberSpaceItem::new_full(&lte, &[2, 3], &[2]).has_too_many());
     assert!(!NumberSpaceItem::new_full(&lte, &[2, 3], &[]).has_too_many());
+}
+
+#[test]
+fn number_pool_counts_duplicates() {
+    let digits = PoolType::MinMax(48, 57);
+    let rule = NumberPool::new(&[NumberPoolItem::new("digits", &digits, OperatorType::Eq(2))]);
+    let settings = Settings::new(&[], 4);
+    let shared_data = HashMap::new();
+    //48 is selected three times, so there are three numbers from the pool, not one
+    let numbers = vec![48, 48, 48, 70];
+    assert!(rule.is_match(&CurrentData::new(&numbers, &settings, &shared_data)).is_err());
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_err());
+    let numbers = vec![48, 48, 70, 71];
+    assert!(rule.is_match(&CurrentData::new(&numbers, &settings, &shared_data)).is_ok());
+
+    for _ in 0..MAX_TRIES {
+        let random_result = random_numbers(&Settings::new(&[
+            Box::new(NumberRange::all(40, 70)),
+            Box::new(NumberPool::new(&[NumberPoolItem::new("digits", &digits, OperatorType::Eq(2))])),
+        ], 8));
+        let numbers = random_result.numbers().unwrap();
+        assert_eq!(numbers.iter().filter(|x| digits.contains(**x)).count(), 2, "{:?}", numbers);
+    }
+}
+
+#[test]
+fn sequential_seq_counts_any_order() {
+    for seq_counts in [[2, 3], [3, 2]] {
+        for _ in 0..100 {
+            let random_result = random_numbers(&Settings::new(&[
+                Box::new(NoDuplicate{}),
+                Box::new(NumberRange::all(1, 100)),
+                Box::new(Sequential::new(5, &seq_counts)),
+            ], 10));
+            assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
+        }
+    }
+}
+
+#[test]
+fn number_space_single_value_spaces() {
+    //Lte(1), Between(4, 4) and Eq(3) only allow one possible higher number
+    for operator_type in [OperatorType::Lte(1), OperatorType::Between(4, 4), OperatorType::Eq(3)] {
+        for _ in 0..100 {
+            let random_result = random_numbers(&Settings::new(&[
+                Box::new(NumberRange::all(1, 100)),
+                Box::new(NumberSpace::new(&[NumberSpaceItem::new(&operator_type, 9)])),
+            ], 10));
+            assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
+            let mut sorted_numbers = random_result.numbers().unwrap().to_vec();
+            sorted_numbers.sort_unstable();
+            assert!(sorted_numbers.windows(2).all(|x| operator_type.is_match(x[1] - x[0])), "{:?}", sorted_numbers);
+        }
+    }
+}
+
+#[test]
+fn operator_type_get_number() {
+    let settings = Settings::new(&[], 10);
+    let mut shared_data = HashMap::new();
+    shared_data.insert(SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(1));
+    shared_data.insert(SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(100));
+
+    //the highest selected number is the base and is not returned again
+    let selected = vec![10, 40];
+    let numbers = OperatorType::Lte(3).get_number(&CurrentData::new(&selected, &settings, &shared_data), 3);
+    assert_eq!(numbers.len(), 3);
+    assert!(numbers[0] > 40 && numbers[0] <= 43, "{:?}", numbers);
+    assert!(numbers.windows(2).all(|x| x[1] > x[0] && x[1] - x[0] <= 3), "{:?}", numbers);
+
+    //nothing selected, so the starting number is returned with the three spaces
+    let selected = vec![];
+    let numbers = OperatorType::Between(2, 2).get_number(&CurrentData::new(&selected, &settings, &shared_data), 3);
+    assert!(numbers.len() <= 4);
+    assert!(numbers.windows(2).all(|x| x[1] - x[0] == 2), "{:?}", numbers);
+
+    //never goes past max
+    let selected = vec![99];
+    let current_data = CurrentData::new(&selected, &settings, &shared_data);
+    assert_eq!(OperatorType::Between(1, 5).get_number(&current_data, 1), vec![100]);
+    assert_eq!(OperatorType::Eq(1).get_number(&current_data, 1), vec![100]);
+    assert_eq!(OperatorType::Eq(2).get_number(&current_data, 1), Vec::<usize>::new());
+    assert_eq!(OperatorType::Gt(1).get_number(&current_data, 1), Vec::<usize>::new());
+}
+
+#[test]
+fn number_space_needs_any_order() {
+    let lte = OperatorType::Lte(3);
+    assert_eq!(NumberSpaceItem::new_full(&lte, &[3, 2], &[]).needs(), &vec![2, 3]);
 }

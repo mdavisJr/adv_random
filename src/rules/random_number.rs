@@ -52,8 +52,8 @@ impl RuleTrait for RandomNumber {
     fn get_numbers(
         &self,
         current_data: &CurrentData,
-    ) -> std::result::Result<Vec<usize>, String> {
-        return Ok(vec![current_data.get_rand(NumberType::Any, None, None)]);
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
+        return Ok(Some(vec![current_data.get_rand(NumberType::Any, None, None)]));
     }
 
     fn is_within_range(

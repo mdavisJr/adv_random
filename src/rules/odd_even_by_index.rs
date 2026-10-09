@@ -73,17 +73,17 @@ impl RuleTrait for OddEvenByIndex {
     fn get_numbers(
         &self,
         current_data: &CurrentData
-    ) -> std::result::Result<Vec<usize>, String> {
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
         if self.odd_even.contains_key(&current_data.selected_numbers().len()) {            
             if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Odd {
-                return Ok(vec![current_data.get_rand(NumberType::Odd, None, None)]);
+                return Ok(Some(vec![current_data.get_rand(NumberType::Odd, None, None)]));
             } else if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Even {
-                return Ok(vec![current_data.get_rand(NumberType::Even, None, None)]);
+                return Ok(Some(vec![current_data.get_rand(NumberType::Even, None, None)]));
             } else {
-                return Err(String::from("Skip"));
+                return Ok(None);
             }
         }
-        return Err(String::from("Skip"));     
+        return Ok(None);     
     }
 
     fn is_within_range(

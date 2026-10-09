@@ -348,8 +348,9 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
     let mut num_attempts = 1;
     let mut logs: Vec<Log> = Vec::new();
     let mut clear_err_tracker: HashSet<usize> = HashSet::new();
-    let mut expected_rules: Vec<Box<dyn RuleTrait>> = settings.expected_rules().clone();
-    let mut key_to_make_priority: Option<String> = None;
+    //each rule is paired with its index in settings.expected_rules() so it can be found again after a shuffle
+    let mut expected_rules: Vec<(usize, &dyn RuleTrait)> = settings.expected_rules().iter().map(|x| x.as_ref()).enumerate().collect();
+    let mut rule_to_make_priority: Option<usize> = None;
     clear_numbers(&mut logs, &mut numbers, settings);
     for attempts in 1..=settings.max_tries() {
         logs.push(Log::Info {
@@ -365,16 +366,13 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
         let mut shared_data: HashMap<String, MapAnyValue> = HashMap::new();
         shuffle_vec(random.as_ref(), &mut expected_rules);
         //expected_rules.shuffle(&mut thread_rng()); TODO remove
-        if let Some(v) = key_to_make_priority {
-            let idx = expected_rules
-                .iter()
-                .position(|x| x.name() == v)
-                .unwrap();
-            expected_rules.swap(0, idx);
-            key_to_make_priority = None;
+        if let Some(v) = rule_to_make_priority.take() {
+            if let Some(idx) = expected_rules.iter().position(|x| x.0 == v) {
+                expected_rules.swap(0, idx);
+            }
         }
 
-        for expected_rule in &expected_rules {
+        for (_, expected_rule) in &expected_rules {
             if let Some(actual_rule_shared_data) =
                 expected_rule.share_data(&current_data_selected_numbers_sd)
             {
@@ -399,26 +397,25 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
         let current_data_selected_numbers_gn = CurrentData::from_current_data(&current_data_selected_numbers_sd, &shared_data);
         //println!("{:#?}", current_data_selected_numbers_gn);
-        for expected_rule in &expected_rules {
+        for (_, expected_rule) in &expected_rules {
             match expected_rule.get_numbers(&current_data_selected_numbers_gn) {
-                Ok(v) => {
+                Ok(Some(v)) => {
                     gen_type = expected_rule.name();
                     potential_numbers.extend(&v);
                     break;
                 }
+                Ok(None) => {}
                 Err(e) => {
-                    if e != "Skip" {
-                        halt_from_error(
-                            &format!("gn-{}", expected_rule.name()),
-                            &e,
-                            &mut logs,
-                            &mut err_tracker,
-                            attempts,
-                            &mut numbers,
-                            settings,
-                            &mut clear_err_tracker,
-                        );
-                    }
+                    halt_from_error(
+                        &format!("gn-{}", expected_rule.name()),
+                        &e,
+                        &mut logs,
+                        &mut err_tracker,
+                        attempts,
+                        &mut numbers,
+                        settings,
+                        &mut clear_err_tracker,
+                    );
                 }
             }
         }
@@ -508,7 +505,7 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
                 },
                 Err(e) => {
                     if e.0 == IsWithinErrorType::MakePriority {
-                        key_to_make_priority = Some(e.2);
+                        rule_to_make_priority = e.2;
                     }
                     halt_from_error(
                         &format!("iwrc-{}", e.3),
@@ -539,13 +536,13 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
 
 
 fn is_match_check(
-    expected_rules: &[Box<dyn RuleTrait>], 
+    expected_rules: &[(usize, &dyn RuleTrait)], 
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, current_data: &CurrentData,
     logs: &mut Vec<Log>) -> std::result::Result<(), (String, String)> {
     let mut err: std::result::Result<(), String> = Ok(());
     let mut rule_name = String::new();
-    for expected_rule in expected_rules {
+    for (_, expected_rule) in expected_rules {
         err = expected_rule.is_match(current_data);
         if err.is_err() {
             logs.push(Log::Info {
@@ -578,22 +575,23 @@ fn is_match_check(
     };
 }
 
+//The Option<usize> in the error is the index of the expected rule that failed.  It is None for an exclude rule.
 fn is_within_range_check(
-    expected_rules: &[Box<dyn RuleTrait>], 
+    expected_rules: &[(usize, &dyn RuleTrait)], 
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, 
     current_data: &CurrentData,
-    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, String, String)> {
+    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, Option<usize>, String)> {
     let mut err: std::result::Result<(), (IsWithinErrorType, String)> = Ok(());
-    let mut priority_rule_name = String::new();
+    let mut priority_rule: Option<usize> = None;
     let mut rule_name = String::new();
-    for expected_rule in expected_rules {
+    for (idx, expected_rule) in expected_rules {
         err = expected_rule.is_within_range(current_data);
         if err.is_err() {
             logs.push(Log::Info {
                 msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
             });
-            priority_rule_name = expected_rule.name();
+            priority_rule = Some(*idx);
             rule_name = expected_rule.name();
             break;
         }
@@ -606,7 +604,6 @@ fn is_within_range_check(
                     logs.push(Log::Info {
                         msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
                     });
-                    priority_rule_name = exclude_rule.exclude_name();
                     rule_name = format!("exr-{}", exclude_rule.exclude_name());
                     break;
                 }
@@ -617,7 +614,7 @@ fn is_within_range_check(
     return match err {
         Ok(()) => Ok(()),
         Err(e) => {
-            Err((e.0, e.1, priority_rule_name, rule_name))
+            Err((e.0, e.1, priority_rule, rule_name))
         }
     };
 }

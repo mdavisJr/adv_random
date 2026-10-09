@@ -101,57 +101,57 @@ impl OperatorType {
         return matches; 
     }
 
+    //Returns the new numbers needed to add "count" spaces after the highest selected number
     pub fn get_number(&self, current_data: &CurrentData, count: usize) -> Vec<usize> {
+        let (min, max) = Settings::get_min_max(current_data.shared_data());
         let mut numbers: Vec<usize> = Vec::new();
         for _ in 0..5 {
-            numbers = Vec::new();    
-            let (min, max) = Settings::get_min_max(current_data.shared_data());
-            numbers.push(
-                if current_data.selected_numbers_sorted().is_empty() {            
-                    current_data.get_rand(NumberType::Any, None, None)
-                } else {
-                    *current_data.selected_numbers_sorted().last().unwrap()
+            numbers = Vec::new();
+            let (mut base_number, needed) = match current_data.selected_numbers_sorted().last() {
+                Some(v) => (*v, count),
+                None => {
+                    //nothing selected yet, so the starting number is new too
+                    let start = current_data.get_rand(NumberType::Any, None, None);
+                    numbers.push(start);
+                    (start, count + 1)
                 }
-            );
-            for _ in 0..count*2 {
-                let base_number = *numbers.last().unwrap();
-                let (lower_b, upper_b) = match *self {//TODO check dereference 7;3 between(1-3)
-                    OperatorType::Lt(v) => (Some(base_number + 1), Some(cmp::min(base_number + v - 1, max))),     //7+1=8;7+3-1=9 -- 8,9
-                    OperatorType::Lte(v) => (Some(base_number + 1), Some(cmp::min(base_number + v, max))),        //7+1=8;7+3=10  -- 8,9,10
-                    OperatorType::Eq(v) => (Some(base_number + v), None),                                                                        //7+3=10        -- 10
-                    OperatorType::Gt(v) => (Some(base_number + v + 1), Some(max)),                                                                                                                                                                                                                                       
-                    OperatorType::Gte(v) => (Some(base_number + v), Some(max)),                         
-                    OperatorType::Between(lower_bound, upper_bound) => (Some(base_number + lower_bound), Some(base_number + upper_bound)),
-                };
-
-                let new_num: Option<usize> = match (lower_b, upper_b) {
-                    (None, None) => None,
-                    (None, Some(_)) => None,
-                    (Some(v), None) => Some(v),
-                    (Some(lb), Some(ub)) => {
-                        if lb >= ub || lb < min || ub > max {
-                            None
-                        } else {
-                            Some(current_data.get_rand(NumberType::Any, None, Some((lb, ub))))
-                        }
+            };
+            while numbers.len() < needed {
+                match self.get_next_number(current_data, base_number, min, max) {
+                    Some(v) => {
+                        numbers.push(v);
+                        base_number = v;
                     }
-                };
-
-                if let Some(v) = new_num {
-                    numbers.push(v);
-                }
-
-                if numbers.len() == count {
-                    break;
+                    None => break
                 }
             }
 
-            if numbers.len() == count {
+            if numbers.len() == needed {
                 break;
             }
         }
 
         return numbers;
+    }
+
+    fn get_next_number(&self, current_data: &CurrentData, base_number: usize, min: usize, max: usize) -> Option<usize> {
+        let (lower_b, upper_b) = match *self {                                                             //base 7, v 3
+            OperatorType::Lt(v) => (base_number.checked_add(1), base_number.checked_add(v)?.checked_sub(1)),       //8,9
+            OperatorType::Lte(v) => (base_number.checked_add(1), base_number.checked_add(v)),                      //8,9,10
+            OperatorType::Eq(v) => (base_number.checked_add(v), base_number.checked_add(v)),                       //10
+            OperatorType::Gt(v) => (base_number.checked_add(v)?.checked_add(1), Some(max)),                        //11..=max
+            OperatorType::Gte(v) => (base_number.checked_add(v), Some(max)),                                       //10..=max
+            OperatorType::Between(lower_bound, upper_bound) => (base_number.checked_add(lower_bound), Some(base_number.saturating_add(upper_bound))),
+        };
+        let lb = cmp::max(lower_b?, min);
+        let ub = cmp::min(upper_b?, max);
+        if lb > ub {
+            return None;
+        }
+        if lb == ub {
+            return Some(lb);
+        }
+        return Some(current_data.get_rand(NumberType::Any, None, Some((lb, ub))));
     }
 }
 
@@ -181,9 +181,12 @@ impl NumberSpaceItem {
     }
 
     pub fn new_full(number_space_type: &OperatorType, needs: &[usize], has: &[usize]) -> NumberSpaceItem {
+        //sorted because the counts from selected numbers are sorted before they are compared
+        let mut needs = needs.to_vec();
+        needs.sort_unstable();
         return NumberSpaceItem {
             number_space_type: *number_space_type,
-            needs: needs.to_vec(),
+            needs,
             has: has.to_vec()
         };
     }
@@ -367,7 +370,7 @@ impl RuleTrait for NumberSpace {
     fn get_numbers(
         &self,
         current_data: &CurrentData
-    ) -> std::result::Result<Vec<usize>, String> {
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
         let other_number_pool =
         NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
@@ -378,10 +381,10 @@ impl RuleTrait for NumberSpace {
             }
         }
         if !numbers.is_empty() {
-            return Ok(numbers);
+            return Ok(Some(numbers));
         }
         
-        return Err(String::from("Skip"));
+        return Ok(None);
     }
 
     fn is_within_range(

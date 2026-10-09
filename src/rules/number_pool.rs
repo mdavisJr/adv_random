@@ -36,22 +36,9 @@ impl PoolType {
         return current_data.get_rand(NumberType::Any, Some(self), None);
     }
 
-    pub fn has(&self, numbers_set: &HashSet<usize>) -> usize {
-        match self {
-            PoolType::Set(set) => {
-                let intersection = set.intersection(numbers_set);
-                return intersection.count();
-            }
-            PoolType::MinMax(min, max) => {
-                let mut has = 0;
-                for number in numbers_set {
-                    if number >= min && number <= max {
-                        has += 1;
-                    }
-                }
-                return has;
-            }
-        }
+    //counts every number that is in this pool, so a number selected twice counts twice
+    pub fn has(&self, numbers: &[usize]) -> usize {
+        return numbers.iter().filter(|x| self.contains(**x)).count();
     }
 
     pub fn difference(&self, numbers_set: &HashSet<usize>) -> Vec<usize> {
@@ -217,26 +204,26 @@ impl NumberPool {
 
     fn from_numbers_2(
         number_pool_items: &HashMap<String, NumberPoolItemFull>,
-        numbers_set: &HashSet<usize>,
+        numbers: &[usize],
     ) -> NumberPool {
         return NumberPool::from_numbers(
             &number_pool_items
                 .iter()
                 .map(|(k, v)| NumberPoolItem::new(k, &v.pool, v.needs))
                 .collect::<Vec<NumberPoolItem>>(),
-            numbers_set,
+            numbers,
             false,
         );
     }
 
     pub fn from_numbers(
         number_pool_items: &[NumberPoolItem],
-        numbers_set: &HashSet<usize>,
+        numbers: &[usize],
         set_needs_eq_match: bool,
     ) -> NumberPool {
         let mut number_pool_items_full: HashMap<String, NumberPoolItemFull> = HashMap::new();
         for number_pool_item in number_pool_items {
-            let match_count = number_pool_item.pool.has(numbers_set);
+            let match_count = number_pool_item.pool.has(numbers);
             let missing = number_pool_item.needs.get_missing(match_count);
             number_pool_items_full.insert(
                 number_pool_item.key.to_owned(),
@@ -319,9 +306,9 @@ impl RuleTrait for NumberPool {
     fn get_numbers(
         &self,
         current_data: &CurrentData
-    ) -> std::result::Result<Vec<usize>, String> {
+    ) -> std::result::Result<Option<Vec<usize>>, String> {
         let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
+            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers());
         //println!("{:#?}", other_number_pool);
         let mut numbers: Vec<usize> = Vec::new();
         //sorted by key so a seeded random generator gives the same numbers every run
@@ -332,8 +319,11 @@ impl RuleTrait for NumberPool {
             if number_pool_item.missing > 0 {
                 if let OperatorType::Eq(v) = number_pool_item.needs {
                     if number_pool_item.pool.len() == v {
-                        numbers.extend(number_pool_item.pool.difference(current_data.selected_numbers_set()));
-                        continue;
+                        let difference = number_pool_item.pool.difference(current_data.selected_numbers_set());
+                        if difference.len() == number_pool_item.missing {
+                            numbers.extend(difference);
+                            continue;
+                        }
                     }
                 }
 
@@ -344,10 +334,10 @@ impl RuleTrait for NumberPool {
             }
         }
         if !numbers.is_empty() {
-            return Ok(numbers);
+            return Ok(Some(numbers));
         }
 
-        return Err(String::from("Skip"));
+        return Ok(None);
     }
 
     fn is_within_range(
@@ -355,7 +345,7 @@ impl RuleTrait for NumberPool {
         current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
         let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
+            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers());
 
         let mut total_missing: usize = 0;
         for (key, number_pool_item) in &other_number_pool.number_pool_items {
@@ -388,7 +378,7 @@ impl RuleTrait for NumberPool {
         current_data: &CurrentData
     ) -> std::result::Result<(), String> {
         let other_number_pool =
-            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers_set());
+            NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers());
         for (key, number_pool_item) in other_number_pool.number_pool_items {
             if !number_pool_item.needs.is_match(number_pool_item.has) {
                 return Err(format!(

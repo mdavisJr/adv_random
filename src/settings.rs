@@ -1,6 +1,6 @@
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
-use crate::random::{CurrentData, SHARED_DATA_MAX, SHARED_DATA_MIN};
+use crate::random::{SHARED_DATA_MAX, SHARED_DATA_MIN};
 use crate::random_trait::RandomTrait;
 use crate::rules::{MapAnyValue, RuleTrait, RandomNumber, ExcludeRuleTrait};
 use std::collections::HashMap;
@@ -31,7 +31,7 @@ impl Settings {
         exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>
     ) -> Settings {
         let mut expected_rules_clone = expected_rules.to_vec();
-        if expected_rules_clone.iter().all(|x| x.name() != "RandomNumber") {
+        if expected_rules_clone.iter().all(|x| !x.as_any().is::<RandomNumber>()) {
             expected_rules_clone.push(Box::new(RandomNumber{}));
         }
         for rule in &expected_rules_clone {
@@ -82,11 +82,6 @@ impl Settings {
         }
         return (min, max);
     }
-
-    pub fn get_number_within_number_range(&self, current_data: &CurrentData) -> Result<Vec<usize>, String> {
-        return self.expected_rules().iter().find(|x| x.name() == "RandomNumber").unwrap()
-            .get_numbers(current_data);
-    }    
 
     pub fn expected_rules(&self) -> &Vec<Box<dyn RuleTrait>> {
         return &self.expected_rules;
