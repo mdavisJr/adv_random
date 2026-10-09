@@ -13,12 +13,13 @@ static NUMBER_RANGE: LazyLock<Mutex<NumberRange>> = LazyLock::new(|| { Mutex::ne
 
 #[test]
 fn odd_even_with_order_2() {
-    let random_result = random_numbers(&Settings::builder(5)
+    let random_result = Settings::builder(5)
         .rule(OddEvenByIndex::new(&[0, 2, 4], &[1,3]))
-        .build());
-    match random_result.numbers() {
-        Ok(s) => println!("{:?}", s),
-        _ => panic!("{}", random_result)
+        .build()
+        .generate();
+    match random_result {
+        Ok(random_numbers) => println!("{:?}", random_numbers.numbers()),
+        Err(e) => panic!("{:?}", e)
     }
 }
 
@@ -82,13 +83,12 @@ fn sequential_1() {
                 idx == 1,
                 seq_number
             );
-            let rand_result = random_numbers(&Settings::builder(item.2.len())
+            let rand_result = Settings::builder(item.2.len())
                 .rule(seq_number.clone())
                 .rule(NUMBER_RANGE.lock().unwrap().clone())
-                .build());
-            assert_eq!(
-                RandomResultType::Success,
-                rand_result.status(),
+                .build()
+                .generate();
+            assert!(rand_result.is_ok(),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; SEQ_NUM: {:?} \n\n{:?}",
                 main_idx,
                 idx == 1,
@@ -147,10 +147,8 @@ fn number_range_1() {
             main_idx,
             item.1
         );
-        let rand_result = random_numbers(&Settings::builder(item.2.len()).rule(item.1.clone()).build());
-        assert_eq!(
-            RandomResultType::Success,
-            rand_result.status(),
+        let rand_result = Settings::builder(item.2.len()).rule(item.1.clone()).build().generate();
+        assert!(rand_result.is_ok(),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
             main_idx,
             item.1,
@@ -158,7 +156,7 @@ fn number_range_1() {
         );
         assert_eq!(
             Ok(()),
-            item.1.is_match(&CurrentData::new(rand_result.numbers().unwrap(), &Settings::builder(item.2.len()).build(), &SharedData::new())),
+            item.1.is_match(&CurrentData::new(rand_result.as_ref().unwrap().numbers(), &Settings::builder(item.2.len()).build(), &SharedData::new())),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
             main_idx,
             item.1,
@@ -172,15 +170,13 @@ fn number_range_2() {
     let rules: Vec<Box<dyn RuleTrait>> = vec![Box::new(NumberRange::all(1, 2))];
     let settings = Settings::builder(10).boxed_rules(rules.clone()).build();
     for _ in 0..MAX_TRIES {
-        let random_result = random_numbers(&settings);
-        assert_eq!(
-            RandomResultType::Success,
-            random_result.status(),
+        let random_result = settings.generate();
+        assert!(random_result.is_ok(),
             "{:?}",
             random_result
         );
-        assert_eq!(random_result.numbers().unwrap().len(), 10);
-        for number in random_result.numbers().unwrap() {
+        assert_eq!(random_result.as_ref().unwrap().numbers().len(), 10);
+        for number in random_result.as_ref().unwrap().numbers() {
             assert!(*number == 1 || *number == 2);
         }
     }
@@ -191,15 +187,13 @@ fn number_range_3() {
     let rules: Vec<Box<dyn RuleTrait>> = vec![Box::new(NumberRange::all(1, 1))];
     let settings = Settings::builder(10).boxed_rules(rules.clone()).build();
     for _ in 0..MAX_TRIES {
-        let random_result = random_numbers(&settings);
-        assert_eq!(
-            RandomResultType::Success,
-            random_result.status(),
+        let random_result = settings.generate();
+        assert!(random_result.is_ok(),
             "{:?}",
             random_result
         );
-        assert_eq!(random_result.numbers().unwrap().len(), 10);
-        for number in random_result.numbers().unwrap() {
+        assert_eq!(random_result.as_ref().unwrap().numbers().len(), 10);
+        for number in random_result.as_ref().unwrap().numbers() {
             assert_eq!(*number, 1);
         }
     }
@@ -210,15 +204,13 @@ fn number_range_4() {
     let rules: Vec<Box<dyn RuleTrait>> = vec![Box::new(NumberRange::all(100, 100))];
     let settings = Settings::builder(10).boxed_rules(rules.clone()).build();
     for _ in 0..MAX_TRIES {
-        let random_result = random_numbers(&settings);
-        assert_eq!(
-            RandomResultType::Success,
-            random_result.status(),
+        let random_result = settings.generate();
+        assert!(random_result.is_ok(),
             "{:?}",
             random_result
         );
-        assert_eq!(random_result.numbers().unwrap().len(), 10);
-        for number in random_result.numbers().unwrap() {
+        assert_eq!(random_result.as_ref().unwrap().numbers().len(), 10);
+        for number in random_result.as_ref().unwrap().numbers() {
             assert_eq!(*number, 100);
         }
     }
@@ -232,15 +224,13 @@ fn number_range_5() {
     ];
     let settings = Settings::builder(2).boxed_rules(rules.clone()).build();
     for _ in 0..MAX_TRIES {
-        let random_result = random_numbers(&settings);
-        assert_eq!(
-            RandomResultType::Success,
-            random_result.status(),
+        let random_result = settings.generate();
+        assert!(random_result.is_ok(),
             "{:?}",
             random_result
         );
-        assert_eq!(random_result.numbers().unwrap().len(), 2);
-        for number in random_result.numbers().unwrap() {
+        assert_eq!(random_result.as_ref().unwrap().numbers().len(), 2);
+        for number in random_result.as_ref().unwrap().numbers() {
             assert!(*number == 1 || *number == 2);
         }
     }
@@ -289,13 +279,12 @@ fn odd_even_1() {
                 idx == 1,
                 odd_even
             );
-            let rand_result = random_numbers(&Settings::builder(item.2.len())
+            let rand_result = Settings::builder(item.2.len())
                 .rule(*odd_even)
                 .rule(NUMBER_RANGE.lock().unwrap().clone())
-                .build());
-            assert_eq!(
-                RandomResultType::Success,
-                rand_result.status(),
+                .build()
+                .generate();
+            assert!(rand_result.is_ok(),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?} \n\n{:?}",
                 main_idx,
                 idx == 1,
@@ -304,7 +293,7 @@ fn odd_even_1() {
             );
             assert_eq!(
                 Ok(()),
-                OddEven::from_numbers(rand_result.numbers().unwrap()).is_match(&current_data),
+                OddEven::from_numbers(rand_result.as_ref().unwrap().numbers()).is_match(&current_data),
                 "MAIN IDX: {}, FROM_NUMBERS: {}; ODD_EVEN: {:?} \n\n{:?}",
                 main_idx,
                 idx == 1,
@@ -321,18 +310,16 @@ fn odd_even_2() {
         vec![Box::new(OddEven::new(5, 5)), Box::new(NUMBER_RANGE.lock().unwrap().clone())];
     let settings = Settings::builder(10).boxed_rules(rules.clone()).build();
     for _ in 0..MAX_TRIES {
-        let random_result = random_numbers(&settings);
-        assert_eq!(
-            RandomResultType::Success,
-            random_result.status(),
+        let random_result = settings.generate();
+        assert!(random_result.is_ok(),
             "{:?}",
             random_result
         );
-        assert_eq!(random_result.numbers().unwrap().len(), 10);
-        let odd_even = OddEven::from_numbers(random_result.numbers().unwrap());
+        assert_eq!(random_result.as_ref().unwrap().numbers().len(), 10);
+        let odd_even = OddEven::from_numbers(random_result.as_ref().unwrap().numbers());
         let mut odd: usize = 0;
         let mut even: usize = 0;
-        random_result.numbers().unwrap().iter().for_each(|x| {
+        random_result.as_ref().unwrap().numbers().iter().for_each(|x| {
             if x % 2_usize == 0 {
                 even += 1
             } else {
@@ -353,20 +340,18 @@ fn random_number() {
         NumberRange::from_map(&[(&[0], 20,20), (&[1], 55,55), (&[2], 4,10), (&[3], 71,75), (&[4], 47,47)]),
     ];
     for (main_idx, item) in data.iter().enumerate() {
-        let rand_result = random_numbers(&Settings::builder(item.len()).rule(item.clone()).build());
-        assert_eq!(
-            RandomResultType::Success,
-            rand_result.status(),
+        let rand_result = Settings::builder(item.len()).rule(item.clone()).build().generate();
+        assert!(rand_result.is_ok(),
             "MAIN IDX: {} \n\n{:?}",
             main_idx,
             rand_result
         );
-        assert_eq!(5, rand_result.attempts(), "MAIN IDX: {}",
+        assert_eq!(5, rand_result.as_ref().unwrap().attempts(), "MAIN IDX: {}",
             main_idx,
         );
         assert_eq!(
             Ok(()),
-            item.is_match(&CurrentData::new(rand_result.numbers().unwrap(), &Settings::builder(item.len()).build(), &SharedData::new())),
+            item.is_match(&CurrentData::new(rand_result.as_ref().unwrap().numbers(), &Settings::builder(item.len()).build(), &SharedData::new())),
             "MAIN IDX: {}, NUM_RANGE: {:?} \n\n{:?}",
             main_idx,
             item,
@@ -402,15 +387,13 @@ fn number_pool_1() {
     let settings_2 = Settings::builder(10).boxed_rules(rules_2.clone()).build();
     for settings in [settings_1, settings_2] {
         for _ in 0..MAX_TRIES {
-            let random_result = random_numbers(&settings);
-            assert_eq!(
-                RandomResultType::Success,
-                random_result.status(),
+            let random_result = settings.generate();
+            assert!(random_result.is_ok(),
                 "{:?}",
                 random_result
             );
-            assert_eq!(random_result.numbers().unwrap().len(), 10);
-            let numbers_set: HashSet<usize> = random_result.numbers().unwrap().iter().copied().collect();
+            assert_eq!(random_result.as_ref().unwrap().numbers().len(), 10);
+            let numbers_set: HashSet<usize> = random_result.as_ref().unwrap().numbers().iter().copied().collect();
 
             assert!(!numbers_set.contains(&23));
             assert_eq!(
@@ -448,15 +431,13 @@ fn number_pool_2() {
     let settings_2 = Settings::builder(10).boxed_rules(rules_2.clone()).build();
     for settings in [settings_1, settings_2] {
         for _ in 0..MAX_TRIES {
-            let random_result = random_numbers(&settings);
-            assert_eq!(
-                RandomResultType::Success,
-                random_result.status(),
+            let random_result = settings.generate();
+            assert!(random_result.is_ok(),
                 "{:?}",
                 random_result
             );
-            assert_eq!(random_result.numbers().unwrap().len(), 10);
-            let numbers_set: HashSet<usize> = random_result.numbers().unwrap().iter().copied().collect();
+            assert_eq!(random_result.as_ref().unwrap().numbers().len(), 10);
+            let numbers_set: HashSet<usize> = random_result.as_ref().unwrap().numbers().iter().copied().collect();
 
             assert_eq!(
                 all_set
@@ -649,11 +630,12 @@ fn number_pool_counts_duplicates() {
     assert!(rule.is_match(&CurrentData::new(&numbers, &settings, &shared_data)).is_ok());
 
     for _ in 0..MAX_TRIES {
-        let random_result = random_numbers(&Settings::builder(8)
+        let random_result = Settings::builder(8)
             .rule(NumberRange::all(40, 70))
             .rule(NumberPool::new(&[NumberPoolItem::new("digits", &digits, OperatorType::Eq(2))]))
-            .build());
-        let numbers = random_result.numbers().unwrap();
+            .build()
+            .generate();
+        let numbers = random_result.as_ref().unwrap().numbers();
         assert_eq!(numbers.iter().filter(|x| digits.contains(**x)).count(), 2, "{:?}", numbers);
     }
 }
@@ -662,12 +644,13 @@ fn number_pool_counts_duplicates() {
 fn sequential_seq_counts_any_order() {
     for seq_counts in [[2, 3], [3, 2]] {
         for _ in 0..100 {
-            let random_result = random_numbers(&Settings::builder(10)
+            let random_result = Settings::builder(10)
                 .rule(NoDuplicate)
                 .rule(NumberRange::all(1, 100))
                 .rule(Sequential::new(5, &seq_counts))
-                .build());
-            assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
+                .build()
+                .generate();
+            assert!(random_result.is_ok(), "{:?}", random_result);
         }
     }
 }
@@ -677,12 +660,13 @@ fn number_space_single_value_spaces() {
     //Lte(1), Between(4, 4) and Eq(3) only allow one possible higher number
     for operator_type in [OperatorType::Lte(1), OperatorType::Between(4, 4), OperatorType::Eq(3)] {
         for _ in 0..100 {
-            let random_result = random_numbers(&Settings::builder(10)
+            let random_result = Settings::builder(10)
                 .rule(NumberRange::all(1, 100))
                 .rule(NumberSpace::new(&[NumberSpaceItem::new(&operator_type, 9)]))
-                .build());
-            assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
-            let mut sorted_numbers = random_result.numbers().unwrap().to_vec();
+                .build()
+                .generate();
+            assert!(random_result.is_ok(), "{:?}", random_result);
+            let mut sorted_numbers = random_result.as_ref().unwrap().numbers().to_vec();
             sorted_numbers.sort_unstable();
             assert!(sorted_numbers.windows(2).all(|x| operator_type.is_match(x[1] - x[0])), "{:?}", sorted_numbers);
         }
@@ -725,17 +709,17 @@ fn number_space_needs_any_order() {
 #[test]
 fn string_with_invalid_character() {
     //0xD800 to 0xDFFF are surrogates, which are not valid characters
-    let random_result = random_numbers(&Settings::builder(3).rule(NumberRange::all(0xD800, 0xDFFF)).build());
-    assert_eq!(RandomResultType::Success, random_result.status());
-    assert!(random_result.string().is_err());
-    assert!(random_result.shuffled_string().is_err());
+    let random_result = Settings::builder(3).rule(NumberRange::all(0xD800, 0xDFFF)).build().generate();
+    assert!(random_result.is_ok());
+    assert!(random_result.as_ref().unwrap().string().is_err());
+    assert!(random_result.as_ref().unwrap().shuffled_string().is_err());
 
     //no number range, so the numbers are almost always too large to be characters
-    let random_result = random_numbers(&Settings::builder(20).build());
-    assert!(random_result.string().is_err());
+    let random_result = Settings::builder(20).build().generate();
+    assert!(random_result.unwrap().string().is_err());
 
-    let random_result = random_numbers(&Settings::builder(3).rule(NumberRange::all(97, 122)).build());
-    assert_eq!(random_result.string().unwrap().len(), 3);
+    let random_result = Settings::builder(3).rule(NumberRange::all(97, 122)).build().generate();
+    assert_eq!(random_result.as_ref().unwrap().string().unwrap().len(), 3);
 }
 
 #[test]
@@ -753,23 +737,25 @@ fn settings_odd_even_count_mismatch() {
     let settings = Settings::builder(5).rule(OddEven::new(1, 1)).build();
     assert_eq!(settings.errors().len(), 1);
     assert!(settings.errors()[0].contains("must add up to count"), "{:?}", settings.errors());
-    let random_result = random_numbers(&settings);
-    assert_eq!(RandomResultType::BadRequest, random_result.status());
-    assert_eq!(random_result.attempts(), 0);
-    assert!(random_result.numbers().is_err());
-    assert!(random_result.logs()[0].to_string().contains("must add up to count"));
+    let random_result = settings.generate();
+    let error = random_result.unwrap_err();
+    assert_eq!(RandomErrorType::BadRequest, error.error_type());
+    assert_eq!(error.attempts(), 0);
+    assert!(error.messages()[0].contains("must add up to count"));
+    assert!(error.logs()[0].to_string().contains("must add up to count"));
 }
 
 #[test]
 fn no_duplicate_full_range() {
     //every number from 1 to 50 has to be picked, so the last picks only have a few numbers left to choose from
     for _ in 0..50 {
-        let random_result = random_numbers(&Settings::builder(50)
+        let random_result = Settings::builder(50)
             .rule(NoDuplicate)
             .rule(NumberRange::all(1, 50))
-            .build());
-        assert_eq!(RandomResultType::Success, random_result.status());
-        assert_eq!(random_result.numbers().unwrap().iter().collect::<HashSet<_>>().len(), 50);
+            .build()
+            .generate();
+        assert!(random_result.is_ok());
+        assert_eq!(random_result.as_ref().unwrap().numbers().iter().collect::<HashSet<_>>().len(), 50);
     }
 }
 
@@ -792,12 +778,13 @@ fn get_rand_number_not_found() {
 #[test]
 fn random_numbers_number_not_found() {
     //every number from 1 to 10 is excluded, so there is nothing left to pick
-    let random_result = random_numbers(&Settings::builder(3)
+    let random_result = Settings::builder(3)
         .rule(NumberRange::all(1, 10))
         .rule(NumberPool::new(&[NumberPoolItem::new("exclude", &PoolType::MinMax(1, 10), OperatorType::Eq(0))]))
-        .build());
-    assert_eq!(RandomResultType::Failed, random_result.status());
-    assert!(random_result.logs().iter().any(|x| x.to_string().contains(NO_NUMBER_FOUND_ERR)));
+        .build()
+        .generate();
+    assert_eq!(RandomErrorType::Failed, random_result.as_ref().unwrap_err().error_type());
+    assert!(random_result.unwrap_err().logs().iter().any(|x| x.to_string().contains(NO_NUMBER_FOUND_ERR)));
 }
 
 #[test]
@@ -827,17 +814,17 @@ fn empty_and_large_values() {
 
 #[test]
 fn count_zero() {
-    let random_result = random_numbers(&Settings::builder(0).rule(NumberRange::all(1, 20)).build());
-    assert_eq!(RandomResultType::Success, random_result.status());
-    assert!(random_result.numbers().unwrap().is_empty());
-    assert_eq!(random_result.shuffled_string().unwrap(), "");
+    let random_result = Settings::builder(0).rule(NumberRange::all(1, 20)).build().generate();
+    assert!(random_result.is_ok());
+    assert!(random_result.as_ref().unwrap().numbers().is_empty());
+    assert_eq!(random_result.as_ref().unwrap().shuffled_string().unwrap(), "");
 }
 
 #[test]
 fn number_range_min_greater_than_max() {
     let settings = Settings::builder(3).rule(NumberRange::all(20, 1)).build();
     assert_eq!(settings.errors(), ["NumberRange min: 20 is greater than max: 1"]);
-    assert_eq!(RandomResultType::BadRequest, random_numbers(&settings).status());
+    assert_eq!(RandomErrorType::BadRequest, settings.generate().unwrap_err().error_type());
 }
 
 #[test]
@@ -848,9 +835,10 @@ fn settings_with_more_than_one_error() {
         .rule(Sequential::new(1, &[2]))
         .build();
     assert_eq!(settings.errors().len(), 3);
-    let random_result = random_numbers(&settings);
-    assert_eq!(RandomResultType::BadRequest, random_result.status());
-    assert_eq!(random_result.logs().len(), 3);
+    let random_result = settings.generate();
+    assert_eq!(RandomErrorType::BadRequest, random_result.as_ref().unwrap_err().error_type());
+    assert_eq!(random_result.as_ref().unwrap_err().messages().len(), 3);
+    assert_eq!(random_result.unwrap_err().logs().len(), 3);
 
     assert!(Settings::builder(5).rule(NumberRange::all(1, 20)).build().errors().is_empty());
 }
@@ -861,11 +849,11 @@ fn number_pool_alphanumeric_count_too_small() {
         let settings = Settings::builder(count).rule(NumberPool::alphanumeric(count, include_special_char)).build();
         assert_eq!(settings.errors().len(), 1);
         assert!(settings.errors()[0].contains("or more"), "{:?}", settings.errors());
-        assert_eq!(RandomResultType::BadRequest, random_numbers(&settings).status());
+        assert_eq!(RandomErrorType::BadRequest, settings.generate().unwrap_err().error_type());
     }
     for (count, include_special_char) in [(2, false), (3, true)] {
-        let random_result = random_numbers(&Settings::builder(count).rule(NumberPool::alphanumeric(count, include_special_char)).build());
-        assert_eq!(random_result.shuffled_string().unwrap().len(), count);
+        let random_result = Settings::builder(count).rule(NumberPool::alphanumeric(count, include_special_char)).build().generate();
+        assert_eq!(random_result.as_ref().unwrap().shuffled_string().unwrap().len(), count);
     }
 }
 
@@ -888,13 +876,14 @@ fn sequential_more_than_one_sequence() {
     for (min, max, not, seq_counts) in data {
         let count = not + seq_counts.iter().sum::<usize>();
         for _ in 0..200 {
-            let random_result = random_numbers(&Settings::builder(count)
+            let random_result = Settings::builder(count)
                 .rule(NoDuplicate)
                 .rule(NumberRange::all(min, max))
                 .rule(Sequential::new(not, &seq_counts))
-                .build());
-            assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
-            let numbers = random_result.numbers().unwrap();
+                .build()
+                .generate();
+            assert!(random_result.is_ok(), "{:?}", random_result);
+            let numbers = random_result.as_ref().unwrap().numbers();
             assert!(numbers.iter().all(|x| *x >= min && *x <= max), "{:?}", numbers);
             let actual = Sequential::from_numbers(&CurrentData::new(numbers, &Settings::builder(count).build(), &SharedData::new()), false);
             assert_eq!(actual.not(), not, "{:?}", numbers);
@@ -1001,11 +990,12 @@ fn number_space_more_than_one_run() {
     for operator_type in [OperatorType::Eq(3), OperatorType::Eq(1), OperatorType::Lte(3), OperatorType::Between(3, 6)] {
         let mut success_count = 0;
         for _ in 0..100 {
-            let random_result = random_numbers(&Settings::builder(12)
+            let random_result = Settings::builder(12)
                 .rule(NumberRange::all(1, 100))
                 .rule(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, &[2, 2, 3], &[])]))
-                .build());
-            if let Ok(numbers) = random_result.numbers() {
+                .build()
+                .generate();
+            if let Ok(numbers) = random_result.as_ref().map(|x| x.numbers()) {
                 success_count += 1;
                 let mut sorted_numbers = numbers.to_vec();
                 sorted_numbers.sort_unstable();
@@ -1060,7 +1050,7 @@ fn number_space_takes_more_numbers_than_count() {
 
     let settings = Settings::builder(8).rule(NumberRange::all(1, 100)).rule(number_space).build();
     assert_eq!(settings.errors().len(), 1);
-    assert_eq!(RandomResultType::BadRequest, random_numbers(&settings).status());
+    assert_eq!(RandomErrorType::BadRequest, settings.generate().unwrap_err().error_type());
 }
 
 #[test]
@@ -1100,12 +1090,13 @@ fn number_space_no_spare_numbers() {
     for (operator_type, runs, count) in data {
         let mut success_count = 0;
         for _ in 0..50 {
-            let random_result = random_numbers(&Settings::builder(count)
+            let random_result = Settings::builder(count)
                 .rule(NoDuplicate)
                 .rule(NumberRange::all(1, 100))
                 .rule(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, &runs, &[])]))
-                .build());
-            if let Ok(numbers) = random_result.numbers() {
+                .build()
+                .generate();
+            if let Ok(numbers) = random_result.as_ref().map(|x| x.numbers()) {
                 success_count += 1;
                 let mut sorted_numbers = numbers.to_vec();
                 sorted_numbers.sort_unstable();
@@ -1240,13 +1231,14 @@ impl RuleTrait for MultipleOfShared {
 #[test]
 fn custom_rules_share_custom_value() {
     for _ in 0..50 {
-        let random_result = random_numbers(&Settings::builder(6)
+        let random_result = Settings::builder(6)
             .rule(NumberRange::all(10, 100))
             .rule(ShareMultiple { name: "ShareMultiple".to_owned(), multiple: 5 })
             .rule(MultipleOfShared {})
-            .build());
-        assert_eq!(RandomResultType::Success, random_result.status(), "{:?}", random_result);
-        let numbers = random_result.numbers().unwrap();
+            .build()
+            .generate();
+        assert!(random_result.is_ok(), "{:?}", random_result);
+        let numbers = random_result.as_ref().unwrap().numbers();
         assert_eq!(numbers.len(), 6);
         assert!(numbers.iter().all(|x| x.is_multiple_of(5) && *x >= 10 && *x <= 100), "{:?}", numbers);
     }
@@ -1254,16 +1246,18 @@ fn custom_rules_share_custom_value() {
 
 #[test]
 fn custom_rules_set_same_custom_key() {
-    let random_result = random_numbers(&Settings::builder(6)
+    let random_result = Settings::builder(6)
         .rule(NumberRange::all(10, 100))
         .rule(ShareMultiple { name: "RuleA".to_owned(), multiple: 5 })
         .rule(ShareMultiple { name: "RuleB".to_owned(), multiple: 7 })
         .rule(MultipleOfShared {})
-        .build());
-    assert_eq!(RandomResultType::BadRequest, random_result.status());
-    assert_eq!(random_result.attempts(), 1);
-    assert!(random_result.numbers().is_err());
-    let error = random_result.logs().last().unwrap().to_string();
+        .build()
+        .generate();
+    let random_error = random_result.unwrap_err();
+    assert_eq!(RandomErrorType::BadRequest, random_error.error_type());
+    assert_eq!(random_error.attempts(), 1);
+    assert_eq!(random_error.messages().len(), 1);
+    let error = random_error.logs().last().unwrap().to_string();
     assert!(error.contains("Custom shared data key \"multiple\" was set by both"), "{}", error);
     assert!(error.contains("RuleA") && error.contains("RuleB"), "{}", error);
 }
@@ -1288,16 +1282,16 @@ fn number_space_not_possible_with_no_duplicate() {
             let settings = settings(operator_type, &runs, 8, true);
             assert_eq!(settings.errors().len(), 1, "{:?} {:?}", operator_type, runs);
             assert!(settings.errors()[0].contains("is not possible with NoDuplicate"), "{:?}", settings.errors());
-            let random_result = random_numbers(&settings);
-            assert_eq!(RandomResultType::BadRequest, random_result.status());
-            assert_eq!(random_result.attempts(), 0);
+            let random_result = settings.generate();
+            assert_eq!(RandomErrorType::BadRequest, random_result.as_ref().unwrap_err().error_type());
+            assert_eq!(random_result.unwrap_err().attempts(), 0);
         }
     }
 
     //one run of 7 is possible
     let settings_1 = settings(OperatorType::Gte(1), &[7], 8, true);
     assert!(settings_1.errors().is_empty());
-    assert_eq!(RandomResultType::Success, random_numbers(&settings_1).status());
+    assert!(settings_1.generate().is_ok());
 
     //possible when duplicates are allowed, and for types that do not match every space
     assert!(settings(OperatorType::Gte(1), &[2, 2], 8, false).errors().is_empty());
@@ -1333,8 +1327,7 @@ fn settings_builder() {
     assert_eq!(numbers.iter().filter(|x| x.is_multiple_of(2)).count(), 5);
     assert!(numbers.iter().all(|x| (1..=100).contains(x) && !(20..=29).contains(x) && !(51..=75).contains(x)), "{:?}", numbers);
 
-    //generate is the same as random_numbers, and the same seed gives the same numbers
-    assert_eq!(random_numbers(&build(7)).numbers().unwrap(), numbers);
+    //the same seed gives the same numbers
     assert_eq!(build(7).generate().unwrap().numbers(), numbers);
     assert_eq!(&build(7).generate().unwrap().into_numbers(), numbers);
 
@@ -1452,6 +1445,7 @@ fn generate_err() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn random_result_into_result() {
     let random_result = random_numbers(&Settings::builder(5).range(1, 20).build());
     let numbers = random_result.numbers().unwrap().clone();

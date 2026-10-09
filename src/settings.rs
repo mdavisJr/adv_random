@@ -1,6 +1,6 @@
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
-use crate::random::{random_numbers, RandomError, RandomNumbers};
+use crate::random::{generate_result, RandomError, RandomNumbers};
 use crate::random_trait::RandomTrait;
 use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait, NoDuplicate, NumberRange, NumberSpace, OddEven};
 use std::sync::Arc;
@@ -145,9 +145,8 @@ impl Settings {
     }
 
     //Creates the random numbers.  Err says why when the settings can not work or no numbers were found.
-    //random_numbers(&settings) does the same and returns everything that happened as a RandomResult.
     pub fn generate(&self) -> Result<RandomNumbers, RandomError> {
-        return random_numbers(self).into_result();
+        return generate_result(self).into_result();
     }
 
     #[cfg(feature="rand")]

@@ -73,6 +73,7 @@ impl RandomResult {
                 numbers: self.numbers,
                 attempts: self.attempts,
                 logs: self.logs,
+                clear_err_tracker: self.clear_err_tracker,
                 random: self.random
             }),
             RandomResultType::BadRequest => Err(RandomError {
@@ -151,6 +152,7 @@ pub struct RandomNumbers {
     numbers: Vec<usize>,
     attempts: usize,
     logs: Vec<Log>,
+    clear_err_tracker: HashSet<usize>,
     random: Option<Arc<dyn RandomTrait + Send + Sync>>
 }
 
@@ -179,6 +181,11 @@ impl RandomNumbers {
 
     pub fn logs(&self) -> &Vec<Log> {
         return &self.logs;
+    }
+
+    //The attempts where the numbers selected so far were cleared to start over
+    pub fn clear_err_tracker(&self) -> &HashSet<usize> {
+        return &self.clear_err_tracker;
     }
 
     fn invalid_character(&self, message: String) -> RandomError {
@@ -480,7 +487,13 @@ impl<'a> CurrentData<'a> {
     }  
 }
 
+#[deprecated(since = "3.0.0", note = "use settings.generate()")]
 pub fn random_numbers(settings: &Settings) -> RandomResult {
+    return generate_result(settings);
+}
+
+//Creates the random numbers and returns everything that happened.  Settings::generate turns it into a Result.
+pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
     let mut errors: Vec<Log> = settings.errors().iter().map(|x| Log::Error { msg: x.to_owned() }).collect();
     if settings.random().is_none() {
         errors.push(Log::Error { msg: NO_RANDOM_ERR.to_owned() });

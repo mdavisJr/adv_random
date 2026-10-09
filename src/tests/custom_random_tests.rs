@@ -1,4 +1,5 @@
-use crate::random::{random_numbers, RandomResultType};
+#[cfg(not(feature="rand"))]
+use crate::random::RandomErrorType;
 #[cfg(not(feature="rand"))]
 use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::RandomTrait;
@@ -15,30 +16,33 @@ use crate::settings::Settings;
 
 #[test]
 fn custom_random() {
-    let random_result = random_numbers(&Settings::builder(10)
+    let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 20))
         .random(TestNoDefaultRandom{})
-        .build());
-    match random_result.numbers() {
-        Ok(numbers) => {
+        .build()
+        .generate();
+    match &random_result {
+        Ok(random_numbers) => {
+            let numbers = random_numbers.numbers();
             assert!(numbers.len() == 10);
             assert!(numbers.iter().all(|x| *x == 1), "{:?}", numbers);
+            assert_eq!(random_numbers.shuffled_string().unwrap().len(), 10);
         },
-        _ => panic!("{}", random_result)
+        Err(e) => panic!("{:?}", e)
     }
-    assert_eq!(random_result.shuffled_string().unwrap().len(), 10);
 }
 
 #[test]
 #[cfg(not(feature="rand"))]
 fn no_random_is_bad_request() {
-    let random_result = random_numbers(&Settings::builder(10)
+    let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 20))
-        .build());
-    assert_eq!(random_result.status(), RandomResultType::BadRequest);
-    assert!(random_result.numbers().is_err());
-    assert!(random_result.shuffled_string().is_err());
-    assert_eq!(random_result.logs().len(), 1);
+        .build()
+        .generate();
+    let error = random_result.unwrap_err();
+    assert_eq!(error.error_type(), RandomErrorType::BadRequest);
+    assert_eq!(error.messages(), &vec![NO_RANDOM_ERR.to_owned()]);
+    assert_eq!(error.logs().len(), 1);
 }
 
 #[test]
@@ -70,14 +74,15 @@ fn no_random_rules_return_errors() {
 #[cfg(feature="rand")]
 fn seeded_random_is_repeatable() {
     let run = |seed: u64| -> (Vec<usize>, String) {
-        let random_result = random_numbers(&Settings::builder(10)
+        let random_result = Settings::builder(10)
             .rule(NoDuplicate)
             .rule(NumberRange::all(1, 100))
             .rule(OddEven::new(5, 5))
             .random(SeededRandom::new(seed))
-            .build());
-        assert_eq!(random_result.status(), RandomResultType::Success, "{}", random_result);
-        return (random_result.numbers().unwrap().clone(), random_result.shuffled_string().unwrap());
+            .build()
+            .generate();
+        assert!(random_result.is_ok(), "{:?}", random_result);
+        return (random_result.as_ref().unwrap().numbers().clone(), random_result.as_ref().unwrap().shuffled_string().unwrap());
     };
     assert_eq!(run(42), run(42));
     assert_ne!(run(42).0, run(43).0);
@@ -88,12 +93,13 @@ fn seeded_random_is_repeatable() {
 fn seeded_random_password_is_repeatable() {
     let run = |seed: u64| -> String {
         let random = SeededRandom::new(seed);
-        let random_result = random_numbers(&Settings::builder(12)
+        let random_result = Settings::builder(12)
             .rule(NumberPool::alphanumeric_with_random(&random, 12, true))
             .random(random)
-            .build());
-        assert_eq!(random_result.status(), RandomResultType::Success, "{}", random_result);
-        return random_result.shuffled_string().unwrap();
+            .build()
+            .generate();
+        assert!(random_result.is_ok(), "{:?}", random_result);
+        return random_result.as_ref().unwrap().shuffled_string().unwrap();
     };
     for seed in 0..20 {
         assert_eq!(run(seed), run(seed));

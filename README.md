@@ -520,17 +520,18 @@ To use a rule with `.exclude(...)` it also has to implement `ExcludeRuleTrait`.
 Custom rules can share their own values with each other.  One rule returns `Some(SharedData::new().with_custom("my_key", CustomValue::Usize(5)))` from `share_data`, and another rule reads it with `current_data.shared_data().custom("my_key")`.  Only one rule can set a key.
 
 # Upgrading From Version 2
-Version 2 code still creates settings with `Settings::new` and `Settings::with_exclude_rules`, and gets its numbers with `random_numbers`.  The two constructors are deprecated and the compiler shows what to use instead.
+Version 2 code still works: it creates settings with `Settings::new` and `Settings::with_exclude_rules`, and gets its numbers with `random_numbers`.  All three are deprecated and the compiler shows what to use instead.
 
 | Version 2 | Version 3 |
 |---|---|
 | `Settings::new(&[Box::new(rule)], 10)` | `Settings::builder(10).rule(rule).build()` |
 | `Settings::with_exclude_rules(&[...], 10, Some(vec![Box::new(rule)]))` | `Settings::builder(10).exclude(rule).build()` |
+| `random_numbers(&settings)` | `settings.generate()` |
 | `random_result.string(true)` | `random_result.shuffled_string()` |
 | `random_result.string(false)` | `random_result.string()` |
 | `PoolType::Set(hash_set)` | `PoolType::set([1, 4])` |
 | `set_random_trait(generator)` | `.random(generator)` on the builder |
 
-`random_numbers(&settings)` still returns a `RandomResult` with `status()`, `numbers()` and `logs()`.  Call `into_result()` on it to get the same `Result` that `generate` returns.
+`random_numbers(&settings)` returns a `RandomResult` with `status()`, `numbers()` and `logs()`, the same as in version 2.  Call `into_result()` on it to get the `Result` that `generate` returns.
 
 Custom rules have to change too.  `get_numbers` returns `Ok(None)` instead of `Err("Skip")`, and `share_data` returns `Option<SharedData>`.
