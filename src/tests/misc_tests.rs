@@ -737,3 +737,48 @@ fn number_space_needs_any_order() {
     let lte = OperatorType::Lte(3);
     assert_eq!(NumberSpaceItem::new_full(&lte, &[3, 2], &[]).needs(), &vec![2, 3]);
 }
+
+#[test]
+fn string_with_invalid_character() {
+    //0xD800 to 0xDFFF are surrogates, which are not valid characters
+    let random_result = random_numbers(&Settings::new(&[Box::new(NumberRange::all(0xD800, 0xDFFF))], 3));
+    assert_eq!(RandomResultType::Success, random_result.status());
+    assert!(random_result.string(false).is_err());
+    assert!(random_result.string(true).is_err());
+
+    //no number range, so the numbers are almost always too large to be characters
+    let random_result = random_numbers(&Settings::new(&[], 20));
+    assert!(random_result.string(false).is_err());
+
+    let random_result = random_numbers(&Settings::new(&[Box::new(NumberRange::all(97, 122))], 3));
+    assert_eq!(random_result.string(false).unwrap().len(), 3);
+}
+
+#[test]
+fn check_count_must_equal_count() {
+    assert!(OddEven::new(5, 5).check_count(10).is_ok());
+    assert!(OddEven::new(1, 1).check_count(5).is_err());
+    assert!(OddEven::new(5, 5).check_count(9).is_err());
+    assert!(Sequential::new(1, &[2, 2]).check_count(5).is_ok());
+    assert!(Sequential::new(1, &[2]).check_count(5).is_err());
+    assert!(Sequential::new(5, &[2]).check_count(5).is_err());
+}
+
+#[test]
+#[should_panic(expected = "must add up to count")]
+fn settings_odd_even_count_mismatch() {
+    Settings::new(&[Box::new(OddEven::new(1, 1))], 5);
+}
+
+#[test]
+fn no_duplicate_full_range() {
+    //every number from 1 to 50 has to be picked, so the last picks only have a few numbers left to choose from
+    for _ in 0..50 {
+        let random_result = random_numbers(&Settings::new(&[
+            Box::new(NoDuplicate{}),
+            Box::new(NumberRange::all(1, 50))
+        ], 50));
+        assert_eq!(RandomResultType::Success, random_result.status());
+        assert_eq!(random_result.numbers().unwrap().iter().collect::<HashSet<_>>().len(), 50);
+    }
+}

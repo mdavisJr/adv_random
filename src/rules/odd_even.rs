@@ -163,10 +163,10 @@ impl RuleTrait for OddEven {
         &self,
         count: usize,
     ) -> std::result::Result<bool, String> {
-        if (self.even + self.odd) <= count {
+        if (self.even + self.odd) == count {
             return Ok(true);
         }
-        return Err(format!("Odd count: {} and Even count: {} is greater than count: {} ", self.odd, self.even, count));
+        return Err(format!("Odd count: {} and Even count: {} must add up to count: {} ", self.odd, self.even, count));
     }
 }
 

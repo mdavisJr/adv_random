@@ -190,10 +190,10 @@ impl RuleTrait for Sequential {
         count: usize,
     ) -> std::result::Result<bool, String> {
         let this_count:usize = self.not + self.seq_counts.iter().sum::<usize>();
-        if this_count <= count {
+        if this_count == count {
             return Ok(true);
         }
-        return Err(format!("{} count: {} is greater than count: {} ", self.name(), this_count, count));
+        return Err(format!("{} count: {} must equal count: {} ", self.name(), this_count, count));
     }
 }
 

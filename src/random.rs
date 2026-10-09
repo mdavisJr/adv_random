@@ -65,7 +65,10 @@ impl RandomResult {
                     //numbers.shuffle(&mut thread_rng()); TODO remove
                 }
                 for digit in numbers {
-                    random_string.push(char::from_u32(digit as u32).unwrap());
+                    match u32::try_from(digit).ok().and_then(char::from_u32) {
+                        Some(c) => random_string.push(c),
+                        None => return Err(format!("Number {} is not a valid character", digit))
+                    }
                 }
                 return Ok(random_string);
             },
@@ -266,12 +269,8 @@ impl<'a> CurrentData<'a> {
             if exclusion_pools.iter().any(|x| x.contains(val)) {
                 continue;
             }
-            if no_duplicates {
-                if let Some(set) = self.selected_numbers_set.get() {
-                    if set.contains(&val) {
-                        continue;
-                    }
-                }
+            if no_duplicates && self.selected_numbers_set().contains(&val) {
+                continue;
             }
             match number_type {
                 NumberType::Any => {},
