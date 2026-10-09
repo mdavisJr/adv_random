@@ -39,7 +39,7 @@ The examples below leave out the `use` lines and the function around them.  They
 | `.exclude(rule)` | Adds a rule that the numbers can not match |
 | `.range(min, max)` | Every number is from min to max.  The same as `.rule(NumberRange::all(min, max))` |
 | `.no_duplicates()` | No number is there more than once.  The same as `.rule(NoDuplicate)` |
-| `.odd_even(odd, even)` | This many odd numbers and this many even numbers.  The same as `.rule(OddEven::new(odd, even))` |
+| `.odd_even(odd, even)` | This many odd numbers and this many even numbers.  The same as `.rule(OddEven::new().odd(odd).even(even))` |
 | `.random(generator)` | Uses your random number generator |
 | `.boxed_rules(rules)` and `.boxed_excludes(rules)` | Adds rules that are already in a `Vec<Box<dyn RuleTrait>>` or a `Vec<Box<dyn ExcludeRuleTrait>>` |
 | `.build()` | Returns the `Settings` |
@@ -76,7 +76,7 @@ match Settings::builder(10).range(1, 20).odd_even(5, 5).build().generate() {
 ```
 
 # Invalid Settings
-Settings that can not work do not panic.  Examples are odd and even counts that do not add up to the count, and a range with a min greater than its max.  `generate` returns an error with the type `RandomErrorType::BadRequest`, and the same problems are in `settings.errors()` before you generate anything.
+Settings that can not work do not panic.  Every rule checks what it is given, and `build` checks the rules against the count and against each other.  Examples are odd and even counts that do not add up to the count, a range with a min greater than its max, an index that is past the last number, and a pool that is empty.  `generate` returns an error with the type `RandomErrorType::BadRequest`, and the same problems are in `settings.errors()` before you generate anything.
 ```rust
 let settings = Settings::builder(5).range(20, 1).odd_even(1, 1).build();
 for error in settings.errors() {
@@ -162,7 +162,7 @@ println!("{:?}", random_numbers.numbers());
 ### Create random phone number
 ```rust
 let random_numbers = Settings::builder(3)
-    .rule(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 1000, 9999)]))
+    .rule(NumberRange::new().at([0, 1], 100, 999).at([2], 1000, 9999))
     .build()
     .generate()?;
 let numbers = random_numbers.numbers();
@@ -188,17 +188,16 @@ println!("{:?}", random_numbers.numbers());
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .no_duplicates()
-    .rule(NumberPool::new(&[
-        NumberPoolItem::new("exclude_23", &PoolType::set([23]), OperatorType::Eq(0)),
-        NumberPoolItem::new("must_contain_1_4", &PoolType::set([1, 4]), OperatorType::Eq(2)),
-        NumberPoolItem::new("some_set", &PoolType::set([17, 18, 19, 20, 21]), OperatorType::Gte(3)),
-    ]))
+    .rule(NumberPool::new()
+        .none_of([23])
+        .exactly(2, [1, 4])
+        .at_least(3, [17, 18, 19, 20, 21]))
     .build()
     .generate()?;
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [48, 17, 4, 1, 20, 35, 76, 95, 19, 88]
-A number that is picked twice counts twice.  `OperatorType::Eq(2)` for the numbers 1 and 4 means both 1 and 4 because there are no duplicates.
+A pool is a list of numbers like `[1, 4]`, a range like `1..=10`, or the characters of a string like `"ABC"`.  A number that is picked twice counts twice, so `exactly(2, [1, 4])` means both 1 and 4 because there are no duplicates.  `NumberPool` also has `at_most` and `between`.
 
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that are Odd, Even, Odd, Even, and Odd
@@ -206,7 +205,7 @@ A number that is picked twice counts twice.  `OperatorType::Eq(2)` for the numbe
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
-    .rule(OddEvenByIndex::new(&[0, 2, 4], &[1, 3]))
+    .rule(OddEvenByIndex::new().odd([0, 2, 4]).even([1, 3]))
     .build()
     .generate()?;
 println!("{:?}", random_numbers.numbers());
@@ -218,7 +217,7 @@ println!("{:?}", random_numbers.numbers());
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
-    .rule(OddEvenByIndex::new(&[3, 4], &[0, 1, 2]))
+    .rule(OddEvenByIndex::new().odd([3, 4]).even([0, 1, 2]))
     .build()
     .generate()?;
 println!("{:?}", random_numbers.numbers());
@@ -230,7 +229,7 @@ println!("{:?}", random_numbers.numbers());
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
-    .rule(OddEvenByIndex::new(&[4], &[]))
+    .rule(OddEvenByIndex::new().odd([4]))
     .build()
     .generate()?;
 println!("{:?}", random_numbers.numbers());
@@ -261,11 +260,12 @@ println!("{:?}", random_numbers.numbers());
 #### Output: [20, 20, 8, 2, 4, 14, 2, 2, 14, 8]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that are all nonsequential
+`singles` is how many numbers are not next to another number.  `in_a_row` adds one sequence, so `in_a_row(3)` is 3 numbers in a row like 4, 5, 6.
 ```rust
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
-    .rule(Sequential::new(5, &[]))
+    .rule(Sequential::new().singles(5))
     .build()
     .generate()?;
 println!("{:?}", random_numbers.numbers());
@@ -277,7 +277,7 @@ println!("{:?}", random_numbers.numbers());
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
-    .rule(Sequential::new(3, &[2]))
+    .rule(Sequential::new().singles(3).in_a_row(2))
     .build()
     .generate()?;
 println!("{:?}", random_numbers.numbers());
@@ -289,7 +289,7 @@ println!("{:?}", random_numbers.numbers());
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
-    .rule(Sequential::new(1, &[2, 2]))
+    .rule(Sequential::new().singles(1).in_a_row(2).in_a_row(2))
     .build()
     .generate()?;
 println!("{:?}", random_numbers.numbers());
@@ -341,11 +341,10 @@ println!("{}", random_numbers.shuffled_string()?);
 ### Create random 15 character string from upper case characters, from numbers 3 6 5, and from special characters # *
 ```rust
 let random_numbers = Settings::builder(15)
-    .rule(NumberPool::new(&[
-        NumberPoolItem::new("upper_case_alpha_set", &PoolType::new(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect()), OperatorType::Eq(11)),
-        NumberPoolItem::new("numeric_set", &PoolType::new(&"365".chars().collect()), OperatorType::Eq(2)),
-        NumberPoolItem::new("special_char_set", &PoolType::new(&"#*".chars().collect()), OperatorType::Eq(2)),
-    ]))
+    .rule(NumberPool::new()
+        .exactly(11, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        .exactly(2, "365")
+        .exactly(2, "#*"))
     .build()
     .generate()?;
 println!("{}", random_numbers.shuffled_string()?);
@@ -358,10 +357,9 @@ use std::collections::HashSet;
 
 let random_numbers = Settings::builder(9)
     .rule(ExcludeNumberSets::new_string(&HashSet::from_iter([String::from("AB1234567"), String::from("CB1234567")])))
-    .rule(NumberPoolByIndex::new(vec![
-        NumberPoolItemByIndex::new("upper_case_alpha_set", &PoolType::new(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect()), &HashSet::from_iter([0, 1])),
-        NumberPoolItemByIndex::new("numeric_set", &PoolType::new(&"1234567890".chars().collect()), &HashSet::from_iter([2, 3, 4, 5, 6, 7, 8])),
-    ]))
+    .rule(NumberPoolByIndex::new()
+        .at([0, 1], "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        .at(2..=8, "1234567890"))
     .build()
     .generate()?;
 println!("{}", random_numbers.string()?);
@@ -369,11 +367,11 @@ println!("{}", random_numbers.string()?);
 #### Output: MW6406422
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
-`NumberSpaceItem::new(&OperatorType::Lt(3), 9)` is 9 spaces in a row that are less than 3.  10 numbers have 9 spaces between them.
+`run(OperatorType::Lt(3), 9)` is 9 spaces in a row that are less than 3.  10 numbers have 9 spaces between them.
 ```rust
 let random_numbers = Settings::builder(10)
     .range(1, 100)
-    .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lt(3), 9)]))
+    .rule(NumberSpace::new().run(OperatorType::Lt(3), 9))
     .build()
     .generate()?;
 let mut sorted_numbers = random_numbers.into_numbers();
@@ -386,7 +384,7 @@ println!("{:?}", sorted_numbers);
 ```rust
 let random_numbers = Settings::builder(10)
     .range(1, 100)
-    .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lte(3), 9)]))
+    .rule(NumberSpace::new().run(OperatorType::Lte(3), 9))
     .build()
     .generate()?;
 let mut sorted_numbers = random_numbers.into_numbers();
@@ -399,7 +397,7 @@ println!("{:?}", sorted_numbers);
 ```rust
 let random_numbers = Settings::builder(10)
     .range(1, 100)
-    .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Eq(3), 9)]))
+    .rule(NumberSpace::new().run(OperatorType::Eq(3), 9))
     .build()
     .generate()?;
 let mut sorted_numbers = random_numbers.into_numbers();
@@ -412,7 +410,7 @@ println!("{:?}", sorted_numbers);
 ```rust
 let random_numbers = Settings::builder(10)
     .range(1, 100)
-    .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Gte(3), 9)]))
+    .rule(NumberSpace::new().run(OperatorType::Gte(3), 9))
     .build()
     .generate()?;
 let mut sorted_numbers = random_numbers.into_numbers();
@@ -425,7 +423,7 @@ println!("{:?}", sorted_numbers);
 ```rust
 let random_numbers = Settings::builder(10)
     .range(1, 100)
-    .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Gt(3), 9)]))
+    .rule(NumberSpace::new().run(OperatorType::Gt(3), 9))
     .build()
     .generate()?;
 let mut sorted_numbers = random_numbers.into_numbers();
@@ -438,7 +436,7 @@ println!("{:?}", sorted_numbers);
 ```rust
 let random_numbers = Settings::builder(10)
     .range(1, 100)
-    .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Between(3, 6), 9)]))
+    .rule(NumberSpace::new().run(OperatorType::Between(3, 6), 9))
     .build()
     .generate()?;
 let mut sorted_numbers = random_numbers.into_numbers();
@@ -518,10 +516,12 @@ println!("{:?}", random_numbers.numbers());
 
 To use a rule with `.exclude(...)` it also has to implement `ExcludeRuleTrait`.
 
+A rule that can have more than one thing wrong with it can also implement `validate`, which returns every problem.  Without it the error from `check_count` is used.
+
 Custom rules can share their own values with each other.  One rule returns `Some(SharedData::new().with_custom("my_key", CustomValue::Usize(5)))` from `share_data`, and another rule reads it with `current_data.shared_data().custom("my_key")`.  Only one rule can set a key.
 
 # Upgrading From Version 2
-Version 2 code still works: it creates settings with `Settings::new` and `Settings::with_exclude_rules`, and gets its numbers with `random_numbers`.  All three are deprecated and the compiler shows what to use instead.
+`Settings::new`, `Settings::with_exclude_rules`, `random_numbers` and `NumberRange::from_map` still work.  They are deprecated and the compiler shows what to use instead.  The other lines in this table do not compile in version 3 and have to be changed.
 
 | Version 2 | Version 3 |
 |---|---|
@@ -530,9 +530,19 @@ Version 2 code still works: it creates settings with `Settings::new` and `Settin
 | `random_numbers(&settings)` | `settings.generate()` |
 | `random_result.string(true)` | `random_result.shuffled_string()` |
 | `random_result.string(false)` | `random_result.string()` |
+| `NumberPool::new(&[NumberPoolItem::new("key", &pool, OperatorType::Eq(2))])` | `NumberPool::new().exactly(2, pool)` or `.item("key", pool, OperatorType::Eq(2))` |
+| `NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lt(3), 9)])` | `NumberSpace::new().run(OperatorType::Lt(3), 9)` |
+| `Sequential::new(1, &[2, 2])` | `Sequential::new().singles(1).in_a_row(2).in_a_row(2)` |
+| `OddEven::new(5, 5)` | `OddEven::new().odd(5).even(5)` |
+| `odd_even.odd()` and `odd_even.even()` | `odd_even.odd_count()` and `odd_even.even_count()` |
+| `OddEvenByIndex::new(&[0, 2], &[1])` | `OddEvenByIndex::new().odd([0, 2]).even([1])` |
+| `NumberPoolByIndex::new(vec![NumberPoolItemByIndex::new(...)])` | `NumberPoolByIndex::new().at([0, 1], pool)` |
+| `NumberRange::from_map(&[(&[0, 1], 100, 999)])` | `NumberRange::new().at([0, 1], 100, 999)` |
 | `PoolType::Set(hash_set)` | `PoolType::set([1, 4])` |
 | `set_random_trait(generator)` | `.random(generator)` on the builder |
 
 `random_numbers(&settings)` returns a `RandomResult` with `status()`, `numbers()` and `logs()`, the same as in version 2.  Call `into_result()` on it to get the `Result` that `generate` returns.
 
 Custom rules have to change too.  `get_numbers` returns `Ok(None)` instead of `Err("Skip")`, and `share_data` returns `Option<SharedData>`.
+
+A `match` on `OperatorType` or `RandomErrorType` needs a `_` arm, because more types can be added to them.

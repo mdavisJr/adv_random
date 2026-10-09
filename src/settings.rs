@@ -2,7 +2,7 @@
 use crate::default_random::DefaultRandom;
 use crate::random::{generate_result, RandomError, RandomNumbers};
 use crate::random_trait::RandomTrait;
-use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait, NoDuplicate, NumberRange, NumberSpace, OddEven};
+use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait, NoDuplicate, NumberPool, NumberRange, NumberSpace, OddEven};
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -67,9 +67,9 @@ impl SettingsBuilder {
         return self.rule(NoDuplicate);
     }
 
-    //This many odd numbers and this many even numbers.  The same as rule(OddEven::new(odd, even)).
+    //This many odd numbers and this many even numbers.  The same as rule(OddEven::new().odd(odd).even(even)).
     pub fn odd_even(self, odd: usize, even: usize) -> SettingsBuilder {
-        return self.rule(OddEven::new(odd, even));
+        return self.rule(OddEven::new().odd(odd).even(even));
     }
 
     pub fn build(self) -> Settings {
@@ -118,8 +118,11 @@ impl Settings {
         }
         let mut errors: Vec<String> = Vec::new();
         for rule in &expected_rules_clone {
-            if let Some(e) = rule.check_count(count).err() {
-                errors.push(e);
+            errors.extend(rule.validate(count));
+        }
+        if let Some(exclude_rules) = &exclude_rules {
+            for rule in exclude_rules {
+                errors.extend(rule.validate_exclude());
             }
         }
         //checks that need to know about more than one rule
@@ -127,6 +130,11 @@ impl Settings {
             for rule in &expected_rules_clone {
                 if let Some(number_space) = rule.as_any().downcast_ref::<NumberSpace>() {
                     if let Some(e) = number_space.check_no_duplicates(count).err() {
+                        errors.push(e);
+                    }
+                }
+                if let Some(number_pool) = rule.as_any().downcast_ref::<NumberPool>() {
+                    if let Some(e) = number_pool.check_no_duplicates().err() {
                         errors.push(e);
                     }
                 }

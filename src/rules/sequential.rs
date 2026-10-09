@@ -8,21 +8,42 @@ use std::fmt::{Debug, Display, Formatter, Result};
 use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Sequential {
     not: usize,
     seq_counts: Vec<usize>,
+    errors: Vec<String>,
 }
 
 impl Sequential {
-    pub fn new(not: usize, seq_counts: &[usize]) -> Sequential {
+    //No numbers yet.  Say what is needed with singles and in_a_row.
+    pub fn new() -> Sequential {
+        return Sequential::default();
+    }
+
+    //How many numbers are not next to another number
+    pub fn singles(mut self, count: usize) -> Sequential {
+        self.not = count;
+        return self;
+    }
+
+    //Adds one sequence of this many numbers in a row.  4, 5, 6 is 3 in a row.
+    pub fn in_a_row(mut self, count: usize) -> Sequential {
+        if count < 2 {
+            self.errors.push(format!("{} in_a_row: {} must be 2 or more", self.name(), count));
+        }
         //sorted because the counts from selected numbers are sorted before they are compared
-        let mut seq_counts = seq_counts.to_vec();
-        seq_counts.sort_unstable();
-        return Sequential {
-            not,
-            seq_counts,
-        };
+        self.seq_counts.push(count);
+        self.seq_counts.sort_unstable();
+        return self;
+    }
+
+    //Adds a sequence for every count.  The same as calling in_a_row for each one.
+    pub fn in_a_row_each(mut self, counts: &[usize]) -> Sequential {
+        for count in counts {
+            self = self.in_a_row(*count);
+        }
+        return self;
     }
 
     pub fn from_numbers(current_data: &CurrentData, seq_order_matters: bool) -> Sequential {
@@ -53,6 +74,7 @@ impl Sequential {
         return Sequential {
             not: current_data.selected_numbers().len() - seq_counts.iter().copied().sum::<usize>(),
             seq_counts,
+            errors: Vec::new(),
         };
     }
 
@@ -217,6 +239,14 @@ impl RuleTrait for Sequential {
         }
         return Err(format!("{} count: {} must equal count: {} ", self.name(), this_count, count));
     }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
+    }
 }
 
 impl ExcludeRuleTrait for Sequential {
@@ -240,5 +270,9 @@ impl ExcludeRuleTrait for Sequential {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.errors.clone();
     }
 }

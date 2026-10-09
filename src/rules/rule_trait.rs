@@ -127,6 +127,15 @@ pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
     ) -> std::result::Result<bool, String>;
 
     fn name(&self) -> String;
+
+    //Returns every problem with this rule for this count.  Settings::builder(...).build() calls it.
+    //A rule only needs its own version when it can have more problems than the one from check_count.
+    fn validate(&self, count: usize) -> Vec<String> {
+        return match self.check_count(count) {
+            Ok(_) => Vec::new(),
+            Err(e) => vec![e]
+        };
+    }
 }
 
 pub trait RuleTraitClone {

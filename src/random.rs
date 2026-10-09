@@ -242,6 +242,8 @@ impl Debug for RandomNumbers {
     }
 }
 
+//More types can be added, so a match on this needs a _ arm
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum RandomErrorType {
     //The settings can not work.  The messages say why.

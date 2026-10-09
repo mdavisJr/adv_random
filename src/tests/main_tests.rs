@@ -65,7 +65,7 @@ fn uc_has_duplicate() {
 fn uc_number_range_1() {
     //Create random phone number
     let random_result = Settings::builder(3)
-        .rule(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 1000, 9999)]))
+        .rule(NumberRange::new().at([0, 1], 100, 999).at([2], 1000, 9999))
         .build()
         .generate();
     match &random_result {
@@ -113,11 +113,10 @@ fn uc_number_pool_1() {
     //Create 10 numbers between 1 and 100 with no duplicates that doesn't contain the number 23, contains the numbers 1 and 4, and at least 3 numbers from 17, 18, 19, 20, 21
     let random_result = Settings::builder(10)
         .rule(NoDuplicate)
-        .rule(NumberPool::new(&[
-            NumberPoolItem::new("exclude_23", &PoolType::set([23]), OperatorType::Eq(0)),
-            NumberPoolItem::new("must_contain_1_4", &PoolType::set([1, 4]), OperatorType::Eq(2)),
-            NumberPoolItem::new("some_set", &PoolType::set([17, 18, 19, 20, 21]), OperatorType::Eq(3)),
-        ]))
+        .rule(NumberPool::new()
+            .none_of([23])
+            .exactly(2, [1, 4])
+            .exactly(3, [17, 18, 19, 20, 21]))
         .rule(NumberRange::all(1, 100))
         .build()
         .generate();
@@ -154,7 +153,7 @@ fn uc_odd_even_with_order_1() {
     let random_result = Settings::builder(5)
         .rule(NoDuplicate)
         .rule(NumberRange::all(1, 10))
-        .rule(OddEvenByIndex::new(&[0, 2, 4], &[1,3]))
+        .rule(OddEvenByIndex::new().odd([0, 2, 4]).even([1, 3]))
         .build()
         .generate();
     match &random_result {
@@ -180,7 +179,7 @@ fn uc_odd_even_with_order_2() {
     let random_result = Settings::builder(5)
         .rule(NoDuplicate)
         .rule(NumberRange::all(1, 10))
-        .rule(OddEvenByIndex::new(&[3,4], &[0, 1, 2]))
+        .rule(OddEvenByIndex::new().odd([3, 4]).even([0, 1, 2]))
         .build()
         .generate();
     match &random_result {
@@ -206,7 +205,7 @@ fn uc_odd_even_with_order_3() {
     let random_result = Settings::builder(5)
         .rule(NoDuplicate)
         .rule(NumberRange::all(1, 10))
-        .rule(OddEvenByIndex::new(&[4], &[]))
+        .rule(OddEvenByIndex::new().odd([4]))
         .build()
         .generate();
     match &random_result {
@@ -228,7 +227,7 @@ fn uc_odd_even_1() {
     let random_result = Settings::builder(10)
         .rule(NoDuplicate)
         .rule(NumberRange::all(1, 20))
-        .rule(OddEven::new(5, 5))
+        .rule(OddEven::new().odd(5).even(5))
         .build()
         .generate();
     match &random_result {
@@ -247,8 +246,8 @@ fn uc_odd_even_1() {
                     odd += 1
                 }
             });
-            assert_eq!(odd_even.odd(), 5);
-            assert_eq!(odd_even.even(), 5);
+            assert_eq!(odd_even.odd_count(), 5);
+            assert_eq!(odd_even.even_count(), 5);
             assert_eq!(odd, 5);
             assert_eq!(even, 5);
             println!("{:?}", numbers);
@@ -262,7 +261,7 @@ fn uc_odd_even_2() {
     //Create 10 numbers between 1 and 20 that has all even numbers
     let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 20))
-        .rule(OddEven::new(0, 10))
+        .rule(OddEven::new().odd(0).even(10))
         .build()
         .generate();
     match &random_result {
@@ -279,8 +278,8 @@ fn uc_odd_even_2() {
                     odd += 1
                 }
             });
-            assert_eq!(odd_even.odd(), 0);
-            assert_eq!(odd_even.even(), 10);
+            assert_eq!(odd_even.odd_count(), 0);
+            assert_eq!(odd_even.even_count(), 10);
             assert_eq!(odd, 0);
             assert_eq!(even, 10);
             println!("{:?}", numbers);
@@ -318,7 +317,7 @@ fn uc_seq_1() {
     let random_result = Settings::builder(5)
         .rule(NoDuplicate)
         .rule(NumberRange::all(1, 10))
-        .rule(Sequential::new(5, &[]))
+        .rule(Sequential::new().singles(5))
         .build()
         .generate();
     match &random_result {
@@ -344,7 +343,7 @@ fn uc_seq_2() {
     let random_result = Settings::builder(5)
         .rule(NoDuplicate)
         .rule(NumberRange::all(1, 10))
-        .rule(Sequential::new(3, &[2]))
+        .rule(Sequential::new().singles(3).in_a_row(2))
         .build()
         .generate();
     match &random_result {
@@ -365,7 +364,7 @@ fn uc_seq_3() {
     let random_result = Settings::builder(5)
         .rule(NoDuplicate)
         .rule(NumberRange::all(1, 10))
-        .rule(Sequential::new(1, &[2, 2]))
+        .rule(Sequential::new().singles(1).in_a_row(2).in_a_row(2))
         .build()
         .generate();
     match &random_result {
@@ -486,11 +485,10 @@ fn uc_random_string_4() {
 fn uc_random_string_5() {
     //Create random 15 character string from upper case characters, from numbers 3 6 5, and from special characters # * 
     let random_result = Settings::builder(15)
-        .rule(NumberPool::new(&[
-            NumberPoolItem::new("upper_case_alpha_set", &PoolType::new(&"ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect()), OperatorType::Eq(11)),
-            NumberPoolItem::new("numeric_set", &PoolType::new(&"365".chars().collect()), OperatorType::Eq(2)),
-            NumberPoolItem::new("special_char_set", &PoolType::new(&"#*".chars().collect()), OperatorType::Eq(2)),         
-        ]))
+        .rule(NumberPool::new()
+            .exactly(11, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            .exactly(2, "365")
+            .exactly(2, "#*"))
         .build()
         .generate();
     match &random_result {
@@ -524,10 +522,9 @@ fn uc_random_string_6() {
     let uc_alpha_set: HashSet<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect();
     let random_result = Settings::builder(9)
         .rule(ExcludeNumberSets::new_string(&HashSet::from_iter(vec![String::from("AB1234567"), String::from("CB1234567")])))
-        .rule(NumberPoolByIndex::new(vec![
-            NumberPoolItemByIndex::new("upper_case_alpha_set", &PoolType::new(&uc_alpha_set.clone()), &HashSet::from_iter(vec![0, 1])),
-            NumberPoolItemByIndex::new("numeric_set", &PoolType::new(&"1234567890".chars().collect()), &HashSet::from_iter(vec![2, 3, 4, 5, 6, 7, 8])),         
-        ]))
+        .rule(NumberPoolByIndex::new()
+            .at([0, 1], "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            .at(2..=8, "1234567890"))
         .build()
         .generate();
     match &random_result {
@@ -555,7 +552,7 @@ fn uc_number_space_lt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
     let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 100))
-        .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lt(3), 9)]))
+        .rule(NumberSpace::new().run(OperatorType::Lt(3), 9))
         .build()
         .generate();
     match &random_result {
@@ -582,7 +579,7 @@ fn uc_number_space_lte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3 
     let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 100))
-        .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lte(3), 9)]))
+        .rule(NumberSpace::new().run(OperatorType::Lte(3), 9))
         .build()
         .generate();
     match &random_result {
@@ -609,7 +606,7 @@ fn uc_number_space_equals() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is 3 
     let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 100))
-        .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Eq(3), 9)]))
+        .rule(NumberSpace::new().run(OperatorType::Eq(3), 9))
         .build()
         .generate();
     match &random_result {
@@ -636,7 +633,7 @@ fn uc_number_space_gte() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3 
     let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 100))
-        .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Gte(3), 9)]))
+        .rule(NumberSpace::new().run(OperatorType::Gte(3), 9))
         .build()
         .generate();
     match &random_result {
@@ -664,7 +661,7 @@ fn uc_number_space_gt() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
     let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 100))
-        .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Gt(3), 9)]))
+        .rule(NumberSpace::new().run(OperatorType::Gt(3), 9))
         .build()
         .generate();
     match &random_result {
@@ -691,7 +688,7 @@ fn uc_number_space_between() {
     //Create 10 random numbers between 1 and 100 where the space between numbers is between 3 and 6
     let random_result = Settings::builder(10)
         .rule(NumberRange::all(1, 100))
-        .rule(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Between(3, 6), 9)]))
+        .rule(NumberSpace::new().run(OperatorType::Between(3, 6), 9))
         .build()
         .generate();
     match &random_result {

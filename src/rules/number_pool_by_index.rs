@@ -10,34 +10,40 @@ use std::fmt::{Debug, Display, Formatter, Result};
 use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct NumberPoolByIndex {
     number_pool_items: Vec<NumberPoolItemByIndex>,
+    errors: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
-pub struct NumberPoolItemByIndex {
+struct NumberPoolItemByIndex {
     pool: PoolType,
     indexes: HashSet<usize>,
-    key: String,
-}
-
-impl NumberPoolItemByIndex {
-    pub fn new(key: &str, pool: &PoolType, indexes: &HashSet<usize>) -> NumberPoolItemByIndex {
-        return NumberPoolItemByIndex {
-            pool: pool.clone(),
-            indexes: indexes.clone(),
-            key: key.to_owned(),
-        };
-    }
 }
 
 impl NumberPoolByIndex {
-    pub fn new(number_pool_items: Vec<NumberPoolItemByIndex>) -> NumberPoolByIndex {
-        return NumberPoolByIndex {
-            number_pool_items: number_pool_items.to_vec(),
-        };
+    //No numbers have to come from a pool yet.  Say which ones with at.
+    pub fn new() -> NumberPoolByIndex {
+        return NumberPoolByIndex::default();
+    }
+
+    //The numbers at these indexes come from this pool.  The first number is index 0.
+    pub fn at(mut self, indexes: impl IntoIterator<Item = usize>, pool: impl Into<PoolType>) -> NumberPoolByIndex {
+        let pool: PoolType = pool.into();
+        let indexes: HashSet<usize> = indexes.into_iter().collect();
+        if pool.is_empty() {
+            self.errors.push(format!("{} pool is empty", self.name()));
+        }
+        let mut sorted_indexes: Vec<usize> = indexes.iter().copied().collect();
+        sorted_indexes.sort_unstable();
+        for index in sorted_indexes {
+            if self.number_pool_items.iter().any(|x| x.indexes.contains(&index)) {
+                self.errors.push(format!("{} index: {} has more than one pool", self.name(), index));
+            }
+        }
+        self.number_pool_items.push(NumberPoolItemByIndex { pool, indexes });
+        return self;
     }
 }
 
@@ -116,9 +122,20 @@ impl RuleTrait for NumberPoolByIndex {
 
     fn check_count(
         &self,
-        _count: usize,
+        count: usize,
     ) -> std::result::Result<bool, String> {
+        if let Some(index) = self.number_pool_items.iter().flat_map(|x| x.indexes.iter().copied()).filter(|x| *x >= count).min() {
+            return Err(format!("{} index: {} is past the last number for count: {}", self.name(), index, count));
+        }
         return Ok(true);
+    }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
     }
 }
 
@@ -143,5 +160,9 @@ impl ExcludeRuleTrait for NumberPoolByIndex {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.errors.clone();
     }
 }

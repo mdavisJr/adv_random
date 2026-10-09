@@ -26,6 +26,11 @@ pub trait ExcludeRuleTrait: ExcludeRuleTraitClone + Display + std::fmt::Debug + 
     ) -> std::result::Result<(), String>;
 
     fn exclude_name(&self) -> String;
+
+    //Returns every problem with how this rule was created.  Settings::builder(...).build() calls it.
+    fn validate_exclude(&self) -> Vec<String> {
+        return Vec::new();
+    }
 }
 
 pub trait ExcludeRuleTraitClone {

@@ -8,23 +8,37 @@ use std::fmt::{Debug, Display, Formatter, Result};
 use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct OddEvenByIndex {
     odd_even: HashMap<usize, OddEvenKey>,
+    errors: Vec<String>,
 }
 
 impl OddEvenByIndex {
-    pub fn new(odd_indexes: &[usize], even_indexes: &[usize]) -> OddEvenByIndex {
-        let mut odd_even: HashMap<usize, OddEvenKey> = HashMap::new();
-        for odd_index in odd_indexes {
-            odd_even.insert(*odd_index, OddEvenKey::Odd);
+    //No numbers have to be odd or even yet.  Say which ones with odd and even.
+    pub fn new() -> OddEvenByIndex {
+        return OddEvenByIndex::default();
+    }
+
+    //The numbers at these indexes are odd.  The first number is index 0.
+    pub fn odd(self, indexes: impl IntoIterator<Item = usize>) -> OddEvenByIndex {
+        return self.add(indexes, OddEvenKey::Odd);
+    }
+
+    //The numbers at these indexes are even.  The first number is index 0.
+    pub fn even(self, indexes: impl IntoIterator<Item = usize>) -> OddEvenByIndex {
+        return self.add(indexes, OddEvenKey::Even);
+    }
+
+    fn add(mut self, indexes: impl IntoIterator<Item = usize>, odd_even_key: OddEvenKey) -> OddEvenByIndex {
+        for index in indexes {
+            if let Some(other) = self.odd_even.insert(index, odd_even_key) {
+                if other != odd_even_key {
+                    self.errors.push(format!("{} index: {} can not be both odd and even", self.name(), index));
+                }
+            }
         }
-        for even_index in even_indexes {
-            odd_even.insert(*even_index, OddEvenKey::Even);
-        }
-        return OddEvenByIndex {
-            odd_even
-        };
+        return self;
     }
 
     pub fn from_numbers(numbers: &[usize]) -> OddEvenByIndex {
@@ -37,7 +51,8 @@ impl OddEvenByIndex {
             }
         }
         return OddEvenByIndex {
-            odd_even
+            odd_even,
+            errors: Vec::new(),
         };
     }
 }
@@ -126,9 +141,20 @@ impl RuleTrait for OddEvenByIndex {
 
     fn check_count(
         &self,
-        _count: usize,
+        count: usize,
     ) -> std::result::Result<bool, String> {
+        if let Some(index) = self.odd_even.keys().copied().filter(|x| *x >= count).min() {
+            return Err(format!("{} index: {} is past the last number for count: {}", self.name(), index, count));
+        }
         return Ok(true);
+    }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
     }
 }
 
@@ -153,5 +179,9 @@ impl ExcludeRuleTrait for OddEvenByIndex {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.errors.clone();
     }
 }

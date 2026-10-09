@@ -27,30 +27,49 @@ fn is_within_range_helper(
     return Ok(());
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct NumberRange {
     ranges: HashMap<usize, (usize, usize)>,
-    use_0_idx_for_all: bool
+    use_0_idx_for_all: bool,
+    errors: Vec<String>,
 }
 
 impl NumberRange {
+    //Every number is from min to max
     pub fn all(min: usize, max: usize) -> NumberRange {
         let mut ranges: HashMap<usize, (usize, usize)> = HashMap::new();
         ranges.insert(0, (min, max));
-        return NumberRange { ranges, use_0_idx_for_all: true };
+        return NumberRange { ranges, use_0_idx_for_all: true, errors: Vec::new() };
     }
 
+    //No number has a range yet.  Give the numbers at some indexes a range with at.
+    pub fn new() -> NumberRange {
+        return NumberRange::default();
+    }
+
+    //The numbers at these indexes are from min to max.  The first number is index 0.
+    pub fn at(mut self, indexes: impl IntoIterator<Item = usize>, min: usize, max: usize) -> NumberRange {
+        if self.use_0_idx_for_all {
+            self.errors.push(format!("{} at can not be used with all", self.name()));
+            return self;
+        }
+        for index in indexes {
+            if self.ranges.insert(index, (min, max)).is_some() {
+                self.errors.push(format!("{} index: {} has more than one range", self.name(), index));
+            }
+        }
+        return self;
+    }
+
+    #[deprecated(since = "3.0.0", note = "use NumberRange::new().at(indexes, min, max)")]
     pub fn from_map(ranges: &[(&[usize], usize, usize)]) -> NumberRange {
-        let mut ranges_map: HashMap<usize, (usize, usize)> = HashMap::new();
+        let mut number_range = NumberRange::new();
         for range in ranges {
             for idx in range.0 {
-                ranges_map.insert(*idx, (range.1, range.2));    
-            }            
+                number_range.ranges.insert(*idx, (range.1, range.2));
+            }
         }
-        return NumberRange {
-            ranges: ranges_map.clone(),
-            use_0_idx_for_all: false
-        };
+        return number_range;
     }
 
     pub fn len(&self) -> usize {
@@ -123,7 +142,7 @@ impl RuleTrait for NumberRange {
 
     fn check_count(
         &self,
-        _count: usize,
+        count: usize,
     ) -> std::result::Result<bool, String> {
         let mut keys = self.ranges.keys().copied().collect::<Vec<usize>>();
         keys.sort();
@@ -133,7 +152,20 @@ impl RuleTrait for NumberRange {
                 return Err(format!("{} min: {} is greater than max: {}", self.name(), min, max));
             }
         }
+        if !self.use_0_idx_for_all {
+            if let Some(index) = self.ranges.keys().copied().filter(|x| *x >= count).min() {
+                return Err(format!("{} index: {} is past the last number for count: {}", self.name(), index, count));
+            }
+        }
         return Ok(true);
+    }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
     }
 }
 
@@ -161,5 +193,9 @@ impl ExcludeRuleTrait for NumberRange {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.errors.clone();
     }
 }

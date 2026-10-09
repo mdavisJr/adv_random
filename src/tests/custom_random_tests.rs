@@ -5,9 +5,7 @@ use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::RandomTrait;
 use crate::rules::NumberRange;
 #[cfg(not(feature="rand"))]
-use crate::rules::{NumberPool, NumberPoolByIndex, NumberPoolItem, NumberPoolItemByIndex, NumberSpace, NumberSpaceItem, OddEven, OddEvenByIndex, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential, SharedData};
-#[cfg(not(feature="rand"))]
-use std::collections::HashSet;
+use crate::rules::{NumberPool, NumberPoolByIndex, NumberSpace, OddEven, OddEvenByIndex, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential, SharedData};
 #[cfg(feature="rand")]
 use crate::rules::{NoDuplicate, NumberPool, OddEven};
 #[cfg(feature="rand")]
@@ -57,12 +55,12 @@ fn no_random_rules_return_errors() {
     assert_eq!(current_data.get_rand(NumberType::Any, None, None), None);
     let rules: Vec<Box<dyn RuleTrait>> = vec![
         Box::new(RandomNumber{}),
-        Box::new(OddEven::new(3, 2)),
-        Box::new(OddEvenByIndex::new(&[0], &[1])),
-        Box::new(Sequential::new(3, &[2])),
-        Box::new(NumberPool::new(&[NumberPoolItem::new("a", &PoolType::MinMax(1, 5), OperatorType::Eq(1))])),
-        Box::new(NumberPoolByIndex::new(vec![NumberPoolItemByIndex::new("a", &PoolType::MinMax(1, 5), &HashSet::from_iter([0]))])),
-        Box::new(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lte(3), 4)])),
+        Box::new(OddEven::new().odd(3).even(2)),
+        Box::new(OddEvenByIndex::new().odd([0]).even([1])),
+        Box::new(Sequential::new().singles(3).in_a_row(2)),
+        Box::new(NumberPool::new().item("a", PoolType::MinMax(1, 5), OperatorType::Eq(1))),
+        Box::new(NumberPoolByIndex::new().at([0], 1..=5)),
+        Box::new(NumberSpace::new().run(OperatorType::Lte(3), 4)),
     ];
     for rule in rules {
         //the error says there is no generator, not that no number fits
@@ -77,7 +75,7 @@ fn seeded_random_is_repeatable() {
         let random_result = Settings::builder(10)
             .rule(NoDuplicate)
             .rule(NumberRange::all(1, 100))
-            .rule(OddEven::new(5, 5))
+            .rule(OddEven::new().odd(5).even(5))
             .random(SeededRandom::new(seed))
             .build()
             .generate();

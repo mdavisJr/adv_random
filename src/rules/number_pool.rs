@@ -7,6 +7,7 @@ use std::any::Any;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
+use std::ops::RangeInclusive;
 
 use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
@@ -43,6 +44,51 @@ impl Debug for PoolSet {
 pub enum PoolType {
     Set(PoolSet),
     MinMax(usize, usize),
+}
+
+//A list or a set of numbers is a pool of those numbers
+impl<const N: usize> From<[usize; N]> for PoolType {
+    fn from(numbers: [usize; N]) -> PoolType {
+        return PoolType::set(numbers);
+    }
+}
+
+impl From<&[usize]> for PoolType {
+    fn from(numbers: &[usize]) -> PoolType {
+        return PoolType::set(numbers.iter().copied());
+    }
+}
+
+impl From<Vec<usize>> for PoolType {
+    fn from(numbers: Vec<usize>) -> PoolType {
+        return PoolType::set(numbers);
+    }
+}
+
+impl From<HashSet<usize>> for PoolType {
+    fn from(numbers: HashSet<usize>) -> PoolType {
+        return PoolType::set(numbers);
+    }
+}
+
+//1..=10 is a pool of every number from 1 to 10
+impl From<RangeInclusive<usize>> for PoolType {
+    fn from(range: RangeInclusive<usize>) -> PoolType {
+        return PoolType::MinMax(*range.start(), *range.end());
+    }
+}
+
+//"ABC" is a pool of the characters A, B and C
+impl From<&str> for PoolType {
+    fn from(characters: &str) -> PoolType {
+        return PoolType::set(characters.chars().map(|x| x as usize));
+    }
+}
+
+impl From<&PoolType> for PoolType {
+    fn from(pool: &PoolType) -> PoolType {
+        return pool.clone();
+    }
 }
 
 impl PoolType {
@@ -157,12 +203,11 @@ impl NumberPoolItemFull {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct NumberPool {
     //sorted by key, so a seeded random generator gives the same numbers every run
     number_pool_items: BTreeMap<String, NumberPoolItemFull>,
-    //set when the number pool could not be created.  check_count returns it.
-    error: Option<String>,
+    errors: Vec<String>,
 }
 
 impl NumberPool {
@@ -176,7 +221,7 @@ impl NumberPool {
         if count < min_count {
             return NumberPool {
                 number_pool_items: BTreeMap::new(),
-                error: Some(format!("NumberPool alphanumeric count: {} must be {} or more", count, min_count)),
+                errors: vec![format!("NumberPool alphanumeric count: {} must be {} or more", count, min_count)],
             };
         }
         let mut numeric_count:usize = 1;
@@ -195,32 +240,86 @@ impl NumberPool {
         return NumberPool::alphanumeric_specs(alpha_count, numeric_count, special_char_count);
     }
     pub fn alphanumeric_specs(alpha_count: usize, numeric_count: usize, special_char_count: usize) -> NumberPool {
-        
-        return NumberPool::new(&[
-            NumberPoolItem::new("alpha_set", &PoolType::from_chars(&NP_ALPHABET_SET), OperatorType::Eq(alpha_count)),
-            NumberPoolItem::new("numeric_set", &PoolType::from_chars(&NP_NUMERIC_SET), OperatorType::Eq(numeric_count)),
-            NumberPoolItem::new("special_char_set", &PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count)),         
-        ]);
+        return NumberPool::new()
+            .item("alpha_set", PoolType::from_chars(&NP_ALPHABET_SET), OperatorType::Eq(alpha_count))
+            .item("numeric_set", PoolType::from_chars(&NP_NUMERIC_SET), OperatorType::Eq(numeric_count))
+            .item("special_char_set", PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count));
     }
 
-    pub fn new(number_pool_items: &[NumberPoolItem]) -> NumberPool {
-        return NumberPool {
-            number_pool_items: number_pool_items
-                .iter()
-                .map(|x| {
-                    (
-                        x.key.to_owned(),
-                        NumberPoolItemFull {
-                            pool: x.pool.clone(),
-                            needs: x.needs,
-                            has: 0,
-                            missing: x.needs.get_missing_without_has(),
-                        },
-                    )
-                })
-                .collect(),
-            error: None,
+    //No numbers have to come from a pool yet.  Say what is needed with exactly, at_least, at_most, between and none_of.
+    //A pool is a list of numbers like [1, 4], a range like 1..=10, or the characters of a string like "ABC".
+    pub fn new() -> NumberPool {
+        return NumberPool::default();
+    }
+
+    //This many of the numbers come from the pool.  A number that is picked twice counts twice.
+    pub fn exactly(self, count: usize, pool: impl Into<PoolType>) -> NumberPool {
+        return self.add(pool, OperatorType::Eq(count));
+    }
+
+    //This many or more of the numbers come from the pool
+    pub fn at_least(self, count: usize, pool: impl Into<PoolType>) -> NumberPool {
+        return self.add(pool, OperatorType::Gte(count));
+    }
+
+    //This many or fewer of the numbers come from the pool
+    pub fn at_most(self, count: usize, pool: impl Into<PoolType>) -> NumberPool {
+        return self.add(pool, OperatorType::Lte(count));
+    }
+
+    //From min to max of the numbers come from the pool
+    pub fn between(self, min: usize, max: usize, pool: impl Into<PoolType>) -> NumberPool {
+        return self.add(pool, OperatorType::Between(min, max));
+    }
+
+    //None of the numbers come from the pool
+    pub fn none_of(self, pool: impl Into<PoolType>) -> NumberPool {
+        return self.add(pool, OperatorType::Eq(0));
+    }
+
+    //Adds a pool with a key that is made up
+    fn add(self, pool: impl Into<PoolType>, needs: OperatorType) -> NumberPool {
+        let mut number = self.number_pool_items.len() + 1;
+        while self.number_pool_items.contains_key(&format!("pool_{:03}", number)) {
+            number += 1;
+        }
+        return self.item(&format!("pool_{:03}", number), pool, needs);
+    }
+
+    //Adds a pool with a key to find it with later, and any type for how many numbers come from it
+    pub fn item(mut self, key: &str, pool: impl Into<PoolType>, needs: OperatorType) -> NumberPool {
+        let pool: PoolType = pool.into();
+        //an empty pool is only a problem when numbers have to come from it
+        if pool.is_empty() && needs.get_missing_without_has() > 0 {
+            self.errors.push(format!("{} pool {:?} is empty", self.name(), key));
+        }
+        if let Err(e) = needs.check() {
+            self.errors.push(format!("{} pool {:?} {}", self.name(), key, e));
+        }
+        let number_pool_item = NumberPoolItemFull {
+            pool,
+            needs,
+            has: 0,
+            missing: needs.get_missing_without_has(),
         };
+        if self.number_pool_items.insert(key.to_owned(), number_pool_item).is_some() {
+            self.errors.push(format!("{} has more than one pool with the key {:?}", self.name(), key));
+        }
+        return self;
+    }
+
+    //Checks the pools when no two numbers can be the same.  A pool can not give more numbers than it has.
+    pub fn check_no_duplicates(&self) -> std::result::Result<(), String> {
+        for (key, number_pool_item) in &self.number_pool_items {
+            let numbers_needed = number_pool_item.needs.get_missing_without_has();
+            if numbers_needed > number_pool_item.pool.len() {
+                return Err(format!(
+                    "{} pool {:?} needs {} numbers but only has {}, which is not possible with NoDuplicate",
+                    self.name(), key, numbers_needed, number_pool_item.pool.len()
+                ));
+            }
+        }
+        return Ok(());
     }
 
     pub fn from_number_pool_item_full(
@@ -231,7 +330,7 @@ impl NumberPool {
                 .iter()
                 .map(|x| (x.0.to_owned(), x.1.to_owned()))
                 .collect(),
-            error: None,
+            errors: Vec::new(),
         };
     }
 
@@ -268,7 +367,7 @@ impl NumberPool {
         }
         return NumberPool {
             number_pool_items: number_pool_items_full,
-            error: None,
+            errors: Vec::new(),
         };
     }
 
@@ -418,14 +517,19 @@ impl RuleTrait for NumberPool {
         &self,
         count: usize,
     ) -> std::result::Result<bool, String> {
-        if let Some(e) = &self.error {
-            return Err(e.to_owned());
-        }
         let needs_count:usize = self.number_pool_items.values().map(|x| x.needs.get_missing_without_has()).sum::<usize>();
         if needs_count <= count {
             return Ok(true);
         }
         return Err(format!("{} count: {} is greater than count: {} ", self.name(), needs_count, count));
+    }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
     }
 }
 
@@ -450,5 +554,9 @@ impl ExcludeRuleTrait for NumberPool {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.errors.clone();
     }
 }

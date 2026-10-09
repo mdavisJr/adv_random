@@ -9,15 +9,28 @@ use std::hash::Hash;
 use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct OddEven {
     odd: usize,
     even: usize,
 }
 
 impl OddEven {
-    pub fn new(odd: usize, even: usize) -> OddEven {
-        return OddEven { odd, even };
+    //No odd and no even numbers yet.  Say how many with odd and even.
+    pub fn new() -> OddEven {
+        return OddEven::default();
+    }
+
+    //How many of the numbers are odd
+    pub fn odd(mut self, count: usize) -> OddEven {
+        self.odd = count;
+        return self;
+    }
+
+    //How many of the numbers are even
+    pub fn even(mut self, count: usize) -> OddEven {
+        self.even = count;
+        return self;
     }
 
     pub fn from_numbers(numbers: &[usize]) -> OddEven {
@@ -33,11 +46,11 @@ impl OddEven {
         return OddEven { odd, even };
     }
 
-    pub fn odd(&self) -> usize {
+    pub fn odd_count(&self) -> usize {
         return self.odd;
     }
 
-    pub fn even(&self) -> usize {
+    pub fn even_count(&self) -> usize {
         return self.even;
     }
 

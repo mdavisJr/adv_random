@@ -8,6 +8,8 @@ use std::fmt::{Debug, Display, Formatter, Result};
 
 use super::{ExcludeRuleTrait, is_excluded_helper};
 
+//More types can be added, so a match on this needs a _ arm
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum OperatorType {
     Lt(usize),
@@ -19,6 +21,17 @@ pub enum OperatorType {
 }
 
 impl OperatorType {
+    //Returns an error when nothing can ever match this
+    pub fn check(&self) -> std::result::Result<(), String> {
+        return match *self {
+            OperatorType::Lt(0) => Err(String::from("Lt(0) never matches because nothing is less than 0")),
+            OperatorType::Between(lower_bound, upper_bound) if lower_bound > upper_bound => {
+                Err(format!("Between lower: {} is greater than upper: {}", lower_bound, upper_bound))
+            },
+            _ => Ok(())
+        };
+    }
+
     pub fn is_absolute_zero(&self) -> bool {
         return match *self {
             OperatorType::Lt(v) => v == 1,
@@ -435,21 +448,86 @@ pub enum ProcessNumberSpaceItems {
 pub struct NumberSpace {
     number_space_items: Vec<NumberSpaceItem>,
     process_number_space_items: ProcessNumberSpaceItems,
+    errors: Vec<String>,
+}
+
+impl Default for NumberSpace {
+    fn default() -> NumberSpace {
+        return NumberSpace::new();
+    }
 }
 
 impl NumberSpace {
-    pub fn new(number_space_items: &[NumberSpaceItem]) -> NumberSpace {
-        return NumberSpace::new_with_process_number_space_items(number_space_items, ProcessNumberSpaceItems::AllPerRequest);
+    //No spaces are needed yet.  Say what is needed with run.
+    pub fn new() -> NumberSpace {
+        return NumberSpace {
+            number_space_items: Vec::new(),
+            process_number_space_items: ProcessNumberSpaceItems::AllPerRequest,
+            errors: Vec::new(),
+        };
     }
 
+    //Adds one run of this many spaces in a row that match the type.  10 numbers have 9 spaces between them, so
+    //run(OperatorType::Lt(3), 9) is 10 numbers that are all less than 3 apart.
+    pub fn run(mut self, number_space_type: OperatorType, count: usize) -> NumberSpace {
+        if count == 0 {
+            self.errors.push(format!("{} run of {:?}: 0 must be 1 or more", self.name(), number_space_type));
+        }
+        if let Err(e) = number_space_type.check() {
+            self.errors.push(format!("{} {}", self.name(), e));
+        }
+        //the runs of one type are checked together, so they are kept in one item
+        match self.number_space_items.iter_mut().find(|x| x.number_space_type == number_space_type) {
+            Some(number_space_item) => {
+                number_space_item.needs.push(count);
+                number_space_item.needs.sort_unstable();
+            },
+            None => self.number_space_items.push(NumberSpaceItem::new(&number_space_type, count))
+        }
+        return self;
+    }
+
+    //Adds a run for every count.  The same as calling run for each one.
+    pub fn runs(mut self, number_space_type: OperatorType, counts: &[usize]) -> NumberSpace {
+        for count in counts {
+            self = self.run(number_space_type, *count);
+        }
+        return self;
+    }
+
+    //Adds an item that is already created, such as one from NumberSpaceItem::new_full
+    pub fn item(mut self, number_space_item: NumberSpaceItem) -> NumberSpace {
+        if let Err(e) = number_space_item.number_space_type.check() {
+            self.errors.push(format!("{} {}", self.name(), e));
+        }
+        self.number_space_items.push(number_space_item);
+        return self;
+    }
+
+    //Adds every item.  The same as calling item for each one.
+    pub fn items(mut self, number_space_items: impl IntoIterator<Item = NumberSpaceItem>) -> NumberSpace {
+        for number_space_item in number_space_items {
+            self = self.item(number_space_item);
+        }
+        return self;
+    }
+
+    //Says if the runs of every type are created in the same request, or one type per request
+    pub fn process(mut self, process_number_space_items: ProcessNumberSpaceItems) -> NumberSpace {
+        self.process_number_space_items = process_number_space_items;
+        return self;
+    }
+
+    #[deprecated(since = "3.0.0", note = "use NumberSpace::new().item(...).process(...)")]
     pub fn new_with_process_number_space_items(
         number_space_items: &[NumberSpaceItem], 
         process_number_space_items: ProcessNumberSpaceItems
     ) -> NumberSpace {
-        return NumberSpace { 
-            number_space_items: number_space_items.to_vec(),
-            process_number_space_items
-        };
+        let mut number_space = NumberSpace::new().process(process_number_space_items);
+        for number_space_item in number_space_items {
+            number_space = number_space.item(number_space_item.clone());
+        }
+        return number_space;
     }
 
     pub fn number_space_items(&self) -> &Vec<NumberSpaceItem> {
@@ -481,7 +559,8 @@ impl NumberSpace {
     ) -> NumberSpace {
         return NumberSpace {
             number_space_items: NumberSpaceItem::from_numbers(&number_space.number_space_items.iter().map(|x| (x.number_space_type, Some(x.needs.clone()))).collect::<Vec<_>>(), numbers, is_sorted),
-            process_number_space_items: number_space.process_number_space_items
+            process_number_space_items: number_space.process_number_space_items,
+            errors: Vec::new(),
         };
     }
 }
@@ -654,6 +733,14 @@ impl RuleTrait for NumberSpace {
         }
         return Ok(true);
     }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
+    }
 }
 
 impl ExcludeRuleTrait for NumberSpace {
@@ -677,5 +764,9 @@ impl ExcludeRuleTrait for NumberSpace {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.errors.clone();
     }
 }

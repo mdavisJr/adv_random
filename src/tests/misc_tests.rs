@@ -14,7 +14,7 @@ static NUMBER_RANGE: LazyLock<Mutex<NumberRange>> = LazyLock::new(|| { Mutex::ne
 #[test]
 fn odd_even_with_order_2() {
     let random_result = Settings::builder(5)
-        .rule(OddEvenByIndex::new(&[0, 2, 4], &[1,3]))
+        .rule(OddEvenByIndex::new().odd([0, 2, 4]).even([1, 3]))
         .build()
         .generate();
     match random_result {
@@ -26,28 +26,28 @@ fn odd_even_with_order_2() {
 #[test]
 fn sequential_1() {
     let data: Vec<(&str, Sequential, &[usize])> = vec![
-        ("NOT:5", Sequential::new(5, &[]), &[1, 15, 10, 25, 8]),
-        ("NOT:2,SEQ1:3", Sequential::new(2, &[3]), &[1, 2, 10, 6, 3]),
-        ("NOT:3,SEQ1:2", Sequential::new(3, &[2]), &[1, 2, 26, 6, 8]),
+        ("NOT:5", Sequential::new().singles(5), &[1, 15, 10, 25, 8]),
+        ("NOT:2,SEQ1:3", Sequential::new().singles(2).in_a_row(3), &[1, 2, 10, 6, 3]),
+        ("NOT:3,SEQ1:2", Sequential::new().singles(3).in_a_row(2), &[1, 2, 26, 6, 8]),
         (
             "NOT:0,SEQ1:2,SEQ2:2",
-            Sequential::new(0, &[2, 2]),
+            Sequential::new().in_a_row(2).in_a_row(2),
             &[1, 2, 4, 5],
         ),
         (
             "NOT:1,SEQ1:2,SEQ2:2",
-            Sequential::new(1, &[2, 2]),
+            Sequential::new().singles(1).in_a_row(2).in_a_row(2),
             &[1, 2, 4, 7, 8],
         ),
-        ("NOT:0,SEQ1:5", Sequential::new(0, &[5]), &[1, 2, 3, 4, 5]),
+        ("NOT:0,SEQ1:5", Sequential::new().in_a_row(5), &[1, 2, 3, 4, 5]),
         (
             "NOT:3,SEQ1:2",
-            Sequential::new(3, &[2]),
+            Sequential::new().singles(3).in_a_row(2),
             &[1, 10, 15, 18, 17],
         ),
         (
             "NOT:3,SEQ1:3",
-            Sequential::new(3, &[3]),
+            Sequential::new().singles(3).in_a_row(3),
             &[1, 2, 3, 6, 8, 10],
         ),
     ];
@@ -114,12 +114,12 @@ fn number_range_1() {
     type IsMatchResult = std::result::Result<(), String>;
     let data: Vec<(&str, NumberRange, &[usize], IsWithinRangeResult, IsMatchResult)> = vec![
         ("[(0, (1, 100))]", NumberRange::all(1, 100), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
-        ("[(0, (1, 100)), (1, (1, 100)), (2, (1, 100)), (3, (1, 100)), (4, (1, 100))]", NumberRange::from_map(&[(&[0,1,2,3,4], 1 , 100)]), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
-        ("[(0, (1, 1)), (1, (99, 99)), (2, (4, 4)), (3, (6, 6)), (4, (7, 7))]", NumberRange::from_map(&[(&[0], 1,1), (&[1], 99,99), (&[2], 4,4), (&[3], 6,6), (&[4], 7,7)]), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
+        ("[(0, (1, 100)), (1, (1, 100)), (2, (1, 100)), (3, (1, 100)), (4, (1, 100))]", NumberRange::new().at([0, 1, 2, 3, 4], 1, 100), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
+        ("[(0, (1, 1)), (1, (99, 99)), (2, (4, 4)), (3, (6, 6)), (4, (7, 7))]", NumberRange::new().at([0], 1, 1).at([1], 99, 99).at([2], 4, 4).at([3], 6, 6).at([4], 7, 7), &[1, 99, 4, 6, 7], Ok(()), Ok(())),
 
         ("[(0, (1, 100))]", NumberRange::all(1, 100), &[1, 99, 4, 6, 101], Err((IsWithinErrorType::Regular, "Exclude: false - Selected number 101 at index 4 is not within range of min: 1 and max: 100. Numbers:[1, 99, 4, 6, 101].  Map Index:0".to_owned())), Err("Exclude: false - Selected number 101 at index 4 is not within range of min: 1 and max: 100. Numbers:[1, 99, 4, 6, 101].  Map Index:0".to_owned())),
-        ("[(0, (1, 100)), (1, (1, 100)), (2, (1, 100)), (3, (1, 100)), (4, (1, 100))]", NumberRange::from_map(&[(&[0,1,2,3,4], 1 , 100)]), &[1, 100, 4, 6, 7], Ok(()), Ok(())),
-        ("[(0, (1, 1)), (1, (99, 99)), (2, (4, 4)), (3, (6, 6)), (4, (7, 7))]", NumberRange::from_map(&[(&[0], 1,1), (&[1], 99,99), (&[2], 4,4), (&[3], 6,6), (&[4], 7,7)]), &[1, 99, 5, 6, 7], Err((IsWithinErrorType::Regular, "Exclude: false - Selected number 5 at index 2 is not within range of min: 4 and max: 4. Numbers:[1, 99, 5, 6, 7].  Map Index:2".to_owned())), Err("Exclude: false - Selected number 5 at index 2 is not within range of min: 4 and max: 4. Numbers:[1, 99, 5, 6, 7].  Map Index:2".to_owned())),
+        ("[(0, (1, 100)), (1, (1, 100)), (2, (1, 100)), (3, (1, 100)), (4, (1, 100))]", NumberRange::new().at([0, 1, 2, 3, 4], 1, 100), &[1, 100, 4, 6, 7], Ok(()), Ok(())),
+        ("[(0, (1, 1)), (1, (99, 99)), (2, (4, 4)), (3, (6, 6)), (4, (7, 7))]", NumberRange::new().at([0], 1, 1).at([1], 99, 99).at([2], 4, 4).at([3], 6, 6).at([4], 7, 7), &[1, 99, 5, 6, 7], Err((IsWithinErrorType::Regular, "Exclude: false - Selected number 5 at index 2 is not within range of min: 4 and max: 4. Numbers:[1, 99, 5, 6, 7].  Map Index:2".to_owned())), Err("Exclude: false - Selected number 5 at index 2 is not within range of min: 4 and max: 4. Numbers:[1, 99, 5, 6, 7].  Map Index:2".to_owned())),
     ];
     for (main_idx, item) in data.iter().enumerate() {
         let current_data_numbers: Vec<usize> = item.2.to_vec();
@@ -239,12 +239,12 @@ fn number_range_5() {
 #[test]
 fn odd_even_1() {
     let data: Vec<(&str, OddEven, &[usize])> = vec![
-        ("ODD:3,EVEN:2", OddEven::new(3, 2), &[1, 15, 10, 25, 8]),
-        ("ODD:3,EVEN:3", OddEven::new(3, 3), &[4, 2, 10, 5, 11, 15]),
-        ("ODD:2,EVEN:3", OddEven::new(2, 3), &[1, 9, 26, 6, 8]),
+        ("ODD:3,EVEN:2", OddEven::new().odd(3).even(2), &[1, 15, 10, 25, 8]),
+        ("ODD:3,EVEN:3", OddEven::new().odd(3).even(3), &[4, 2, 10, 5, 11, 15]),
+        ("ODD:2,EVEN:3", OddEven::new().odd(2).even(3), &[1, 9, 26, 6, 8]),
         (
             "ODD:5,EVEN:5",
-            OddEven::new(5, 5),
+            OddEven::new().odd(5).even(5),
             &[1, 2, 4, 5, 7, 21, 23, 8, 10, 14],
         ),
     ];
@@ -307,7 +307,7 @@ fn odd_even_1() {
 #[test]
 fn odd_even_2() {
     let rules: Vec<Box<dyn RuleTrait>> =
-        vec![Box::new(OddEven::new(5, 5)), Box::new(NUMBER_RANGE.lock().unwrap().clone())];
+        vec![Box::new(OddEven::new().odd(5).even(5)), Box::new(NUMBER_RANGE.lock().unwrap().clone())];
     let settings = Settings::builder(10).boxed_rules(rules.clone()).build();
     for _ in 0..MAX_TRIES {
         let random_result = settings.generate();
@@ -326,8 +326,8 @@ fn odd_even_2() {
                 odd += 1
             }
         });
-        assert_eq!(odd_even.odd(), 5);
-        assert_eq!(odd_even.even(), 5);
+        assert_eq!(odd_even.odd_count(), 5);
+        assert_eq!(odd_even.even_count(), 5);
         assert_eq!(odd, 5);
         assert_eq!(even, 5);
     }
@@ -336,8 +336,8 @@ fn odd_even_2() {
 #[test]
 fn random_number() {
     let data: Vec<NumberRange> = vec![
-        NumberRange::from_map(&[(&[0], 1, 1), (&[1], 99, 99), (&[2], 4, 4), (&[3], 6, 6), (&[4], 7, 7)]),
-        NumberRange::from_map(&[(&[0], 20,20), (&[1], 55,55), (&[2], 4,10), (&[3], 71,75), (&[4], 47,47)]),
+        NumberRange::new().at([0], 1, 1).at([1], 99, 99).at([2], 4, 4).at([3], 6, 6).at([4], 7, 7),
+        NumberRange::new().at([0], 20, 20).at([1], 55, 55).at([2], 4, 10).at([3], 71, 75).at([4], 47, 47),
     ];
     for (main_idx, item) in data.iter().enumerate() {
         let rand_result = Settings::builder(item.len()).rule(item.clone()).build().generate();
@@ -366,21 +366,19 @@ fn number_pool_1() {
     let all_set: HashSet<usize> = HashSet::from_iter([1, 4]);
     let some_set: HashSet<usize> = HashSet::from_iter([17, 18, 19, 20, 21]);
     let rules_1: Vec<Box<dyn RuleTrait>> = vec![
-        Box::new(NumberPool::new(&[
-            NumberPoolItem::new("exclude_set", &PoolType::set(exclude_set.clone()), OperatorType::Eq(0)),
-            NumberPoolItem::new("all_set", &PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len())),
-            NumberPoolItem::new("some_set", &PoolType::set(some_set.clone()), OperatorType::Eq(3)),
-        ])),
+        Box::new(NumberPool::new()
+            .item("exclude_set", PoolType::set(exclude_set.clone()), OperatorType::Eq(0))
+            .item("all_set", PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len()))
+            .item("some_set", PoolType::set(some_set.clone()), OperatorType::Eq(3))),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
         Box::new(NoDuplicate),
     ];
     let settings_1 = Settings::builder(10).boxed_rules(rules_1.clone()).build();
     let rules_2: Vec<Box<dyn RuleTrait>> = vec![
-        Box::new(NumberPool::new(&[
-            NumberPoolItem::new("exclude_set", &PoolType::MinMax(23, 23), OperatorType::Eq(0)),
-            NumberPoolItem::new("all_set", &PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len())),
-            NumberPoolItem::new("some_set", &PoolType::MinMax(17, 21), OperatorType::Eq(3)),
-        ])),
+        Box::new(NumberPool::new()
+            .item("exclude_set", PoolType::MinMax(23, 23), OperatorType::Eq(0))
+            .item("all_set", PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len()))
+            .item("some_set", PoolType::MinMax(17, 21), OperatorType::Eq(3))),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
         Box::new(NoDuplicate),
     ];
@@ -412,19 +410,17 @@ fn number_pool_2() {
     let exclude_set: HashSet<usize> = (11..=100).collect();
     let all_set: HashSet<usize> = HashSet::from_iter([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     let rules_1: Vec<Box<dyn RuleTrait>> = vec![
-        Box::new(NumberPool::new(&[
-            NumberPoolItem::new("exclude_set", &PoolType::set(exclude_set.clone()), OperatorType::Eq(0)),
-            NumberPoolItem::new("all_set", &PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len())),
-        ])),
+        Box::new(NumberPool::new()
+            .item("exclude_set", PoolType::set(exclude_set.clone()), OperatorType::Eq(0))
+            .item("all_set", PoolType::set(all_set.clone()), OperatorType::Eq(all_set.len()))),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
         Box::new(NoDuplicate),
     ];
     let settings_1 = Settings::builder(10).boxed_rules(rules_1.clone()).build();
     let rules_2: Vec<Box<dyn RuleTrait>> = vec![
-        Box::new(NumberPool::new(&[
-            NumberPoolItem::new("exclude_set", &PoolType::MinMax(11, 100), OperatorType::Eq(0)),
-            NumberPoolItem::new("all_set", &PoolType::MinMax(1, 10), OperatorType::Eq(all_set.len())),
-        ])),
+        Box::new(NumberPool::new()
+            .item("exclude_set", PoolType::MinMax(11, 100), OperatorType::Eq(0))
+            .item("all_set", PoolType::MinMax(1, 10), OperatorType::Eq(all_set.len()))),
         Box::new(NUMBER_RANGE.lock().unwrap().clone()),
         Box::new(NoDuplicate),
     ];
@@ -507,7 +503,7 @@ fn get_num_spaces_2() {
 
 #[test]
 fn sequential_is_within_range() {
-    let rule = Sequential::new(5, &[]);
+    let rule = Sequential::new().singles(5);
     match rule.is_within_range(&CurrentData::new(&vec![5, 2, 7, 6/*20, 35, 4, 11, 12*/], &Settings::builder(5).build(), &SharedData::new())) {
         Ok(_) => panic!("Should Have Thrown Error."),
         Err(e) => assert_eq!("Expected Not: 5 and Seq_Counts: [].  Actual Not: 1 and Seq_Counts: [3].", e.1)
@@ -619,7 +615,7 @@ fn number_space_item_has_too_many() {
 #[test]
 fn number_pool_counts_duplicates() {
     let digits = PoolType::MinMax(48, 57);
-    let rule = NumberPool::new(&[NumberPoolItem::new("digits", &digits, OperatorType::Eq(2))]);
+    let rule = NumberPool::new().item("digits", &digits, OperatorType::Eq(2));
     let settings = Settings::builder(4).build();
     let shared_data = SharedData::new();
     //48 is selected three times, so there are three numbers from the pool, not one
@@ -632,7 +628,7 @@ fn number_pool_counts_duplicates() {
     for _ in 0..MAX_TRIES {
         let random_result = Settings::builder(8)
             .rule(NumberRange::all(40, 70))
-            .rule(NumberPool::new(&[NumberPoolItem::new("digits", &digits, OperatorType::Eq(2))]))
+            .rule(NumberPool::new().item("digits", &digits, OperatorType::Eq(2)))
             .build()
             .generate();
         let numbers = random_result.as_ref().unwrap().numbers();
@@ -647,7 +643,7 @@ fn sequential_seq_counts_any_order() {
             let random_result = Settings::builder(10)
                 .rule(NoDuplicate)
                 .rule(NumberRange::all(1, 100))
-                .rule(Sequential::new(5, &seq_counts))
+                .rule(Sequential::new().singles(5).in_a_row_each(&seq_counts))
                 .build()
                 .generate();
             assert!(random_result.is_ok(), "{:?}", random_result);
@@ -662,7 +658,7 @@ fn number_space_single_value_spaces() {
         for _ in 0..100 {
             let random_result = Settings::builder(10)
                 .rule(NumberRange::all(1, 100))
-                .rule(NumberSpace::new(&[NumberSpaceItem::new(&operator_type, 9)]))
+                .rule(NumberSpace::new().run(operator_type, 9))
                 .build()
                 .generate();
             assert!(random_result.is_ok(), "{:?}", random_result);
@@ -724,17 +720,17 @@ fn string_with_invalid_character() {
 
 #[test]
 fn check_count_must_equal_count() {
-    assert!(OddEven::new(5, 5).check_count(10).is_ok());
-    assert!(OddEven::new(1, 1).check_count(5).is_err());
-    assert!(OddEven::new(5, 5).check_count(9).is_err());
-    assert!(Sequential::new(1, &[2, 2]).check_count(5).is_ok());
-    assert!(Sequential::new(1, &[2]).check_count(5).is_err());
-    assert!(Sequential::new(5, &[2]).check_count(5).is_err());
+    assert!(OddEven::new().odd(5).even(5).check_count(10).is_ok());
+    assert!(OddEven::new().odd(1).even(1).check_count(5).is_err());
+    assert!(OddEven::new().odd(5).even(5).check_count(9).is_err());
+    assert!(Sequential::new().singles(1).in_a_row(2).in_a_row(2).check_count(5).is_ok());
+    assert!(Sequential::new().singles(1).in_a_row(2).check_count(5).is_err());
+    assert!(Sequential::new().singles(5).in_a_row(2).check_count(5).is_err());
 }
 
 #[test]
 fn settings_odd_even_count_mismatch() {
-    let settings = Settings::builder(5).rule(OddEven::new(1, 1)).build();
+    let settings = Settings::builder(5).rule(OddEven::new().odd(1).even(1)).build();
     assert_eq!(settings.errors().len(), 1);
     assert!(settings.errors()[0].contains("must add up to count"), "{:?}", settings.errors());
     let random_result = settings.generate();
@@ -780,7 +776,7 @@ fn random_numbers_number_not_found() {
     //every number from 1 to 10 is excluded, so there is nothing left to pick
     let random_result = Settings::builder(3)
         .rule(NumberRange::all(1, 10))
-        .rule(NumberPool::new(&[NumberPoolItem::new("exclude", &PoolType::MinMax(1, 10), OperatorType::Eq(0))]))
+        .rule(NumberPool::new().item("exclude", PoolType::MinMax(1, 10), OperatorType::Eq(0)))
         .build()
         .generate();
     assert_eq!(RandomErrorType::Failed, random_result.as_ref().unwrap_err().error_type());
@@ -800,12 +796,12 @@ fn empty_and_large_values() {
     assert_eq!(PoolType::MinMax(5, 5).len(), 1);
 
     //no number range, so the numbers go up to usize::MAX
-    let settings = Settings::builder(3).rule(Sequential::new(0, &[3])).build();
+    let settings = Settings::builder(3).rule(Sequential::new().in_a_row(3)).build();
     let selected = vec![usize::MAX - 1];
     let shared_data = SharedData::new();
     for _ in 0..50 {
         //extending usize::MAX - 1 into a sequence of 3 does not fit, starting a new sequence does
-        match Sequential::new(0, &[3]).get_numbers(&CurrentData::new(&selected, &settings, &shared_data)) {
+        match Sequential::new().in_a_row(3).get_numbers(&CurrentData::new(&selected, &settings, &shared_data)) {
             Ok(numbers) => assert_eq!(numbers.unwrap().len(), 3),
             Err(e) => assert!(e.contains("does not fit"), "{}", e)
         }
@@ -831,8 +827,8 @@ fn number_range_min_greater_than_max() {
 fn settings_with_more_than_one_error() {
     let settings = Settings::builder(5)
         .rule(NumberRange::all(20, 1))
-        .rule(OddEven::new(1, 1))
-        .rule(Sequential::new(1, &[2]))
+        .rule(OddEven::new().odd(1).even(1))
+        .rule(Sequential::new().singles(1).in_a_row(2))
         .build();
     assert_eq!(settings.errors().len(), 3);
     let random_result = settings.generate();
@@ -859,8 +855,8 @@ fn number_pool_alphanumeric_count_too_small() {
 
 #[test]
 fn number_range_min_greater_than_max_by_index() {
-    assert!(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 1000, 9999)]).check_count(3).is_ok());
-    assert!(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 9999, 1000)]).check_count(3).is_err());
+    assert!(NumberRange::new().at([0, 1], 100, 999).at([2], 1000, 9999).check_count(3).is_ok());
+    assert!(NumberRange::new().at([0, 1], 100, 999).at([2], 9999, 1000).check_count(3).is_err());
 }
 
 #[test]
@@ -879,7 +875,7 @@ fn sequential_more_than_one_sequence() {
             let random_result = Settings::builder(count)
                 .rule(NoDuplicate)
                 .rule(NumberRange::all(min, max))
-                .rule(Sequential::new(not, &seq_counts))
+                .rule(Sequential::new().singles(not).in_a_row_each(&seq_counts))
                 .build()
                 .generate();
             assert!(random_result.is_ok(), "{:?}", random_result);
@@ -894,7 +890,7 @@ fn sequential_more_than_one_sequence() {
 
 #[test]
 fn sequential_is_within_range_sequence_too_long() {
-    let rule = Sequential::new(1, &[2, 2]);
+    let rule = Sequential::new().singles(1).in_a_row(2).in_a_row(2);
     let settings = Settings::builder(5).build();
     let shared_data = SharedData::new();
     //a sequence of 3 can never become a sequence of 2
@@ -992,7 +988,7 @@ fn number_space_more_than_one_run() {
         for _ in 0..100 {
             let random_result = Settings::builder(12)
                 .rule(NumberRange::all(1, 100))
-                .rule(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, &[2, 2, 3], &[])]))
+                .rule(NumberSpace::new().runs(operator_type, &[2, 2, 3]))
                 .build()
                 .generate();
             if let Ok(numbers) = random_result.as_ref().map(|x| x.numbers()) {
@@ -1044,7 +1040,7 @@ fn operator_type_lone_numbers() {
 #[test]
 fn number_space_takes_more_numbers_than_count() {
     //3 runs of 2 spaces take 9 numbers
-    let number_space = NumberSpace::new(&[NumberSpaceItem::new_full(&OperatorType::Eq(3), &[2, 2, 2], &[])]);
+    let number_space = NumberSpace::new().runs(OperatorType::Eq(3), &[2, 2, 2]);
     assert!(number_space.check_count(9).is_ok());
     assert!(number_space.check_count(8).is_err());
 
@@ -1056,7 +1052,7 @@ fn number_space_takes_more_numbers_than_count() {
 #[test]
 fn number_space_is_within_range_lone_numbers() {
     let shared_data = SharedData::new();
-    let rule = NumberSpace::new(&[NumberSpaceItem::new_full(&OperatorType::Eq(3), &[2, 2, 2], &[])]);
+    let rule = NumberSpace::new().runs(OperatorType::Eq(3), &[2, 2, 2]);
 
     //count 9 has no spare numbers, so 50 can not be there unless a run can continue from it
     let settings = Settings::builder(9).build();
@@ -1093,7 +1089,7 @@ fn number_space_no_spare_numbers() {
             let random_result = Settings::builder(count)
                 .rule(NoDuplicate)
                 .rule(NumberRange::all(1, 100))
-                .rule(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, &runs, &[])]))
+                .rule(NumberSpace::new().runs(operator_type, &runs))
                 .build()
                 .generate();
             if let Ok(numbers) = random_result.as_ref().map(|x| x.numbers()) {
@@ -1267,7 +1263,7 @@ fn number_space_not_possible_with_no_duplicate() {
     let settings = |operator_type: OperatorType, runs: &[usize], count: usize, no_duplicate: bool| -> Settings {
         let mut rules: Vec<Box<dyn RuleTrait>> = vec![
             Box::new(NumberRange::all(1, 100)),
-            Box::new(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, runs, &[])])),
+            Box::new(NumberSpace::new().runs(operator_type, runs)),
         ];
         if no_duplicate {
             rules.push(Box::new(NoDuplicate));
@@ -1307,7 +1303,7 @@ fn settings_builder() {
         return Settings::builder(10)
             .rule(NoDuplicate)
             .rule(NumberRange::all(1, 100))
-            .rule(OddEven::new(5, 5))
+            .rule(OddEven::new().odd(5).even(5))
             .exclude(NumberRange::all(20, 29))
             .exclude(NumberRange::all(51, 75))
             .random(crate::seeded_random::SeededRandom::new(seed))
@@ -1338,7 +1334,7 @@ fn settings_builder() {
 #[test]
 fn settings_builder_shorthands() {
     let shorthand = Settings::builder(10).range(1, 20).no_duplicates().odd_even(5, 5).build();
-    let rules = Settings::builder(10).rule(NumberRange::all(1, 20)).rule(NoDuplicate).rule(OddEven::new(5, 5)).build();
+    let rules = Settings::builder(10).rule(NumberRange::all(1, 20)).rule(NoDuplicate).rule(OddEven::new().odd(5).even(5)).build();
     assert_eq!(format!("{:?}", shorthand.expected_rules()), format!("{:?}", rules.expected_rules()));
 
     for _ in 0..50 {
@@ -1360,7 +1356,7 @@ fn settings_builder_boxed_rules() {
     let mut rules: Vec<Box<dyn RuleTrait>> = vec![Box::new(NumberRange::all(1, 20))];
     rules.push(Box::new(NoDuplicate));
     let excludes: Vec<Box<dyn ExcludeRuleTrait>> = vec![Box::new(NumberRange::all(5, 15))];
-    let settings = Settings::builder(8).boxed_rules(rules).rule(OddEven::new(4, 4)).boxed_excludes(excludes).build();
+    let settings = Settings::builder(8).boxed_rules(rules).rule(OddEven::new().odd(4).even(4)).boxed_excludes(excludes).build();
     assert_eq!(settings.expected_rules().len(), 4);
     assert_eq!(settings.exclude_rules().as_ref().unwrap().len(), 1);
     let numbers = settings.generate().unwrap().into_numbers();
@@ -1478,4 +1474,145 @@ fn report() {
     //the settings can not work, so there are no attempts
     let error = Settings::builder(5).range(20, 1).build().generate().unwrap_err();
     assert!(error.report().ends_with("Status - BadRequest\nError - NumberRange min: 20 is greater than max: 1\nAttempts - 0\nClear Errs - []\n\nError : NumberRange min: 20 is greater than max: 1"), "{}", error.report());
+}
+
+#[test]
+fn rule_chains() {
+    //a pool is a list of numbers, a range, or the characters of a string
+    let other_pool = PoolType::MinMax(60, 69);
+    let number_pool = NumberPool::new()
+        .none_of([23])
+        .exactly(2, vec![4, 1])
+        .at_least(3, 17..=21)
+        .at_most(1, "AB")
+        .between(1, 2, HashSet::from([50, 51]))
+        .item("my_key", &other_pool, OperatorType::Gt(0));
+    assert_eq!(number_pool.number_pool_items().keys().collect::<Vec<_>>(), ["my_key", "pool_001", "pool_002", "pool_003", "pool_004", "pool_005"]);
+    assert_eq!(number_pool.needs("pool_001"), Some(OperatorType::Eq(0)));
+    assert_eq!(number_pool.needs("pool_002"), Some(OperatorType::Eq(2)));
+    assert_eq!(number_pool.needs("pool_003"), Some(OperatorType::Gte(3)));
+    assert_eq!(number_pool.needs("pool_004"), Some(OperatorType::Lte(1)));
+    assert_eq!(number_pool.needs("pool_005"), Some(OperatorType::Between(1, 2)));
+    assert_eq!(number_pool.needs("my_key"), Some(OperatorType::Gt(0)));
+    assert_eq!(format!("{:?}", number_pool.pool("pool_002").unwrap()), "Set([1, 4])");
+    assert_eq!(format!("{:?}", number_pool.pool("pool_003").unwrap()), "MinMax(17, 21)");
+    assert_eq!(format!("{:?}", number_pool.pool("pool_004").unwrap()), "Set([65, 66])");
+    assert_eq!(format!("{:?}", number_pool.pool("my_key").unwrap()), "MinMax(60, 69)");
+    let slice: &[usize] = &[3, 1, 3];
+    assert_eq!(format!("{:?}", PoolType::from(slice)), "Set([1, 3])");
+
+    //the order the sequences are given in does not matter
+    let sequential = Sequential::new().singles(1).in_a_row(3).in_a_row(2);
+    assert_eq!((sequential.not(), sequential.seq_counts()), (1, &vec![2, 3]));
+    assert_eq!(Sequential::new().singles(1).in_a_row_each(&[3, 2]).seq_counts(), &vec![2, 3]);
+    assert_eq!((Sequential::new().not(), Sequential::new().seq_counts().len()), (0, 0));
+
+    //the runs of one type are kept together
+    let number_space = NumberSpace::new().run(OperatorType::Lt(3), 3).run(OperatorType::Gte(10), 1).run(OperatorType::Lt(3), 2);
+    assert_eq!(number_space.number_space_items().len(), 2);
+    assert_eq!(number_space.number_space_items()[0].needs(), &vec![2, 3]);
+    assert_eq!(number_space.number_space_items()[1].needs(), &vec![1]);
+    assert_eq!(NumberSpace::new().runs(OperatorType::Lt(3), &[3, 2]).number_space_items()[0].needs(), &vec![2, 3]);
+    let item = NumberSpaceItem::new_full(&OperatorType::Between(1, 3), &[2], &[2]);
+    assert_eq!(NumberSpace::new().item(item).number_space_items()[0].has(), &vec![2]);
+    let items = vec![NumberSpaceItem::new(&OperatorType::Lt(3), 2), NumberSpaceItem::new(&OperatorType::Gt(9), 1)];
+    assert_eq!(NumberSpace::new().items(items).number_space_items().len(), 2);
+
+    //the by index rules take lists and ranges of indexes
+    assert_eq!(NumberRange::new().at([0, 1], 100, 999).at(2..=2, 1000, 9999).to_string(), "[(0, (100, 999)), (1, (100, 999)), (2, (1000, 9999))]");
+    let random_numbers_1 = Settings::builder(4)
+        .range(1, 10)
+        .rule(OddEvenByIndex::new().odd(0..2).even([2, 3]))
+        .rule(NumberPoolByIndex::new().at([3], [10]))
+        .build()
+        .generate()
+        .unwrap();
+    let numbers = random_numbers_1.numbers();
+    assert!(numbers[0] % 2 == 1 && numbers[1] % 2 == 1 && numbers[2].is_multiple_of(2) && numbers[3] == 10, "{:?}", numbers);
+}
+
+#[test]
+fn rule_validation() {
+    let errors = |rule: Box<dyn RuleTrait>, count: usize| -> Vec<String> {
+        return Settings::builder(count).boxed_rules(vec![rule]).build().errors().to_vec();
+    };
+
+    //rules that were created the right way have nothing wrong
+    assert!(errors(Box::new(Sequential::new().singles(1).in_a_row(2).in_a_row(2)), 5).is_empty());
+    assert!(errors(Box::new(NumberRange::new().at([0, 1], 100, 999).at([2], 1000, 9999)), 3).is_empty());
+    assert!(errors(Box::new(OddEvenByIndex::new().odd([0, 2, 4]).even([1, 3])), 5).is_empty());
+    assert!(errors(Box::new(NumberPoolByIndex::new().at([0, 1], "AB").at(2..=4, 1..=9)), 5).is_empty());
+    assert!(errors(Box::new(NumberPool::new().none_of([23]).exactly(2, [1, 4]).at_least(3, 17..=21)), 10).is_empty());
+    assert!(errors(Box::new(NumberSpace::new().run(OperatorType::Lt(3), 4).run(OperatorType::Between(10, 20), 2)), 10).is_empty());
+
+    //Sequential
+    assert_eq!(errors(Box::new(Sequential::new().singles(2).in_a_row(1)), 3), ["Sequential in_a_row: 1 must be 2 or more"]);
+    //every problem is there, not only the first one
+    let sequential_errors = errors(Box::new(Sequential::new().singles(1).in_a_row(0).in_a_row(1)), 5);
+    assert_eq!(sequential_errors.len(), 3, "{:?}", sequential_errors);
+    assert!(sequential_errors[2].contains("must equal count: 5"), "{:?}", sequential_errors);
+
+    //NumberRange
+    assert_eq!(errors(Box::new(NumberRange::new().at([0, 1], 1, 9).at([1], 1, 5)), 3), ["NumberRange index: 1 has more than one range"]);
+    assert_eq!(errors(Box::new(NumberRange::new().at([0], 9, 1)), 3), ["NumberRange min: 9 is greater than max: 1"]);
+    assert_eq!(errors(Box::new(NumberRange::new().at([7], 1, 9)), 5), ["NumberRange index: 7 is past the last number for count: 5"]);
+    assert_eq!(errors(Box::new(NumberRange::all(1, 9).at([0], 1, 5)), 5), ["NumberRange at can not be used with all"]);
+
+    //OddEvenByIndex
+    assert_eq!(errors(Box::new(OddEvenByIndex::new().odd([0, 2]).even([2])), 5), ["OddEvenByIndex index: 2 can not be both odd and even"]);
+    assert_eq!(errors(Box::new(OddEvenByIndex::new().odd([5])), 5), ["OddEvenByIndex index: 5 is past the last number for count: 5"]);
+    assert!(errors(Box::new(OddEvenByIndex::new().odd([0, 0])), 5).is_empty());
+
+    //NumberPoolByIndex
+    assert_eq!(errors(Box::new(NumberPoolByIndex::new().at([0], "")), 5), ["NumberPoolByIndex pool is empty"]);
+    assert_eq!(errors(Box::new(NumberPoolByIndex::new().at([0, 1], "AB").at([1, 2], "CD")), 5), ["NumberPoolByIndex index: 1 has more than one pool"]);
+    assert_eq!(errors(Box::new(NumberPoolByIndex::new().at([9], "AB")), 5), ["NumberPoolByIndex index: 9 is past the last number for count: 5"]);
+
+    //NumberPool
+    assert_eq!(errors(Box::new(NumberPool::new().exactly(1, Vec::new())), 5), ["NumberPool pool \"pool_001\" is empty"]);
+    assert_eq!(errors(Box::new(NumberPool::new().exactly(1, PoolType::MinMax(9, 1))), 5), ["NumberPool pool \"pool_001\" is empty"]);
+    //an empty pool is fine when nothing has to come from it
+    assert!(errors(Box::new(NumberPool::new().none_of(Vec::new()).at_most(2, Vec::new())), 5).is_empty());
+    assert_eq!(errors(Box::new(NumberPool::new().between(3, 1, [1, 2, 3])), 5), ["NumberPool pool \"pool_001\" Between lower: 3 is greater than upper: 1"]);
+    assert_eq!(errors(Box::new(NumberPool::new().item("a", [1], OperatorType::Eq(1)).item("a", [2], OperatorType::Eq(1))), 5), ["NumberPool has more than one pool with the key \"a\""]);
+    assert_eq!(errors(Box::new(NumberPool::new().exactly(6, [1, 2, 3])), 5), ["NumberPool count: 6 is greater than count: 5 "]);
+
+    //NumberSpace
+    assert_eq!(errors(Box::new(NumberSpace::new().run(OperatorType::Lt(3), 0)), 5), ["NumberSpace run of Lt(3): 0 must be 1 or more"]);
+    assert_eq!(errors(Box::new(NumberSpace::new().run(OperatorType::Between(6, 3), 2)), 5), ["NumberSpace Between lower: 6 is greater than upper: 3"]);
+    assert_eq!(errors(Box::new(NumberSpace::new().run(OperatorType::Lt(0), 2)), 5), ["NumberSpace Lt(0) never matches because nothing is less than 0"]);
+    assert_eq!(errors(Box::new(NumberSpace::new().run(OperatorType::Lt(3), 5)), 5).len(), 1);
+
+    //a pool can not give more different numbers than it has
+    let settings = Settings::builder(5).range(1, 20).rule(NumberPool::new().exactly(3, [1, 2])).build();
+    assert!(settings.errors().is_empty());
+    let settings = Settings::builder(5).range(1, 20).no_duplicates().rule(NumberPool::new().exactly(3, [1, 2])).build();
+    assert_eq!(settings.errors(), ["NumberPool pool \"pool_001\" needs 3 numbers but only has 2, which is not possible with NoDuplicate"]);
+
+    //exclude rules are checked too
+    let settings = Settings::builder(5)
+        .range(1, 20)
+        .exclude(NumberRange::new().at([0], 1, 5).at([0], 6, 9))
+        .exclude(Sequential::new().in_a_row(1))
+        .build();
+    assert_eq!(settings.errors(), ["NumberRange index: 0 has more than one range", "Sequential in_a_row: 1 must be 2 or more"]);
+
+    //no numbers are created when a rule has something wrong
+    let error = Settings::builder(5).range(1, 20).rule(OddEvenByIndex::new().odd([1]).even([1])).build().generate().unwrap_err();
+    assert_eq!(error.error_type(), RandomErrorType::BadRequest);
+    assert_eq!(error.attempts(), 0);
+    assert_eq!(error.messages(), &vec!["OddEvenByIndex index: 1 can not be both odd and even".to_owned()]);
+}
+
+#[test]
+#[allow(deprecated)]
+fn rule_deprecated_constructors() {
+    //NumberRange::from_map and NumberSpace::new_with_process_number_space_items still work
+    let old = NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 1000, 9999)]);
+    assert_eq!(old.to_string(), NumberRange::new().at([0, 1], 100, 999).at([2], 1000, 9999).to_string());
+    let items = [NumberSpaceItem::new(&OperatorType::Lt(3), 9)];
+    let old = NumberSpace::new_with_process_number_space_items(&items, ProcessNumberSpaceItems::OnePerRequest);
+    let new = NumberSpace::new().run(OperatorType::Lt(3), 9).process(ProcessNumberSpaceItems::OnePerRequest);
+    assert_eq!(old.number_space_items()[0].needs(), new.number_space_items()[0].needs());
+    assert!(Settings::builder(10).range(1, 100).rule(old).build().generate().is_ok());
 }
