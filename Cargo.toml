@@ -10,9 +10,6 @@ repository = "https://github.com/mdavisJr/adv_random"
 description = "Create random numbers, passwords, or strings based on rules"
 keywords = ["rand", "random", "rule", "string", "password"]
 
-[lib]
-crate-type = ["lib", "cdylib"]
-
 [dependencies]
 rand = { version = "^0.10", optional = true }
 
