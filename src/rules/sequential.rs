@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR, NO_RANDOM_ERR};
+use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
@@ -143,7 +143,7 @@ impl RuleTrait for Sequential {
                     let (min, max) = current_data.shared_data().min_max();
                     let max_start = max.checked_sub(seq_count_needed - 1).filter(|v| *v >= min)
                         .ok_or_else(|| format!("Sequence of {} numbers does not fit between min: {} and max: {}", seq_count_needed, min, max))?;
-                    let num = current_data.get_rand(NumberType::Any, None, Some((min, max_start))).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?;
+                    let num = current_data.get_rand(NumberType::Any, None, Some((min, max_start))).ok_or_else(|| current_data.no_number_err())?;
                     (Some(num), num.checked_add(seq_count_needed - 1))
                 }
             };

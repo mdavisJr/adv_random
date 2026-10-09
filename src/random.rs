@@ -303,6 +303,11 @@ impl<'a> CurrentData<'a> {
         };
     }
 
+    //The error for a rule to return when get_rand returns None
+    pub fn no_number_err(&self) -> String {
+        return if self.random().is_none() { NO_RANDOM_ERR } else { NO_NUMBER_FOUND_ERR }.to_owned();
+    }
+
     pub fn shared_data(&self) -> &'a SharedData {
         return self.shared_data;
     }

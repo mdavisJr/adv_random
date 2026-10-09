@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
+use crate::random::{CurrentData, NumberType};
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
 use crate::random_trait::RandomTrait;
@@ -359,7 +359,7 @@ impl RuleTrait for NumberPool {
             return Ok(Some(numbers));
         }
         if number_not_found {
-            return Err(NO_NUMBER_FOUND_ERR.to_owned());
+            return Err(current_data.no_number_err());
         }
 
         return Ok(None);

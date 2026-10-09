@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
+use crate::random::{CurrentData, NumberType};
 use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::fmt;
@@ -35,7 +35,7 @@ impl RuleTrait for RandomNumber {
         &self,
         current_data: &CurrentData,
     ) -> std::result::Result<Option<Vec<usize>>, String> {
-        return Ok(Some(vec![current_data.get_rand(NumberType::Any, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?]));
+        return Ok(Some(vec![current_data.get_rand(NumberType::Any, None, None).ok_or_else(|| current_data.no_number_err())?]));
     }
 
     fn is_within_range(

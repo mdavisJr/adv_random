@@ -1,10 +1,12 @@
 use crate::random::{random_numbers, RandomResultType};
 #[cfg(not(feature="rand"))]
-use crate::random::{CurrentData, NumberType};
+use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::RandomTrait;
 use crate::rules::NumberRange;
 #[cfg(not(feature="rand"))]
-use crate::rules::{NumberPool, NumberPoolItem, NumberSpace, NumberSpaceItem, OddEven, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential, SharedData};
+use crate::rules::{NumberPool, NumberPoolByIndex, NumberPoolItem, NumberPoolItemByIndex, NumberSpace, NumberSpaceItem, OddEven, OddEvenByIndex, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential, SharedData};
+#[cfg(not(feature="rand"))]
+use std::collections::HashSet;
 #[cfg(feature="rand")]
 use crate::rules::{NoDuplicate, NumberPool, OddEven};
 #[cfg(feature="rand")]
@@ -48,11 +50,19 @@ fn no_random_rules_return_errors() {
     let current_data = CurrentData::new(&selected, &settings, &shared_data);
     assert!(current_data.random().is_none());
     assert_eq!(current_data.get_rand(NumberType::Any, None, None), None);
-    assert!(RandomNumber{}.get_numbers(&current_data).is_err());
-    assert!(OddEven::new(3, 2).get_numbers(&current_data).is_err());
-    assert!(Sequential::new(3, &[2]).get_numbers(&current_data).is_err());
-    assert!(NumberPool::new(&[NumberPoolItem::new("a", &PoolType::MinMax(1, 5), OperatorType::Eq(1))]).get_numbers(&current_data).is_err());
-    assert!(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lte(3), 4)]).get_numbers(&current_data).unwrap().is_none());
+    let rules: Vec<Box<dyn RuleTrait>> = vec![
+        Box::new(RandomNumber{}),
+        Box::new(OddEven::new(3, 2)),
+        Box::new(OddEvenByIndex::new(&[0], &[1])),
+        Box::new(Sequential::new(3, &[2])),
+        Box::new(NumberPool::new(&[NumberPoolItem::new("a", &PoolType::MinMax(1, 5), OperatorType::Eq(1))])),
+        Box::new(NumberPoolByIndex::new(vec![NumberPoolItemByIndex::new("a", &PoolType::MinMax(1, 5), &HashSet::from_iter([0]))])),
+        Box::new(NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lte(3), 4)])),
+    ];
+    for rule in rules {
+        //the error says there is no generator, not that no number fits
+        assert_eq!(rule.get_numbers(&current_data), Err(NO_RANDOM_ERR.to_owned()), "{}", rule.name());
+    }
 }
 
 #[test]

@@ -1,5 +1,6 @@
 
 use crate::random::{CurrentData, NumberType};
+use crate::random_trait::get_random_vec_item;
 use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
 use std::{cmp, fmt};
@@ -98,6 +99,21 @@ impl OperatorType {
         return matches; 
     }
 
+    //Returns how many of the sorted numbers are not next to a space that matches, and if the highest number is one of them
+    pub fn lone_numbers(&self, sorted_numbers: &[usize]) -> (usize, bool) {
+        let mut lone_count = 0;
+        let mut highest_is_lone = false;
+        for i in 0..sorted_numbers.len() {
+            let lower_matches = i > 0 && self.is_match(sorted_numbers[i] - sorted_numbers[i - 1]);
+            let higher_matches = i + 1 < sorted_numbers.len() && self.is_match(sorted_numbers[i + 1] - sorted_numbers[i]);
+            if !lower_matches && !higher_matches {
+                lone_count += 1;
+                highest_is_lone = i + 1 == sorted_numbers.len();
+            }
+        }
+        return (lone_count, highest_is_lone);
+    }
+
     //Returns the new numbers needed to add "count" spaces after the highest selected number
     pub fn get_number(&self, current_data: &CurrentData, count: usize) -> Vec<usize> {
         return self.get_run(current_data, count, false);
@@ -144,15 +160,92 @@ impl OperatorType {
         return numbers;
     }
 
-    //Returns a random number that leaves room for "count" spaces before max, when there is room
-    fn get_start_number(&self, current_data: &CurrentData, count: usize, min: usize, max: usize) -> Option<usize> {
-        let smallest_space = match *self {
+    //Returns the smallest space that the numbers this creates are apart
+    fn smallest_space(&self) -> usize {
+        return match *self {
             OperatorType::Lt(_) | OperatorType::Lte(_) => 1,
             OperatorType::Eq(v) | OperatorType::Gte(v) => v,
             OperatorType::Gt(v) => v.saturating_add(1),
             OperatorType::Between(lower_bound, _) => lower_bound,
         };
-        let highest_start = smallest_space.checked_mul(count).and_then(|v| max.checked_sub(v)).filter(|v| *v >= min);
+    }
+
+    //Returns the largest space that does not match Gte or Gt.  Any larger space matches them, so a number that is not
+    //part of a run has to be this close to another number.  None for the other types, and when every space matches.
+    fn largest_separator(&self) -> Option<usize> {
+        return match *self {
+            OperatorType::Gte(v) => v.checked_sub(1),
+            OperatorType::Gt(v) => Some(v),
+            _ => None
+        }.filter(|v| *v >= 1);
+    }
+
+    //Returns the numbers for a new run of "count" spaces just above the highest or just below the lowest selected number,
+    //with a space between them that does not match.  None when this type does not need it or there is no room.
+    fn get_separated_run(&self, current_data: &CurrentData, count: usize) -> Option<Vec<usize>> {
+        let largest_separator = self.largest_separator()?;
+        let random = current_data.random()?;
+        let lowest = *current_data.selected_numbers_sorted().first()?;
+        let highest = *current_data.selected_numbers_sorted().last()?;
+        let (min, max) = current_data.shared_data().min_max();
+        let room = self.smallest_space().checked_mul(count)?;
+        //how far from the highest and lowest numbers the run can start and still fit
+        let above = max.checked_sub(room).and_then(|v| v.checked_sub(highest)).map(|v| cmp::min(v, largest_separator)).filter(|v| *v >= 1);
+        let below = lowest.checked_sub(min).and_then(|v| v.checked_sub(room)).map(|v| cmp::min(v, largest_separator)).filter(|v| *v >= 1);
+        let go_above = match (above, below) {
+            (Some(_), Some(_)) => random.get_bool(),
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => return None
+        };
+        let mut base_number = if go_above {
+            highest + random.get_number(1, above?)
+        } else {
+            lowest - random.get_number(1, below?)
+        };
+        let mut numbers: Vec<usize> = vec![base_number];
+        for _ in 0..count {
+            base_number = if go_above {
+                self.get_next_number(current_data, base_number, min, max)?
+            } else {
+                self.get_previous_number(current_data, base_number, min)?
+            };
+            numbers.push(base_number);
+        }
+        return Some(numbers);
+    }
+
+    //Returns a number just above or just below a selected number, with a space between them that does not match.
+    //None when this type does not need it.
+    fn get_separated_number(&self, current_data: &CurrentData) -> Option<usize> {
+        let largest_separator = self.largest_separator()?;
+        let random = current_data.random()?;
+        let (min, max) = current_data.shared_data().min_max();
+        let selected_number = *get_random_vec_item(random, current_data.selected_numbers())?;
+        let separator = random.get_number(1, largest_separator);
+        let number = if random.get_bool() { selected_number.checked_add(separator)? } else { selected_number.checked_sub(separator)? };
+        return Some(number).filter(|v| *v >= min && *v <= max);
+    }
+
+    //Gte and Gt only.  The other types are created going up from the lowest number.
+    fn get_previous_number(&self, current_data: &CurrentData, base_number: usize, min: usize) -> Option<usize> {
+        let ub = match *self {
+            OperatorType::Gte(v) => base_number.checked_sub(v)?,
+            OperatorType::Gt(v) => base_number.checked_sub(v)?.checked_sub(1)?,
+            _ => return None
+        };
+        if min > ub {
+            return None;
+        }
+        if min == ub {
+            return Some(ub);
+        }
+        return current_data.get_rand(NumberType::Any, None, Some((min, ub)));
+    }
+
+    //Returns a random number that leaves room for "count" spaces before max, when there is room
+    fn get_start_number(&self, current_data: &CurrentData, count: usize, min: usize, max: usize) -> Option<usize> {
+        let highest_start = self.smallest_space().checked_mul(count).and_then(|v| max.checked_sub(v)).filter(|v| *v >= min);
         return match highest_start {
             Some(v) => current_data.get_rand(NumberType::Any, None, Some((min, v))),
             None => current_data.get_rand(NumberType::Any, None, None)
@@ -299,6 +392,11 @@ impl NumberSpaceItem {
         return self.has.len() > needs_desc.len() || self.has.iter().rev().zip(needs_desc.iter()).any(|(has, needs)| has > needs);
     }
 
+    //Returns how many numbers the runs in needs take.  A run of 3 spaces takes 4 numbers.
+    pub fn numbers_needed(&self) -> usize {
+        return self.needs.iter().filter(|x| **x > 0).map(|x| x.saturating_add(1)).fold(0, usize::saturating_add);
+    }
+
     pub fn process_missing_count(&self) -> usize {
         return self.process_missing().map(|x| x.0).unwrap_or(0);
     }
@@ -404,19 +502,26 @@ impl RuleTrait for NumberSpace {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<Option<Vec<usize>>, String> {
+        if current_data.random().is_none() {
+            return Err(current_data.no_number_err());
+        }
         let other_number_pool =
         NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
+        let mut is_missing_a_run = false;
         for number_space_item in &other_number_pool.number_space_items {
             if let Some((count, is_new_run)) = number_space_item.process_missing() {
-                //The rest of a run continues from the highest selected number.  A new run can start anywhere.
-                //Gte and Gt match any large space, so a new run after the highest selected number would only make that run longer.
-                let start_new_run = is_new_run && !current_data.selected_numbers().is_empty() && match number_space_item.number_space_type {
-                    OperatorType::Gte(_) | OperatorType::Gt(_) => true,
-                    _ => current_data.random().is_some_and(|x| x.get_bool())
-                };
+                is_missing_a_run = true;
+                //The rest of a run continues from the highest selected number.  So does a new run when that number is not
+                //part of a run yet.  Any other new run starts somewhere else, because continuing would only make a run longer.
+                let (_, highest_is_lone) = number_space_item.number_space_type.lone_numbers(current_data.selected_numbers_sorted());
+                let start_new_run = is_new_run && !current_data.selected_numbers().is_empty() && !highest_is_lone;
                 if start_new_run {
-                    numbers.extend(number_space_item.number_space_type.get_new_run(current_data, count));
+                    //Gte and Gt match any large space, so their new runs have to be right next to the selected numbers
+                    match number_space_item.number_space_type.get_separated_run(current_data, count) {
+                        Some(v) => numbers.extend(v),
+                        None => numbers.extend(number_space_item.number_space_type.get_new_run(current_data, count))
+                    }
                 } else {
                     numbers.extend(number_space_item.number_space_type.get_number(current_data, count));
                 }
@@ -426,7 +531,17 @@ impl RuleTrait for NumberSpace {
         if !numbers.is_empty() {
             return Ok(Some(numbers));
         }
-        
+
+        //Every run is there.  The rest of the numbers can not make a run longer, so for Gte and Gt they have to be
+        //right next to a selected number.
+        if !is_missing_a_run && !current_data.selected_numbers().is_empty() && current_data.selected_numbers().len() < current_data.settings().count() {
+            for number_space_item in &other_number_pool.number_space_items {
+                if let Some(number) = number_space_item.number_space_type.get_separated_number(current_data) {
+                    return Ok(Some(vec![number]));
+                }
+            }
+        }
+
         return Ok(None);
     }
 
@@ -447,6 +562,18 @@ impl RuleTrait for NumberSpace {
             }
             if number_space_item.needs.iter().sum::<usize>() > 0 {
                 total_missing += number_space_item.missing().iter().sum::<usize>();
+
+                //Every number that is not in a run uses up one of the spare numbers.  The highest number does not count
+                //because a new run can continue from it.
+                let spare_numbers = current_data.settings().count().saturating_sub(number_space_item.numbers_needed());
+                let (lone_count, highest_is_lone) = number_space_item.number_space_type.lone_numbers(current_data.selected_numbers_sorted());
+                let lone_count = if highest_is_lone { lone_count - 1 } else { lone_count };
+                if lone_count > spare_numbers {
+                    return Err((IsWithinErrorType::Regular, format!(
+                        "Too many numbers that are not part of a run for {:?}, there are {} and only {} can be spared",
+                        number_space_item.number_space_type, lone_count, spare_numbers
+                    )));
+                }
             }
         }
         let len_remaining = if current_data.selected_numbers().len() > current_data.settings().count() {
@@ -486,8 +613,17 @@ impl RuleTrait for NumberSpace {
 
     fn check_count(
         &self,
-        _count: usize,
+        count: usize,
     ) -> std::result::Result<bool, String> {
+        for number_space_item in &self.number_space_items {
+            let numbers_needed = number_space_item.numbers_needed();
+            if numbers_needed > count {
+                return Err(format!(
+                    "{} {:?} with runs {:?} takes {} numbers, which is greater than count: {}",
+                    self.name(), number_space_item.number_space_type, number_space_item.needs, numbers_needed, count
+                ));
+            }
+        }
         return Ok(true);
     }
 }

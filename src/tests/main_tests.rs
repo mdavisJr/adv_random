@@ -265,6 +265,29 @@ fn uc_odd_even_2() {
     }
 }
 
+//Returns how many numbers are not in a sequence, and how long each sequence is from shortest to longest
+fn sequence_counts(numbers: &[usize]) -> (usize, Vec<usize>) {
+    let mut sorted_numbers = numbers.to_vec();
+    sorted_numbers.sort_unstable();
+    let mut seq_counts: Vec<usize> = Vec::new();
+    let mut seq_count = 1;
+    for i in 1..sorted_numbers.len() {
+        if sorted_numbers[i] == sorted_numbers[i - 1] + 1 {
+            seq_count += 1;
+        } else {
+            if seq_count > 1 {
+                seq_counts.push(seq_count);
+            }
+            seq_count = 1;
+        }
+    }
+    if seq_count > 1 {
+        seq_counts.push(seq_count);
+    }
+    seq_counts.sort_unstable();
+    return (sorted_numbers.len() - seq_counts.iter().sum::<usize>(), seq_counts);
+}
+
 #[test]
 fn uc_seq_1() {
     //Create 5 numbers between 1 and 10 with no duplicates that are all nonsequential
@@ -301,7 +324,7 @@ fn uc_seq_2() {
         Ok(numbers) => {
             assert!(numbers.len() == 5);
             assert!(numbers.len() == numbers.iter().copied().collect::<HashSet<usize>>().len());
-            //TODO Test
+            assert_eq!(sequence_counts(numbers), (3, vec![2]), "{:?}", numbers);
             println!("{:?}", numbers);
         },
         _ => panic!("{}", random_result)
@@ -320,7 +343,7 @@ fn uc_seq_3() {
         Ok(numbers) => {
             assert!(numbers.len() == 5);
             assert!(numbers.len() == numbers.iter().copied().collect::<HashSet<usize>>().len());
-            //TODO Test
+            assert_eq!(sequence_counts(numbers), (1, vec![2, 2]), "{:?}", numbers);
             println!("{:?}", numbers);
         },
         _ => panic!("{}", random_result)

@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR, NO_RANDOM_ERR};
+use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
 use std::any::Any;
@@ -122,7 +122,7 @@ impl RuleTrait for OddEven {
             Some(OddEvenKey::Even) => NumberType::Even,
             _ => NumberType::Odd
         };
-        return Ok(Some(vec![current_data.get_rand(number_type, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?]));
+        return Ok(Some(vec![current_data.get_rand(number_type, None, None).ok_or_else(|| current_data.no_number_err())?]));
     }
 
     fn is_within_range(

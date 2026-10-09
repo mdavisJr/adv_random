@@ -1038,3 +1038,81 @@ fn shared_data_merge() {
     assert!(shared_data.no_duplicates());
     assert_eq!(shared_data.exclusion_pools().len(), 2);
 }
+
+#[test]
+fn operator_type_lone_numbers() {
+    let eq = OperatorType::Eq(3);
+    assert_eq!(eq.lone_numbers(&[]), (0, false));
+    assert_eq!(eq.lone_numbers(&[10]), (1, true));
+    //10, 13 and 16 are a run.  40 and 90 are not next to a space of 3.
+    assert_eq!(eq.lone_numbers(&[10, 13, 16, 40, 90]), (2, true));
+    assert_eq!(eq.lone_numbers(&[5, 10, 13, 16]), (1, false));
+    //every space of 3 or more matches Gte(3), so only 11 is not part of a run
+    assert_eq!(OperatorType::Gte(3).lone_numbers(&[10, 11, 40, 90]), (1, false));
+}
+
+#[test]
+fn number_space_takes_more_numbers_than_count() {
+    //3 runs of 2 spaces take 9 numbers
+    let number_space = NumberSpace::new(&[NumberSpaceItem::new_full(&OperatorType::Eq(3), &[2, 2, 2], &[])]);
+    assert!(number_space.check_count(9).is_ok());
+    assert!(number_space.check_count(8).is_err());
+
+    let settings = Settings::new(&[Box::new(NumberRange::all(1, 100)), Box::new(number_space)], 8);
+    assert_eq!(settings.errors().len(), 1);
+    assert_eq!(RandomResultType::BadRequest, random_numbers(&settings).status());
+}
+
+#[test]
+fn number_space_is_within_range_lone_numbers() {
+    let shared_data = SharedData::new();
+    let rule = NumberSpace::new(&[NumberSpaceItem::new_full(&OperatorType::Eq(3), &[2, 2, 2], &[])]);
+
+    //count 9 has no spare numbers, so 50 can not be there unless a run can continue from it
+    let settings = Settings::new(&[], 9);
+    let numbers = vec![50, 60, 63, 66];
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_err());
+    let numbers = vec![10, 13, 16, 50];
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_ok());
+
+    //count 10 has one spare number
+    let settings = Settings::new(&[], 10);
+    let numbers = vec![50, 60, 63, 66];
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_ok());
+    let numbers = vec![40, 50, 60, 63, 66];
+    assert!(rule.is_within_range(&CurrentData::new(&numbers, &settings, &shared_data)).is_err());
+}
+
+#[test]
+fn number_space_no_spare_numbers() {
+    //(operator type, runs, count).  Every number has to be part of a run, or right next to one for Gte and Gt.
+    let data: Vec<(OperatorType, Vec<usize>, usize)> = vec![
+        (OperatorType::Eq(3), vec![2, 2, 2], 9),
+        (OperatorType::Eq(1), vec![2, 2, 2], 9),
+        (OperatorType::Lt(3), vec![2, 2, 2], 9),
+        (OperatorType::Between(3, 6), vec![2, 2, 2], 9),
+        (OperatorType::Gte(3), vec![2, 2, 2], 9),
+        (OperatorType::Gt(3), vec![2, 2, 2], 9),
+        (OperatorType::Gte(3), vec![1, 1, 1, 1], 10),
+        (OperatorType::Gt(3), vec![1, 1, 1, 1], 10),
+        (OperatorType::Gte(3), vec![4], 10),
+    ];
+    for (operator_type, runs, count) in data {
+        let mut success_count = 0;
+        for _ in 0..50 {
+            let random_result = random_numbers(&Settings::new(&[
+                Box::new(NoDuplicate{}),
+                Box::new(NumberRange::all(1, 100)),
+                Box::new(NumberSpace::new(&[NumberSpaceItem::new_full(&operator_type, &runs, &[])])),
+            ], count));
+            if let Ok(numbers) = random_result.numbers() {
+                success_count += 1;
+                let mut sorted_numbers = numbers.to_vec();
+                sorted_numbers.sort_unstable();
+                let spaces: Vec<usize> = sorted_numbers.windows(2).map(|x| x[1] - x[0]).collect();
+                assert_eq!(operator_type.has(&spaces), runs, "{:?}", sorted_numbers);
+            }
+        }
+        assert!(success_count >= 48, "{:?} {:?} {}", operator_type, runs, success_count);
+    }
+}
