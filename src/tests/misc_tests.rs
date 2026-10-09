@@ -604,12 +604,12 @@ fn settings_is_send_sync() {
 fn number_space_item_has_too_many() {
     let lte = OperatorType::Lte(3);
     //longest run of 5 is more than the longest needed run of 3
-    assert!(NumberSpaceItem::new_full(&lte, &[2, 3], &[1, 5]).has_too_many());
+    assert!(NumberSpaceItem::new(lte).needs(&[2, 3]).has(&[1, 5]).has_too_many());
     //more runs than needed
-    assert!(NumberSpaceItem::new_full(&lte, &[2], &[1, 1]).has_too_many());
-    assert!(!NumberSpaceItem::new_full(&lte, &[3, 2], &[1, 3]).has_too_many());
-    assert!(!NumberSpaceItem::new_full(&lte, &[2, 3], &[2]).has_too_many());
-    assert!(!NumberSpaceItem::new_full(&lte, &[2, 3], &[]).has_too_many());
+    assert!(NumberSpaceItem::new(lte).needs(&[2]).has(&[1, 1]).has_too_many());
+    assert!(!NumberSpaceItem::new(lte).needs(&[3, 2]).has(&[1, 3]).has_too_many());
+    assert!(!NumberSpaceItem::new(lte).needs(&[2, 3]).has(&[2]).has_too_many());
+    assert!(!NumberSpaceItem::new(lte).needs(&[2, 3]).has_too_many());
 }
 
 #[test]
@@ -699,7 +699,7 @@ fn operator_type_get_number() {
 #[test]
 fn number_space_needs_any_order() {
     let lte = OperatorType::Lte(3);
-    assert_eq!(NumberSpaceItem::new_full(&lte, &[3, 2], &[]).needs(), &vec![2, 3]);
+    assert_eq!(NumberSpaceItem::new(lte).needs(&[3, 2]).needed(), &vec![2, 3]);
 }
 
 #[test]
@@ -842,13 +842,15 @@ fn settings_with_more_than_one_error() {
 #[test]
 fn number_pool_alphanumeric_count_too_small() {
     for (count, include_special_char) in [(1, false), (2, true)] {
-        let settings = Settings::builder(count).rule(NumberPool::alphanumeric(count, include_special_char)).build();
+        let number_pool = if include_special_char { NumberPool::alphanumeric(count).with_special_characters() } else { NumberPool::alphanumeric(count) };
+        let settings = Settings::builder(count).rule(number_pool).build();
         assert_eq!(settings.errors().len(), 1);
         assert!(settings.errors()[0].contains("or more"), "{:?}", settings.errors());
         assert_eq!(RandomErrorType::BadRequest, settings.generate().unwrap_err().error_type());
     }
     for (count, include_special_char) in [(2, false), (3, true)] {
-        let random_result = Settings::builder(count).rule(NumberPool::alphanumeric(count, include_special_char)).build().generate();
+        let number_pool = if include_special_char { NumberPool::alphanumeric(count).with_special_characters() } else { NumberPool::alphanumeric(count) };
+        let random_result = Settings::builder(count).rule(number_pool).build().generate();
         assert_eq!(random_result.as_ref().unwrap().shuffled_string().unwrap().len(), count);
     }
 }
@@ -906,19 +908,19 @@ fn sequential_is_within_range_sequence_too_long() {
 fn number_space_item_missing() {
     let lte = OperatorType::Lte(3);
     //the run of 3 that is already there is the run of 3 that is needed, so the run of 2 is missing
-    let item = NumberSpaceItem::new_full(&lte, &[2, 3], &[3]);
+    let item = NumberSpaceItem::new(lte).needs(&[2, 3]).has(&[3]);
     assert_eq!(item.missing(), vec![2, 0]);
     assert_eq!(item.process_missing_count(), 2);
 
-    let item = NumberSpaceItem::new_full(&lte, &[1, 4], &[1]);
+    let item = NumberSpaceItem::new(lte).needs(&[1, 4]).has(&[1]);
     assert_eq!(item.missing(), vec![1, 3]);
     assert_eq!(item.process_missing_count(), 3);
 
-    let item = NumberSpaceItem::new_full(&lte, &[2, 3], &[]);
+    let item = NumberSpaceItem::new(lte).needs(&[2, 3]);
     assert_eq!(item.missing(), vec![2, 3]);
     assert_eq!(item.process_missing_count(), 3);
 
-    let item = NumberSpaceItem::new_full(&lte, &[2, 3], &[2, 3]);
+    let item = NumberSpaceItem::new(lte).needs(&[2, 3]).has(&[2, 3]);
     assert_eq!(item.missing(), vec![0, 0]);
     assert_eq!(item.process_missing_count(), 0);
 }
@@ -955,13 +957,13 @@ fn pool_type_set() {
 fn number_space_item_process_missing() {
     let eq = OperatorType::Eq(3);
     //nothing is there yet, so the longest run is a new run
-    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[]).process_missing(), Some((3, true)));
+    assert_eq!(NumberSpaceItem::new(eq).needs(&[2, 2, 3]).process_missing(), Some((3, true)));
     //the run of 3 is there, so the next run is a new run of 2
-    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[3]).process_missing(), Some((2, true)));
+    assert_eq!(NumberSpaceItem::new(eq).needs(&[2, 2, 3]).has(&[3]).process_missing(), Some((2, true)));
     //the run of 1 is the start of the run of 3, so the rest of it is not a new run
-    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[1]).process_missing(), Some((2, false)));
-    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[2, 2, 3]).process_missing(), None);
-    assert_eq!(NumberSpaceItem::new_full(&eq, &[2, 2, 3], &[2, 2, 3]).process_missing_count(), 0);
+    assert_eq!(NumberSpaceItem::new(eq).needs(&[2, 2, 3]).has(&[1]).process_missing(), Some((2, false)));
+    assert_eq!(NumberSpaceItem::new(eq).needs(&[2, 2, 3]).has(&[2, 2, 3]).process_missing(), None);
+    assert_eq!(NumberSpaceItem::new(eq).needs(&[2, 2, 3]).has(&[2, 2, 3]).process_missing_count(), 0);
 }
 
 #[test]
@@ -1402,7 +1404,7 @@ fn generate_ok() {
 
     //the question mark operator works with generate and with the strings
     fn password() -> std::result::Result<String, RandomError> {
-        let random_numbers_1 = Settings::builder(12).rule(NumberPool::alphanumeric(12, true)).build().generate()?;
+        let random_numbers_1 = Settings::builder(12).rule(NumberPool::alphanumeric(12).with_special_characters()).build().generate()?;
         return random_numbers_1.shuffled_string();
     }
     assert_eq!(password().unwrap().len(), 12);
@@ -1510,12 +1512,12 @@ fn rule_chains() {
     //the runs of one type are kept together
     let number_space = NumberSpace::new().run(OperatorType::Lt(3), 3).run(OperatorType::Gte(10), 1).run(OperatorType::Lt(3), 2);
     assert_eq!(number_space.number_space_items().len(), 2);
-    assert_eq!(number_space.number_space_items()[0].needs(), &vec![2, 3]);
-    assert_eq!(number_space.number_space_items()[1].needs(), &vec![1]);
-    assert_eq!(NumberSpace::new().runs(OperatorType::Lt(3), &[3, 2]).number_space_items()[0].needs(), &vec![2, 3]);
-    let item = NumberSpaceItem::new_full(&OperatorType::Between(1, 3), &[2], &[2]);
-    assert_eq!(NumberSpace::new().item(item).number_space_items()[0].has(), &vec![2]);
-    let items = vec![NumberSpaceItem::new(&OperatorType::Lt(3), 2), NumberSpaceItem::new(&OperatorType::Gt(9), 1)];
+    assert_eq!(number_space.number_space_items()[0].needed(), &vec![2, 3]);
+    assert_eq!(number_space.number_space_items()[1].needed(), &vec![1]);
+    assert_eq!(NumberSpace::new().runs(OperatorType::Lt(3), &[3, 2]).number_space_items()[0].needed(), &vec![2, 3]);
+    let item = NumberSpaceItem::new(OperatorType::Between(1, 3)).needs(&[2]).has(&[2]);
+    assert_eq!(NumberSpace::new().item(item).number_space_items()[0].found(), &vec![2]);
+    let items = vec![NumberSpaceItem::new(OperatorType::Lt(3)).needs(&[2]), NumberSpaceItem::new(OperatorType::Gt(9)).needs(&[1])];
     assert_eq!(NumberSpace::new().items(items).number_space_items().len(), 2);
 
     //the by index rules take lists and ranges of indexes
@@ -1610,9 +1612,125 @@ fn rule_deprecated_constructors() {
     //NumberRange::from_map and NumberSpace::new_with_process_number_space_items still work
     let old = NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 1000, 9999)]);
     assert_eq!(old.to_string(), NumberRange::new().at([0, 1], 100, 999).at([2], 1000, 9999).to_string());
-    let items = [NumberSpaceItem::new(&OperatorType::Lt(3), 9)];
+    let items = [NumberSpaceItem::new(OperatorType::Lt(3)).needs(&[9])];
     let old = NumberSpace::new_with_process_number_space_items(&items, ProcessNumberSpaceItems::OnePerRequest);
     let new = NumberSpace::new().run(OperatorType::Lt(3), 9).process(ProcessNumberSpaceItems::OnePerRequest);
-    assert_eq!(old.number_space_items()[0].needs(), new.number_space_items()[0].needs());
+    assert_eq!(old.number_space_items()[0].needed(), new.number_space_items()[0].needed());
     assert!(Settings::builder(10).range(1, 100).rule(old).build().generate().is_ok());
+}
+
+#[test]
+fn number_pool_alphanumeric() {
+    let counts = |string: &str| -> (usize, usize, usize) {
+        return (
+            string.chars().filter(|x| x.is_ascii_alphabetic()).count(),
+            string.chars().filter(|x| x.is_ascii_digit()).count(),
+            string.chars().filter(|x| NP_SPECIAL_CHAR_SET.contains(x)).count()
+        );
+    };
+    let generate = |number_pool: NumberPool, count: usize| -> String {
+        return Settings::builder(count).rule(number_pool).build().generate().unwrap().shuffled_string().unwrap();
+    };
+
+    for _ in 0..50 {
+        //letters and 1 to 3 digits
+        let (letters, digits, special_characters) = counts(&generate(NumberPool::alphanumeric(20), 20));
+        assert!((1..=3).contains(&digits) && letters == 20 - digits && special_characters == 0);
+        //and 1 or 2 special characters
+        let (letters, digits, special_characters) = counts(&generate(NumberPool::alphanumeric(20).with_special_characters(), 20));
+        assert!((1..=3).contains(&digits) && (1..=2).contains(&special_characters) && letters == 20 - digits - special_characters);
+        //fewer than 10 characters have 1 digit and 1 special character
+        assert_eq!(counts(&generate(NumberPool::alphanumeric(9).with_special_characters(), 9)), (7, 1, 1));
+    }
+
+    //exactly this many digits and special characters, and the rest are letters
+    assert_eq!(counts(&generate(NumberPool::alphanumeric(20).digits(10), 20)), (10, 10, 0));
+    assert_eq!(counts(&generate(NumberPool::alphanumeric(25).digits(10).special_characters(5), 25)), (10, 10, 5));
+    assert_eq!(counts(&generate(NumberPool::alphanumeric(8).digits(8), 8)), (0, 8, 0));
+    assert_eq!(counts(&generate(NumberPool::alphanumeric(8).digits(0).special_characters(2), 8)), (6, 0, 2));
+
+    //the other pool methods work with it.  None of these look alike characters are used.
+    for _ in 0..50 {
+        let string = generate(NumberPool::alphanumeric(20).none_of("O0oIl1"), 20);
+        assert!(!string.chars().any(|x| "O0oIl1".contains(x)), "{}", string);
+    }
+
+    //what is wrong with it is reported
+    let errors = |number_pool: NumberPool, count: usize| -> Vec<String> {
+        return Settings::builder(count).rule(number_pool).build().errors().to_vec();
+    };
+    assert_eq!(errors(NumberPool::alphanumeric(1), 1), ["NumberPool alphanumeric count: 1 must be 2 or more"]);
+    assert_eq!(errors(NumberPool::alphanumeric(2).with_special_characters(), 2), ["NumberPool alphanumeric count: 2 must be 3 or more"]);
+    assert_eq!(errors(NumberPool::alphanumeric(5).digits(4).special_characters(2), 5), ["NumberPool alphanumeric digits: 4 and special characters: 2 are more than count: 5"]);
+    assert_eq!(errors(NumberPool::new().exactly(1, [1]).digits(2), 5), ["NumberPool digits can only be used with alphanumeric"]);
+    assert_eq!(errors(NumberPool::alphanumeric(20), 10), ["NumberPool count: 20 is greater than count: 10 "]);
+}
+
+#[test]
+#[allow(deprecated)]
+fn number_pool_alphanumeric_deprecated_constructors() {
+    use crate::seeded_random::SeededRandom;
+    //alphanumeric_with_random and the settings pick the same counts and characters for the same seed
+    for seed in 0..20 {
+        let random = SeededRandom::new(seed);
+        let old = Settings::builder(12)
+            .rule(NumberPool::alphanumeric_with_random(&random, 12, true))
+            .random(random)
+            .build()
+            .generate()
+            .unwrap()
+            .into_numbers();
+        let new = Settings::builder(12)
+            .rule(NumberPool::alphanumeric(12).with_special_characters())
+            .random(SeededRandom::new(seed))
+            .build()
+            .generate()
+            .unwrap()
+            .into_numbers();
+        assert_eq!(old, new);
+    }
+
+    let old = NumberPool::alphanumeric_specs(10, 8, 2);
+    assert_eq!(old.needs("alpha_set"), Some(OperatorType::Eq(10)));
+    assert_eq!(old.needs("numeric_set"), Some(OperatorType::Eq(8)));
+    assert_eq!(old.needs("special_char_set"), Some(OperatorType::Eq(2)));
+    assert!(Settings::builder(20).rule(old).build().generate().is_ok());
+}
+
+#[test]
+fn exclude_number_sets() {
+    let rule = ExcludeNumberSets::new()
+        .numbers(&[1, 2, 3])
+        .numbers_each(vec![vec![3, 2, 1], vec![2, 1, 3]])
+        .string("abc")
+        .string_each(["abd", "abe"]);
+    assert_eq!(rule.excluded_number_sets().len(), 6);
+    assert!(rule.excluded_number_sets().contains(&vec![97, 98, 99]));
+    assert!(rule.excluded_number_sets().contains(&vec![97, 98, 101]));
+
+    //1, 2 and 3 in any order has 6 ways, and 3 of them are excluded
+    let settings = Settings::builder(3)
+        .range(1, 3)
+        .no_duplicates()
+        .rule(ExcludeNumberSets::new().numbers(&[1, 2, 3]).numbers_each(vec![vec![3, 2, 1], vec![2, 1, 3]]))
+        .build();
+    assert!(settings.errors().is_empty());
+    let mut found: HashSet<Vec<usize>> = HashSet::new();
+    for _ in 0..200 {
+        found.insert(settings.generate().unwrap().into_numbers());
+    }
+    assert_eq!(found, HashSet::from([vec![1, 3, 2], vec![2, 3, 1], vec![3, 1, 2]]));
+
+    //a list that does not have as many numbers as the count can never be the random numbers
+    let settings = Settings::builder(3).range(1, 3).rule(ExcludeNumberSets::new().numbers(&[1, 2, 3]).string("ab")).build();
+    assert_eq!(settings.errors(), ["ExcludeNumberSets [97, 98] has 2 numbers, so it can never be the 3 random numbers"]);
+    assert_eq!(RandomErrorType::BadRequest, settings.generate().unwrap_err().error_type());
+}
+
+#[test]
+#[allow(deprecated)]
+fn exclude_number_sets_deprecated_constructor() {
+    let old = ExcludeNumberSets::new_string(&HashSet::from([String::from("AB1234567"), String::from("CB1234567")]));
+    let new = ExcludeNumberSets::new().string("AB1234567").string("CB1234567");
+    assert_eq!(old.excluded_number_sets(), new.excluded_number_sets());
 }

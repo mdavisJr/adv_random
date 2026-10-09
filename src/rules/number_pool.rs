@@ -1,6 +1,4 @@
 use crate::random::{CurrentData, NumberType};
-#[cfg(feature="rand")]
-use crate::default_random::DefaultRandom;
 use crate::random_trait::RandomTrait;
 use crate::rules::{IsWithinErrorType, SharedData, OperatorType, RuleTrait};
 use std::any::Any;
@@ -203,47 +201,122 @@ impl NumberPoolItemFull {
     }
 }
 
+//How many digits and special characters NumberPool::alphanumeric was asked for
+#[derive(Clone, Copy)]
+struct Alphanumeric {
+    count: usize,
+    //None is 1 digit, or 1 to 3 digits when there are 10 or more characters
+    digits: Option<usize>,
+    special_characters: SpecialCharacters,
+}
+
+#[derive(Clone, Copy)]
+enum SpecialCharacters {
+    None,
+    //1 special character, or 1 or 2 when there are 10 or more characters
+    Some,
+    Exactly(usize),
+}
+
 #[derive(Clone, Default)]
 pub struct NumberPool {
     //sorted by key, so a seeded random generator gives the same numbers every run
     number_pool_items: BTreeMap<String, NumberPoolItemFull>,
     errors: Vec<String>,
+    //Settings turns this into pools of letters, digits and special characters when it is built, because how many
+    //digits there are can depend on the random number generator of the settings
+    alphanumeric: Option<Alphanumeric>,
 }
 
 impl NumberPool {
-    #[cfg(feature="rand")]
-    pub fn alphanumeric(count: usize, include_special_char: bool) -> NumberPool {
-        return NumberPool::alphanumeric_with_random(&DefaultRandom{}, count, include_special_char);
+    //Letters and digits for a string of this many characters.  There is 1 digit, or 1 to 3 digits when there are 10
+    //or more characters, and the rest are letters.  Change that with digits, with_special_characters and
+    //special_characters.
+    pub fn alphanumeric(count: usize) -> NumberPool {
+        return NumberPool {
+            number_pool_items: BTreeMap::new(),
+            errors: Vec::new(),
+            alphanumeric: Some(Alphanumeric { count, digits: None, special_characters: SpecialCharacters::None }),
+        };
     }
 
-    pub fn alphanumeric_with_random(random: &dyn RandomTrait, count: usize, include_special_char: bool) -> NumberPool {
-        let min_count = if include_special_char { 3 } else { 2 };
+    //Exactly this many of the characters are digits
+    pub fn digits(mut self, count: usize) -> NumberPool {
+        match &mut self.alphanumeric {
+            Some(alphanumeric) => alphanumeric.digits = Some(count),
+            None => self.errors.push(format!("{} digits can only be used with alphanumeric", self.name()))
+        }
+        return self;
+    }
+
+    //Adds 1 special character, or 1 or 2 when there are 10 or more characters
+    pub fn with_special_characters(mut self) -> NumberPool {
+        match &mut self.alphanumeric {
+            Some(alphanumeric) => alphanumeric.special_characters = SpecialCharacters::Some,
+            None => self.errors.push(format!("{} with_special_characters can only be used with alphanumeric", self.name()))
+        }
+        return self;
+    }
+
+    //Exactly this many of the characters are special characters
+    pub fn special_characters(mut self, count: usize) -> NumberPool {
+        match &mut self.alphanumeric {
+            Some(alphanumeric) => alphanumeric.special_characters = SpecialCharacters::Exactly(count),
+            None => self.errors.push(format!("{} special_characters can only be used with alphanumeric", self.name()))
+        }
+        return self;
+    }
+
+    //Returns this number pool with the pools of letters, digits and special characters that alphanumeric asked for.
+    //None when alphanumeric was not used.  Settings calls this when it is built.
+    pub fn resolve_alphanumeric(&self, random: Option<&dyn RandomTrait>) -> Option<NumberPool> {
+        let alphanumeric = self.alphanumeric?;
+        let count = alphanumeric.count;
+        let mut number_pool = self.clone();
+        number_pool.alphanumeric = None;
+
+        //the digits are picked before the special characters so a seeded random generator always gives the same counts
+        let numeric_count = match (alphanumeric.digits, random) {
+            (Some(v), _) => v,
+            (None, Some(random)) if count >= 10 => random.get_number(1, 3),
+            (None, _) => 1
+        };
+        let special_char_count = match (alphanumeric.special_characters, random) {
+            (SpecialCharacters::None, _) => 0,
+            (SpecialCharacters::Exactly(v), _) => v,
+            (SpecialCharacters::Some, Some(random)) if count >= 10 => random.get_number(1, 2),
+            (SpecialCharacters::Some, _) => 1
+        };
+        let is_exact = alphanumeric.digits.is_some() || matches!(alphanumeric.special_characters, SpecialCharacters::Exactly(_));
+        let min_count = if is_exact { numeric_count.saturating_add(special_char_count) } else { numeric_count + special_char_count + 1 };
         if count < min_count {
-            return NumberPool {
-                number_pool_items: BTreeMap::new(),
-                errors: vec![format!("NumberPool alphanumeric count: {} must be {} or more", count, min_count)],
-            };
-        }
-        let mut numeric_count:usize = 1;
-        let mut special_char_count: usize = if include_special_char { 1 } else { 0 };
-
-        if count >= 10 {
-            numeric_count = random.get_number(1, 3);
+            number_pool.errors.push(if is_exact {
+                format!("{} alphanumeric digits: {} and special characters: {} are more than count: {}", self.name(), numeric_count, special_char_count, count)
+            } else {
+                format!("{} alphanumeric count: {} must be {} or more", self.name(), count, min_count)
+            });
+            return Some(number_pool);
         }
 
-        if include_special_char && count >= 10 {
-            special_char_count = random.get_number(1, 2);
-        }
-
-        let alpha_count = count - numeric_count - special_char_count;
-
-        return NumberPool::alphanumeric_specs(alpha_count, numeric_count, special_char_count);
-    }
-    pub fn alphanumeric_specs(alpha_count: usize, numeric_count: usize, special_char_count: usize) -> NumberPool {
-        return NumberPool::new()
-            .item("alpha_set", PoolType::from_chars(&NP_ALPHABET_SET), OperatorType::Eq(alpha_count))
+        return Some(number_pool
+            .item("alpha_set", PoolType::from_chars(&NP_ALPHABET_SET), OperatorType::Eq(count - numeric_count - special_char_count))
             .item("numeric_set", PoolType::from_chars(&NP_NUMERIC_SET), OperatorType::Eq(numeric_count))
-            .item("special_char_set", PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count));
+            .item("special_char_set", PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count)));
+    }
+
+    #[deprecated(since = "3.0.0", note = "use NumberPool::alphanumeric(count), and .random(...) on the settings builder")]
+    pub fn alphanumeric_with_random(random: &dyn RandomTrait, count: usize, include_special_char: bool) -> NumberPool {
+        let number_pool = NumberPool::alphanumeric(count);
+        let number_pool = if include_special_char { number_pool.with_special_characters() } else { number_pool };
+        return number_pool.resolve_alphanumeric(Some(random)).unwrap_or(number_pool);
+    }
+
+    #[deprecated(since = "3.0.0", note = "use NumberPool::alphanumeric(count).digits(...).special_characters(...)")]
+    pub fn alphanumeric_specs(alpha_count: usize, numeric_count: usize, special_char_count: usize) -> NumberPool {
+        let number_pool = NumberPool::alphanumeric(alpha_count + numeric_count + special_char_count)
+            .digits(numeric_count)
+            .special_characters(special_char_count);
+        return number_pool.resolve_alphanumeric(None).unwrap_or(number_pool);
     }
 
     //No numbers have to come from a pool yet.  Say what is needed with exactly, at_least, at_most, between and none_of.
@@ -331,6 +404,7 @@ impl NumberPool {
                 .map(|x| (x.0.to_owned(), x.1.to_owned()))
                 .collect(),
             errors: Vec::new(),
+            alphanumeric: None,
         };
     }
 
@@ -368,6 +442,7 @@ impl NumberPool {
         return NumberPool {
             number_pool_items: number_pool_items_full,
             errors: Vec::new(),
+            alphanumeric: None,
         };
     }
 

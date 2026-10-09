@@ -116,6 +116,25 @@ impl Settings {
         if expected_rules_clone.iter().all(|x| !x.as_any().is::<RandomNumber>()) {
             expected_rules_clone.push(Box::new(RandomNumber{}));
         }
+        //NumberPool::alphanumeric picks how many digits there are with the random number generator of the settings
+        let random = random.or_else(Settings::default_random);
+        let random_for_rules: Option<&dyn RandomTrait> = match &random {
+            Some(v) => Some(v.as_ref()),
+            None => None
+        };
+        for rule in expected_rules_clone.iter_mut() {
+            if let Some(number_pool) = rule.as_any().downcast_ref::<NumberPool>().and_then(|x| x.resolve_alphanumeric(random_for_rules)) {
+                *rule = Box::new(number_pool);
+            }
+        }
+        let mut exclude_rules = exclude_rules;
+        if let Some(exclude_rules) = exclude_rules.as_mut() {
+            for rule in exclude_rules.iter_mut() {
+                if let Some(number_pool) = rule.as_any().downcast_ref::<NumberPool>().and_then(|x| x.resolve_alphanumeric(random_for_rules)) {
+                    *rule = Box::new(number_pool);
+                }
+            }
+        }
         let mut errors: Vec<String> = Vec::new();
         for rule in &expected_rules_clone {
             errors.extend(rule.validate(count));
@@ -147,7 +166,7 @@ impl Settings {
             max_tries: 500,
             max_is_match_attempts: 10,
             max_specific_error_count: 3 * count,
-            random: random.or_else(Settings::default_random),
+            random,
             errors
         };
     }

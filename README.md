@@ -120,7 +120,7 @@ impl RandomTrait for MyRandom {
     }
 }
 ```
-If you do not want rand, turn off the default features.  There is no default generator then, so every `Settings` needs `.random(...)`, and `generate` returns a `BadRequest` error without it.  `NumberPool::alphanumeric` also needs the `rand` feature.  Use `NumberPool::alphanumeric_with_random` to pass your own generator.
+If you do not want rand, turn off the default features.  There is no default generator then, so every `Settings` needs `.random(...)`, and `generate` returns a `BadRequest` error without it.
 ```toml
 [dependencies]
 adv_random = { version = "3", default-features = false }
@@ -297,9 +297,10 @@ println!("{:?}", random_numbers.numbers());
 #### Output: [6, 7, 1, 2, 10]
 ---
 ### Create a random 20 character string with no special characters
+`NumberPool::alphanumeric(20)` is letters and 1 to 3 digits.  `with_special_characters` adds 1 or 2 special characters.  `digits` and `special_characters` say exactly how many there are, and the rest are letters.
 ```rust
 let random_numbers = Settings::builder(20)
-    .rule(NumberPool::alphanumeric(20, false))
+    .rule(NumberPool::alphanumeric(20))
     .build()
     .generate()?;
 println!("{}", random_numbers.shuffled_string()?);
@@ -309,7 +310,7 @@ println!("{}", random_numbers.shuffled_string()?);
 ### Create a random 20 character string with special characters
 ```rust
 let random_numbers = Settings::builder(20)
-    .rule(NumberPool::alphanumeric(20, true))
+    .rule(NumberPool::alphanumeric(20).with_special_characters())
     .build()
     .generate()?;
 println!("{}", random_numbers.shuffled_string()?);
@@ -320,7 +321,7 @@ println!("{}", random_numbers.shuffled_string()?);
 ```rust
 let random_numbers = Settings::builder(20)
     .no_duplicates()
-    .rule(NumberPool::alphanumeric_specs(10, 10, 0))
+    .rule(NumberPool::alphanumeric(20).digits(10))
     .build()
     .generate()?;
 println!("{}", random_numbers.shuffled_string()?);
@@ -331,7 +332,7 @@ println!("{}", random_numbers.shuffled_string()?);
 ```rust
 let random_numbers = Settings::builder(25)
     .no_duplicates()
-    .rule(NumberPool::alphanumeric_specs(10, 10, 5))
+    .rule(NumberPool::alphanumeric(25).digits(10).special_characters(5))
     .build()
     .generate()?;
 println!("{}", random_numbers.shuffled_string()?);
@@ -353,10 +354,8 @@ println!("{}", random_numbers.shuffled_string()?);
 ---
 ### Create random license number that starts with 2 apha-characters followed by 7 numeric characters. Also excludes "AB1234567" and "CB1234567" because they are already assigned to someone.
 ```rust
-use std::collections::HashSet;
-
 let random_numbers = Settings::builder(9)
-    .rule(ExcludeNumberSets::new_string(&HashSet::from_iter([String::from("AB1234567"), String::from("CB1234567")])))
+    .rule(ExcludeNumberSets::new().string("AB1234567").string("CB1234567"))
     .rule(NumberPoolByIndex::new()
         .at([0, 1], "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         .at(2..=8, "1234567890"))
@@ -521,7 +520,7 @@ A rule that can have more than one thing wrong with it can also implement `valid
 Custom rules can share their own values with each other.  One rule returns `Some(SharedData::new().with_custom("my_key", CustomValue::Usize(5)))` from `share_data`, and another rule reads it with `current_data.shared_data().custom("my_key")`.  Only one rule can set a key.
 
 # Upgrading From Version 2
-`Settings::new`, `Settings::with_exclude_rules`, `random_numbers` and `NumberRange::from_map` still work.  They are deprecated and the compiler shows what to use instead.  The other lines in this table do not compile in version 3 and have to be changed.
+`Settings::new`, `Settings::with_exclude_rules`, `random_numbers`, `NumberRange::from_map`, `NumberPool::alphanumeric_specs`, `NumberPool::alphanumeric_with_random` and `ExcludeNumberSets::new_string` still work.  They are deprecated and the compiler shows what to use instead.  The other lines in this table do not compile in version 3 and have to be changed.
 
 | Version 2 | Version 3 |
 |---|---|
@@ -533,6 +532,13 @@ Custom rules can share their own values with each other.  One rule returns `Some
 | `NumberPool::new(&[NumberPoolItem::new("key", &pool, OperatorType::Eq(2))])` | `NumberPool::new().exactly(2, pool)` or `.item("key", pool, OperatorType::Eq(2))` |
 | `NumberSpace::new(&[NumberSpaceItem::new(&OperatorType::Lt(3), 9)])` | `NumberSpace::new().run(OperatorType::Lt(3), 9)` |
 | `Sequential::new(1, &[2, 2])` | `Sequential::new().singles(1).in_a_row(2).in_a_row(2)` |
+| `NumberPool::alphanumeric(20, true)` | `NumberPool::alphanumeric(20).with_special_characters()` |
+| `NumberPool::alphanumeric_specs(10, 10, 5)` | `NumberPool::alphanumeric(25).digits(10).special_characters(5)` |
+| `NumberPool::alphanumeric_with_random(&random, 20, false)` | `NumberPool::alphanumeric(20)`, with `.random(random)` on the settings builder |
+| `NumberSpaceItem::new_full(&operator, &[2], &[2])` | `NumberSpaceItem::new(operator).needs(&[2]).has(&[2])` |
+| `number_space_item.needs()` and `number_space_item.has()` | `number_space_item.needed()` and `number_space_item.found()` |
+| `ExcludeNumberSets::new(&sets)` | `ExcludeNumberSets::new().numbers_each(sets)` |
+| `ExcludeNumberSets::new_string(&strings)` | `ExcludeNumberSets::new().string("AB1234567")` or `.string_each(strings)` |
 | `OddEven::new(5, 5)` | `OddEven::new().odd(5).even(5)` |
 | `odd_even.odd()` and `odd_even.even()` | `odd_even.odd_count()` and `odd_even.even_count()` |
 | `OddEvenByIndex::new(&[0, 2], &[1])` | `OddEvenByIndex::new().odd([0, 2]).even([1])` |

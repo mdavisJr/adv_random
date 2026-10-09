@@ -1,7 +1,6 @@
 use crate::rules::*;
 use crate::settings::*;
 use std::collections::HashSet;
-use std::iter::FromIterator;
 
 #[test]
 fn uc_random_numbers() {
@@ -383,7 +382,7 @@ fn uc_seq_3() {
 fn uc_random_string_1() {
     //Create a random 20 character string with no special characters
     let random_result = Settings::builder(20)
-        .rule(NumberPool::alphanumeric(20, false))
+        .rule(NumberPool::alphanumeric(20))
         .build()
         .generate();
     match &random_result {
@@ -400,7 +399,7 @@ fn uc_random_string_1() {
 fn uc_random_string_2() {
     //Create a random 22 character string with special characters
     let random_result = Settings::builder(20)
-        .rule(NumberPool::alphanumeric(20, true))
+        .rule(NumberPool::alphanumeric(20).with_special_characters())
         .build()
         .generate();
     match &random_result {
@@ -418,7 +417,7 @@ fn uc_random_string_3() {
     //Create a random 20 character string with 10 letters, 10 numbers, no special characters, and no duplicates
     let random_result = Settings::builder(20)
         .rule(NoDuplicate)
-        .rule(NumberPool::alphanumeric_specs(10, 10, 0))
+        .rule(NumberPool::alphanumeric(20).digits(10))
         .build()
         .generate();
     match &random_result {
@@ -452,7 +451,7 @@ fn uc_random_string_4() {
     //Create a random 25 character string with 10 letters, 10 numbers, and 5 special characters and not duplicates
     let random_result = Settings::builder(25)
         .rule(NoDuplicate)
-        .rule(NumberPool::alphanumeric_specs(10, 10, 5))
+        .rule(NumberPool::alphanumeric(25).digits(10).special_characters(5))
         .build()
         .generate();
     match &random_result {
@@ -521,7 +520,7 @@ fn uc_random_string_6() {
     //Create random license number that starts with 2 apha-characters followed by 7 numeric characters. Also excludes "AB1234567" and "CB1234567" because they are already assigned to someone.
     let uc_alpha_set: HashSet<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect();
     let random_result = Settings::builder(9)
-        .rule(ExcludeNumberSets::new_string(&HashSet::from_iter(vec![String::from("AB1234567"), String::from("CB1234567")])))
+        .rule(ExcludeNumberSets::new().string("AB1234567").string("CB1234567"))
         .rule(NumberPoolByIndex::new()
             .at([0, 1], "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
             .at(2..=8, "1234567890"))

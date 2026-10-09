@@ -317,19 +317,27 @@ pub struct NumberSpaceItem {
 }
 
 impl NumberSpaceItem {
-    pub fn new(number_space_type: &OperatorType, needs: usize) -> NumberSpaceItem {
-        return NumberSpaceItem::new_full(number_space_type, &[needs], &Vec::new());
+    //No runs yet.  Say what is needed with needs, and what a set of numbers has with has.
+    pub fn new(number_space_type: OperatorType) -> NumberSpaceItem {
+        return NumberSpaceItem {
+            number_space_type,
+            needs: Vec::new(),
+            has: Vec::new()
+        };
     }
 
-    pub fn new_full(number_space_type: &OperatorType, needs: &[usize], has: &[usize]) -> NumberSpaceItem {
+    //The runs that are needed.  Each count is how many spaces in a row match the type.
+    pub fn needs(mut self, counts: &[usize]) -> NumberSpaceItem {
         //sorted because the counts from selected numbers are sorted before they are compared
-        let mut needs = needs.to_vec();
-        needs.sort_unstable();
-        return NumberSpaceItem {
-            number_space_type: *number_space_type,
-            needs,
-            has: has.to_vec()
-        };
+        self.needs = counts.to_vec();
+        self.needs.sort_unstable();
+        return self;
+    }
+
+    //The runs that a set of numbers has
+    pub fn has(mut self, counts: &[usize]) -> NumberSpaceItem {
+        self.has = counts.to_vec();
+        return self;
     }
 
     pub fn get_num_spaces(list: &[usize], is_sorted: bool) -> Vec<usize> {    
@@ -384,11 +392,13 @@ impl NumberSpaceItem {
         return &self.number_space_type;
     }
 
-    pub fn needs(&self) -> &Vec<usize> {
+    //The runs that are needed
+    pub fn needed(&self) -> &Vec<usize> {
         return &self.needs;
     }
 
-    pub fn has(&self) -> &Vec<usize> {
+    //The runs that the numbers have
+    pub fn found(&self) -> &Vec<usize> {
         return &self.has;
     }
 
@@ -482,7 +492,7 @@ impl NumberSpace {
                 number_space_item.needs.push(count);
                 number_space_item.needs.sort_unstable();
             },
-            None => self.number_space_items.push(NumberSpaceItem::new(&number_space_type, count))
+            None => self.number_space_items.push(NumberSpaceItem::new(number_space_type).needs(&[count]))
         }
         return self;
     }
@@ -495,7 +505,7 @@ impl NumberSpace {
         return self;
     }
 
-    //Adds an item that is already created, such as one from NumberSpaceItem::new_full
+    //Adds an item that is already created, such as one that says what a set of numbers has
     pub fn item(mut self, number_space_item: NumberSpaceItem) -> NumberSpace {
         if let Err(e) = number_space_item.number_space_type.check() {
             self.errors.push(format!("{} {}", self.name(), e));

@@ -3,11 +3,11 @@ use crate::random::RandomErrorType;
 #[cfg(not(feature="rand"))]
 use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::RandomTrait;
-use crate::rules::NumberRange;
+use crate::rules::{NumberPool, NumberRange};
 #[cfg(not(feature="rand"))]
-use crate::rules::{NumberPool, NumberPoolByIndex, NumberSpace, OddEven, OddEvenByIndex, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential, SharedData};
+use crate::rules::{NumberPoolByIndex, NumberSpace, OddEven, OddEvenByIndex, OperatorType, PoolType, RandomNumber, RuleTrait, Sequential, SharedData};
 #[cfg(feature="rand")]
-use crate::rules::{NoDuplicate, NumberPool, OddEven};
+use crate::rules::{NoDuplicate, OddEven};
 #[cfg(feature="rand")]
 use crate::seeded_random::SeededRandom;
 use crate::settings::Settings;
@@ -28,6 +28,19 @@ fn custom_random() {
         },
         Err(e) => panic!("{:?}", e)
     }
+
+    //alphanumeric uses the random number generator of the settings to pick how many digits there are
+    let string = Settings::builder(12)
+        .rule(NumberPool::alphanumeric(12).with_special_characters())
+        .random(TestNoDefaultRandom{})
+        .build()
+        .generate()
+        .unwrap()
+        .string()
+        .unwrap();
+    assert_eq!(string.len(), 12);
+    assert_eq!(string.chars().filter(|x| x.is_ascii_digit()).count(), 1);
+    assert_eq!(string.chars().filter(|x| x.is_ascii_alphabetic()).count(), 10);
 }
 
 #[test]
@@ -92,7 +105,7 @@ fn seeded_random_password_is_repeatable() {
     let run = |seed: u64| -> String {
         let random = SeededRandom::new(seed);
         let random_result = Settings::builder(12)
-            .rule(NumberPool::alphanumeric_with_random(&random, 12, true))
+            .rule(NumberPool::alphanumeric(12).with_special_characters())
             .random(random)
             .build()
             .generate();
