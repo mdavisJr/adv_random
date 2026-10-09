@@ -1,5 +1,5 @@
 use crate::default_random::DefaultRandom;
-use crate::random_trait::RandomTrait;
+use crate::random_trait::{get_random_vec_item, RandomTrait};
 use crate::rules::RuleTrait;
 use crate::rules::*;
 use crate::random::*;
@@ -552,7 +552,7 @@ fn even_number_1() {
     ]);
     let current_data = &CurrentData::new(expected_rules, settings, shared_data);
     for _ in 0..2000 {
-        let even_number = current_data.get_rand(NumberType::Even,None, None);
+        let even_number = current_data.get_rand(NumberType::Even,None, None).unwrap();
         assert!(even_number.is_multiple_of(2), "{}", even_number);
         assert!((1..=20).contains(&even_number), "{}", even_number);
     }
@@ -568,7 +568,7 @@ fn odd_number_1() {
     ]);
     let current_data = &CurrentData::new(expected_rules, settings, shared_data);
     for _ in 0..2000 {
-        let odd_number = current_data.get_rand(NumberType::Odd,None, None);
+        let odd_number = current_data.get_rand(NumberType::Odd,None, None).unwrap();
         assert!(odd_number % 2 == 1, "{}", odd_number);
         assert!((1..=20).contains(&odd_number), "{}", odd_number);
     }
@@ -781,4 +781,73 @@ fn no_duplicate_full_range() {
         assert_eq!(RandomResultType::Success, random_result.status());
         assert_eq!(random_result.numbers().unwrap().iter().collect::<HashSet<_>>().len(), 50);
     }
+}
+
+#[test]
+fn get_rand_number_not_found() {
+    let settings = Settings::new(&[], 10);
+    let selected = vec![];
+    //11 is the only number in range and it is odd
+    let shared_data = HashMap::from_iter([
+        (SHARED_DATA_MIN.to_owned(), MapAnyValue::Usize(11)),
+        (SHARED_DATA_MAX.to_owned(), MapAnyValue::Usize(11))
+    ]);
+    let current_data = CurrentData::new(&selected, &settings, &shared_data);
+    assert_eq!(current_data.get_rand(NumberType::Even, None, None), None);
+    assert_eq!(current_data.get_rand(NumberType::Odd, None, None), Some(11));
+
+    //min is greater than max
+    assert_eq!(current_data.get_rand(NumberType::Any, None, Some((20, 1))), None);
+    assert_eq!(current_data.get_rand(NumberType::Any, Some(&PoolType::MinMax(20, 1)), None), None);
+    assert_eq!(current_data.get_rand(NumberType::Any, Some(&PoolType::Set(HashSet::new())), None), None);
+}
+
+#[test]
+fn random_numbers_number_not_found() {
+    //every number from 1 to 10 is excluded, so there is nothing left to pick
+    let random_result = random_numbers(&Settings::new(&[
+        Box::new(NumberRange::all(1, 10)),
+        Box::new(NumberPool::new(&[NumberPoolItem::new("exclude", &PoolType::MinMax(1, 10), OperatorType::Eq(0))])),
+    ], 3));
+    assert_eq!(RandomResultType::Failed, random_result.status());
+    assert!(random_result.logs().iter().any(|x| x.to_string().contains(NO_NUMBER_FOUND_ERR)));
+}
+
+#[test]
+fn empty_and_large_values() {
+    let random = DefaultRandom{};
+    let empty: Vec<usize> = Vec::new();
+    assert_eq!(get_random_vec_item(&random, &empty), None);
+    assert_eq!(get_random_vec_item(&random, &[7]), Some(&7));
+
+    assert_eq!(PoolType::MinMax(0, usize::MAX).len(), usize::MAX);
+    assert_eq!(PoolType::MinMax(20, 1).len(), 0);
+    assert!(PoolType::MinMax(20, 1).is_empty());
+    assert_eq!(PoolType::MinMax(5, 5).len(), 1);
+
+    //no number range, so the numbers go up to usize::MAX
+    let settings = Settings::new(&[Box::new(Sequential::new(0, &[3]))], 3);
+    let selected = vec![usize::MAX - 1];
+    let shared_data = HashMap::new();
+    assert!(Sequential::new(0, &[3]).get_numbers(&CurrentData::new(&selected, &settings, &shared_data)).is_err());
+}
+
+#[test]
+fn count_zero() {
+    let random_result = random_numbers(&Settings::new(&[Box::new(NumberRange::all(1, 20))], 0));
+    assert_eq!(RandomResultType::Success, random_result.status());
+    assert!(random_result.numbers().unwrap().is_empty());
+    assert_eq!(random_result.string(true).unwrap(), "");
+}
+
+#[test]
+#[should_panic(expected = "NumberRange min: 20 is greater than max: 1")]
+fn number_range_min_greater_than_max() {
+    Settings::new(&[Box::new(NumberRange::all(20, 1))], 3);
+}
+
+#[test]
+fn number_range_min_greater_than_max_by_index() {
+    assert!(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 1000, 9999)]).check_count(3).is_ok());
+    assert!(NumberRange::from_map(&[(&[0, 1], 100, 999), (&[2], 9999, 1000)]).check_count(3).is_err());
 }

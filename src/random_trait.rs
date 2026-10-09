@@ -1,5 +1,9 @@
-pub fn get_random_vec_item<'a, T>(random: &dyn RandomTrait, vec: &'a [T]) -> &'a T {
-    return &vec[random.get_number(0, vec.len() - 1)];
+//Returns None when vec is empty
+pub fn get_random_vec_item<'a, T>(random: &dyn RandomTrait, vec: &'a [T]) -> Option<&'a T> {
+    if vec.is_empty() {
+        return None;
+    }
+    return Some(&vec[random.get_number(0, vec.len() - 1)]);
 }
 
 pub fn shuffle_vec<T>(random: &dyn RandomTrait, vector: &mut [T])

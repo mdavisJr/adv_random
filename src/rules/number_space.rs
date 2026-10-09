@@ -111,7 +111,10 @@ impl OperatorType {
                 Some(v) => (*v, count),
                 None => {
                     //nothing selected yet, so the starting number is new too
-                    let start = current_data.get_rand(NumberType::Any, None, None);
+                    let start = match current_data.get_rand(NumberType::Any, None, None) {
+                        Some(v) => v,
+                        None => continue
+                    };
                     numbers.push(start);
                     (start, count + 1)
                 }
@@ -151,7 +154,7 @@ impl OperatorType {
         if lb == ub {
             return Some(lb);
         }
-        return Some(current_data.get_rand(NumberType::Any, None, Some((lb, ub))));
+        return current_data.get_rand(NumberType::Any, None, Some((lb, ub)));
     }
 }
 

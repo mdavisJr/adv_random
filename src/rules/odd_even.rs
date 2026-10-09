@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType};
+use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use std::any::Any;
@@ -114,15 +114,12 @@ impl RuleTrait for OddEven {
         if act_odd_even.needs_odd(self) {
             pool_keys.push(OddEvenKey::Odd);
         }
-        if !pool_keys.is_empty() {
-            let selected_pool_key = get_random_vec_item(current_data.random(), &pool_keys);
-            let mut number = 0_usize;
-            if *selected_pool_key == OddEvenKey::Odd {
-                number = current_data.get_rand(NumberType::Odd, None, None);
-            } else if *selected_pool_key == OddEvenKey::Even {
-                number = current_data.get_rand(NumberType::Even, None, None);
-            }
-            return Ok(Some(vec![number]));
+        if let Some(selected_pool_key) = get_random_vec_item(current_data.random(), &pool_keys) {
+            let number_type = match selected_pool_key {
+                OddEvenKey::Odd => NumberType::Odd,
+                OddEvenKey::Even => NumberType::Even
+            };
+            return Ok(Some(vec![current_data.get_rand(number_type, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?]));
         }
         return Ok(None);
     }

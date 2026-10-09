@@ -1,4 +1,4 @@
-use crate::random::CurrentData;
+use crate::random::{CurrentData, NO_NUMBER_FOUND_ERR};
 use crate::rules::{
     IsWithinErrorType, MapAnyValue, RuleTrait, PoolType,
 };
@@ -71,7 +71,7 @@ impl RuleTrait for NumberPoolByIndex {
     ) -> std::result::Result<Option<Vec<usize>>, String> {
         for number_pool_item in &self.number_pool_items {
             if number_pool_item.indexes.contains(&current_data.selected_numbers().len()) {
-                let number = number_pool_item.pool.random_number(current_data);
+                let number = number_pool_item.pool.random_number(current_data).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?;
                 return Ok(Some(vec![number]));
             }
         }

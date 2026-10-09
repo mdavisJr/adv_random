@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType};
+use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
 use crate::random_trait::get_random_vec_item;
 use crate::rules::{MapAnyValue, RuleTrait, IsWithinErrorType};
 use std::any::Any;
@@ -74,10 +74,7 @@ impl Sequential {
                 other_seq_counts.remove(idx);
             }
         }
-        if !other_seq_counts.is_empty() {
-            return *get_random_vec_item(current_data.random(), &other_seq_counts);
-        }
-        return 0;
+        return get_random_vec_item(current_data.random(), &other_seq_counts).copied().unwrap_or(0);
     }
 }
 
@@ -124,18 +121,17 @@ impl RuleTrait for Sequential {
         let act_seq = Sequential::from_numbers(current_data, false);
         let seq_count_needed = act_seq.needs_seq(self, current_data);
         if seq_count_needed > 0 {
-            let range = if current_data.selected_numbers().is_empty() {
-                let num = current_data.get_rand(NumberType::Any, None, None);
-                num..=(num + seq_count_needed - 1)
+            let (first, last) = if current_data.selected_numbers().is_empty() {
+                let num = current_data.get_rand(NumberType::Any, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?;
+                (Some(num), num.checked_add(seq_count_needed - 1))
             } else {
-                let num = *get_random_vec_item(current_data.random(), current_data.selected_numbers());
-                (num + 1)..=(num + seq_count_needed - 1)
+                let num = *get_random_vec_item(current_data.random(), current_data.selected_numbers()).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?;
+                (num.checked_add(1), num.checked_add(seq_count_needed - 1))
             };
-            let mut seq_digits: Vec<usize> = Vec::new();
-            for seq_digit in range {
-                seq_digits.push(seq_digit);
-            }
-            return Ok(Some(seq_digits));
+            return match (first, last) {
+                (Some(first), Some(last)) => Ok(Some((first..=last).collect())),
+                _ => Err(format!("Sequence of {} numbers does not fit after the selected number", seq_count_needed))
+            };
         }
         return Ok(None);
     }

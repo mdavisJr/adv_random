@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType};
+use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR};
 use crate::rules::{IsWithinErrorType, MapAnyValue, RuleTrait, OddEvenKey, OddEven};
 use std::any::Any;
 use std::collections::HashMap;
@@ -76,9 +76,9 @@ impl RuleTrait for OddEvenByIndex {
     ) -> std::result::Result<Option<Vec<usize>>, String> {
         if self.odd_even.contains_key(&current_data.selected_numbers().len()) {            
             if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Odd {
-                return Ok(Some(vec![current_data.get_rand(NumberType::Odd, None, None)]));
+                return Ok(Some(vec![current_data.get_rand(NumberType::Odd, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?]));
             } else if self.odd_even[&current_data.selected_numbers().len()] == OddEvenKey::Even {
-                return Ok(Some(vec![current_data.get_rand(NumberType::Even, None, None)]));
+                return Ok(Some(vec![current_data.get_rand(NumberType::Even, None, None).ok_or_else(|| NO_NUMBER_FOUND_ERR.to_owned())?]));
             } else {
                 return Ok(None);
             }

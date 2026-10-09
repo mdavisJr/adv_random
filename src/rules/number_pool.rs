@@ -1,4 +1,4 @@
-use crate::random::{CurrentData, NumberType, SHARED_DATA_EXCLUSION_SET};
+use crate::random::{CurrentData, NumberType, NO_NUMBER_FOUND_ERR, SHARED_DATA_EXCLUSION_SET};
 #[cfg(feature="rand")]
 use crate::default_random::DefaultRandom;
 use crate::random_trait::RandomTrait;
@@ -32,7 +32,7 @@ impl PoolType {
         return PoolType::Set(chars.iter().map(|x| *x as usize).collect());
     }
 
-    pub fn random_number(&self, current_data: &CurrentData) -> usize {
+    pub fn random_number(&self, current_data: &CurrentData) -> Option<usize> {
         return current_data.get_rand(NumberType::Any, Some(self), None);
     }
 
@@ -78,7 +78,7 @@ impl PoolType {
     pub fn len(&self) -> usize {
         match self {
             PoolType::Set(set) => set.len(),
-            PoolType::MinMax(min, max) => max - min + 1,
+            PoolType::MinMax(min, max) => if min > max { 0 } else { (max - min).saturating_add(1) },
         }
     }
 }
@@ -311,6 +311,7 @@ impl RuleTrait for NumberPool {
             NumberPool::from_numbers_2(&self.number_pool_items, current_data.selected_numbers());
         //println!("{:#?}", other_number_pool);
         let mut numbers: Vec<usize> = Vec::new();
+        let mut number_not_found = false;
         //sorted by key so a seeded random generator gives the same numbers every run
         let mut keys: Vec<&String> = other_number_pool.number_pool_items.keys().collect();
         keys.sort_unstable();
@@ -327,14 +328,17 @@ impl RuleTrait for NumberPool {
                     }
                 }
 
-                numbers.push(number_pool_item
-                    .pool
-                    .random_number(current_data)
-                );                
+                match number_pool_item.pool.random_number(current_data) {
+                    Some(number) => numbers.push(number),
+                    None => number_not_found = true
+                }
             }
         }
         if !numbers.is_empty() {
             return Ok(Some(numbers));
+        }
+        if number_not_found {
+            return Err(NO_NUMBER_FOUND_ERR.to_owned());
         }
 
         return Ok(None);

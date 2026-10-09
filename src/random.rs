@@ -15,6 +15,7 @@ pub const SHARED_DATA_MAX: &str = "max";
 pub const SHARED_DATA_NO_DUPLICATES: &str = "no_duplicates";
 pub const SHARED_DATA_EXCLUSION_SET: &str = "exclusion_set";
 
+pub const NO_NUMBER_FOUND_ERR: &str = "Could not find a number that fits the rules";
 const NO_RANDOM_ERR: &str = "No random number generator. Please call Settings::with_random or use feature \"rand\"";
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -125,10 +126,10 @@ fn clear_numbers(
     numbers: &mut Vec<usize>,
     _settings: &Settings,
 ) {
-    numbers.clear();
     logs.push(Log::Info {
         msg: format!("CLEAR - {:?}", numbers),
     });
+    numbers.clear();
 }
 
 #[derive(Debug, Clone)]
@@ -225,7 +226,8 @@ impl<'a> CurrentData<'a> {
         return new_current_data;
     }
 
-    pub fn get_rand(&self, number_type: NumberType, from_pool_type: Option<&PoolType>, min_max: Option<(usize, usize)>) -> usize {
+    //Returns None when no number that fits could be found
+    pub fn get_rand(&self, number_type: NumberType, from_pool_type: Option<&PoolType>, min_max: Option<(usize, usize)>) -> Option<usize> {
         let (min, max) = if let Some((min, max)) = min_max {
             (min, max)
         } else {
@@ -257,13 +259,19 @@ impl<'a> CurrentData<'a> {
                         //sorted so a seeded random generator picks the same number every run
                         let mut rand_pool: Vec<usize> = set.iter().copied().collect();
                         rand_pool.sort_unstable();
-                        *get_random_vec_item(self.random(), &rand_pool)
+                        *get_random_vec_item(self.random(), &rand_pool)?
                     }
                     PoolType::MinMax(pool_type_min, pool_type_max) => {
+                        if pool_type_min > pool_type_max {
+                            return None;
+                        }
                         self.random().get_number(*pool_type_min, *pool_type_max)
                     }
                 }
             } else {
+                if min > max {
+                    return None;
+                }
                 self.random().get_number(min, max)
             };
             if exclusion_pools.iter().any(|x| x.contains(val)) {
@@ -286,10 +294,10 @@ impl<'a> CurrentData<'a> {
                 }
             }
 
-            return val;
+            return Some(val);
         }
 
-        return 0;
+        return None;
     }
 
     pub fn selected_numbers(&self) -> &'a Vec<usize> {
@@ -341,6 +349,17 @@ pub fn random_numbers(settings: &Settings) -> RandomResult {
             };
         }
     };
+    if settings.count() == 0 {
+        return RandomResult {
+            status: RandomResultType::Success,
+            numbers: Vec::new(),
+            attempts: 0,
+            logs: Vec::new(),
+            clear_err_tracker: HashSet::new(),
+            settings: String::new(),
+            random: Some(random)
+        };
+    }
     let mut numbers: Vec<usize> = Vec::new();
     let mut is_match_attempts: usize = 0;
     let mut err_tracker: HashMap<String, usize> = HashMap::new();

@@ -128,6 +128,14 @@ impl RuleTrait for NumberRange {
         &self,
         _count: usize,
     ) -> std::result::Result<bool, String> {
+        let mut keys = self.ranges.keys().copied().collect::<Vec<usize>>();
+        keys.sort();
+        for key in keys {
+            let (min, max) = self.ranges[&key];
+            if min > max {
+                return Err(format!("{} min: {} is greater than max: {}", self.name(), min, max));
+            }
+        }
         return Ok(true);
     }
 }
