@@ -58,8 +58,9 @@ The examples below leave out the `use` lines and the function around them.  They
 | `string()` | The numbers as characters, in the order they were created |
 | `shuffled_string()` | The numbers as characters, in a random order |
 | `attempts()` | How many attempts it took |
+| `report()` | The numbers, the attempts and everything that happened in every attempt, for debugging |
 
-`RandomError` says what went wrong.  Printing it with `{}` shows the short version and printing it with `{:?}` adds the settings and everything that happened in every attempt.
+`RandomError` says what went wrong.  Printing it with `{}` shows the short version.  `report()` returns the settings, the attempts and everything that happened in every attempt, for debugging.  Printing it with `{:?}` shows the report.
 
 | `error_type()` | What it means |
 |---|---|

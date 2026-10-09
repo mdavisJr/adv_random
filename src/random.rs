@@ -76,20 +76,22 @@ impl RandomResult {
                 clear_err_tracker: self.clear_err_tracker,
                 random: self.random
             }),
-            RandomResultType::BadRequest => Err(RandomError {
+            RandomResultType::BadRequest => Err(RandomError { data: Box::new(RandomErrorData {
                 error_type: RandomErrorType::BadRequest,
                 messages: self.logs.iter().filter_map(|x| if let Log::Error { msg } = x { Some(msg.to_owned()) } else { None }).collect(),
                 attempts: self.attempts,
                 logs: self.logs,
+                clear_err_tracker: self.clear_err_tracker,
                 settings: self.settings
-            }),
-            RandomResultType::Failed => Err(RandomError {
+            }) }),
+            RandomResultType::Failed => Err(RandomError { data: Box::new(RandomErrorData {
                 error_type: RandomErrorType::Failed,
                 messages: vec![format!("Could not find numbers that match the rules in {} attempts", self.attempts)],
                 attempts: self.attempts,
                 logs: self.logs,
+                clear_err_tracker: self.clear_err_tracker,
                 settings: self.settings
-            })
+            }) })
         };
     }
     pub fn attempts(&self) -> usize {
@@ -147,6 +149,29 @@ fn shuffled_numbers(numbers: &[usize], random: &Option<Arc<dyn RandomTrait + Sen
     return numbers;
 }
 
+//The report of RandomNumbers and RandomError.  There is a blank line before every attempt.
+fn format_report(settings: &str, status: &str, attempts: usize, clear_err_tracker: &HashSet<usize>, logs: &[Log]) -> String {
+    let mut sorted_clear_err_tracker: Vec<usize> = clear_err_tracker.iter().copied().collect();
+    sorted_clear_err_tracker.sort_unstable();
+    let mut report = String::new();
+    if !settings.is_empty() {
+        report.push_str(&format!("Settings:\n\n{}\n\n", settings));
+    }
+    report.push_str(&format!("{}\nAttempts - {}\nClear Errs - {:?}", status, attempts, sorted_clear_err_tracker));
+    if !logs.is_empty() {
+        report.push('\n');
+    }
+    for log in logs {
+        if let Log::Info { msg } = log {
+            if msg.starts_with("Attempt - ") {
+                report.push('\n');
+            }
+        }
+        report.push_str(&format!("\n{}", log));
+    }
+    return report;
+}
+
 //The random numbers from Settings::generate
 pub struct RandomNumbers {
     numbers: Vec<usize>,
@@ -188,14 +213,26 @@ impl RandomNumbers {
         return &self.clear_err_tracker;
     }
 
+    //Everything there is to know for debugging: the numbers, the attempts and the logs
+    pub fn report(&self) -> String {
+        return format_report(
+            "",
+            &format!("Status - Success\nNumbers - {:?}", self.numbers),
+            self.attempts,
+            &self.clear_err_tracker,
+            &self.logs
+        );
+    }
+
     fn invalid_character(&self, message: String) -> RandomError {
-        return RandomError {
+        return RandomError { data: Box::new(RandomErrorData {
             error_type: RandomErrorType::InvalidCharacter,
             messages: vec![message],
             attempts: self.attempts,
             logs: Vec::new(),
+            clear_err_tracker: HashSet::new(),
             settings: String::new()
-        };
+        }) };
     }
 }
 
@@ -217,50 +254,65 @@ pub enum RandomErrorType {
 
 //Why Settings::generate, or a string from its numbers, did not work
 pub struct RandomError {
+    //in a box so a Result with this error stays small
+    data: Box<RandomErrorData>
+}
+
+struct RandomErrorData {
     error_type: RandomErrorType,
     messages: Vec<String>,
     attempts: usize,
     logs: Vec<Log>,
+    clear_err_tracker: HashSet<usize>,
     settings: String
 }
 
 impl RandomError {
     pub fn error_type(&self) -> RandomErrorType {
-        return self.error_type;
+        return self.data.error_type;
     }
 
     pub fn messages(&self) -> &Vec<String> {
-        return &self.messages;
+        return &self.data.messages;
     }
 
     pub fn attempts(&self) -> usize {
-        return self.attempts;
+        return self.data.attempts;
     }
 
     //Everything that happened in every attempt
     pub fn logs(&self) -> &Vec<Log> {
-        return &self.logs;
+        return &self.data.logs;
+    }
+
+    //The attempts where the numbers selected so far were cleared to start over
+    pub fn clear_err_tracker(&self) -> &HashSet<usize> {
+        return &self.data.clear_err_tracker;
+    }
+
+    //Everything there is to know for debugging: the settings, what went wrong, the attempts and the logs
+    pub fn report(&self) -> String {
+        return format_report(
+            &self.data.settings,
+            &format!("Status - {:?}\nError - {}", self.data.error_type, self.data.messages.join("; ")),
+            self.data.attempts,
+            &self.data.clear_err_tracker,
+            &self.data.logs
+        );
     }
 }
 
 //The short version, such as "BadRequest: NumberRange min: 20 is greater than max: 1"
 impl fmt::Display for RandomError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "{:?}: {}", self.error_type, self.messages.join("; "))
+        write!(fmt, "{:?}: {}", self.data.error_type, self.data.messages.join("; "))
     }
 }
 
-//The long version, with the settings and the logs
+//The long version.  The same as report.
 impl Debug for RandomError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(
-            f,
-            "{}\n\nSettings:\n\n{}\n\nAttempts - {}\n{}",
-            self,
-            self.settings,
-            self.attempts,
-            self.logs.iter().map(|x| x.to_string()).collect::<Vec<String>>().join("\n")
-        )
+        write!(f, "{}", self.report())
     }
 }
 

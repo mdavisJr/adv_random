@@ -1428,10 +1428,8 @@ fn generate_err() {
     assert_eq!(error.attempts(), 500);
     assert_eq!(error.to_string(), "Failed: Could not find numbers that match the rules in 500 attempts");
     assert!(!error.logs().is_empty());
-    //Debug has the short version, the settings and the logs
-    let debug = format!("{:?}", error);
-    assert!(debug.starts_with("Failed: Could not find numbers"), "{}", debug);
-    assert!(debug.contains("Settings:") && debug.contains("Attempt - 500"));
+    //Debug is the report
+    assert_eq!(format!("{:?}", error), error.report());
 
     //0xD800 to 0xDFFF are not valid characters
     let random_numbers_1 = Settings::builder(3).range(0xD800, 0xDFFF).build().generate().unwrap();
@@ -1453,4 +1451,31 @@ fn random_result_into_result() {
 
     let random_result = random_numbers(&Settings::builder(5).range(20, 1).build());
     assert_eq!(random_result.into_result().unwrap_err().error_type(), RandomErrorType::BadRequest);
+}
+
+#[test]
+fn report() {
+    //the numbers were found
+    let random_numbers_1 = Settings::builder(5).range(1, 20).no_duplicates().build().generate().unwrap();
+    let report = random_numbers_1.report();
+    let expected_start = format!("Status - Success\nNumbers - {:?}\nAttempts - {}\nClear Errs - []\n\nInfo  : CLEAR - []\n\nInfo  : Attempt - 1\n", random_numbers_1.numbers(), random_numbers_1.attempts());
+    assert!(report.starts_with(&expected_start), "{}", report);
+    //every log is there, and there is a blank line before every attempt
+    assert_eq!(report.lines().filter(|x| x.starts_with("Info  : ") || x.starts_with("Error : ")).count(), random_numbers_1.logs().len());
+    assert_eq!(report.matches("\n\nInfo  : Attempt - ").count(), random_numbers_1.attempts());
+
+    //no numbers match the rules: all 3 numbers have to be odd and they have to be from 2 to 2
+    let error = Settings::builder(3).range(2, 2).odd_even(3, 0).build().generate().unwrap_err();
+    let report = error.report();
+    assert!(report.starts_with("Settings:\n\n"), "{}", report);
+    assert!(report.contains("\n\nStatus - Failed\nError - Could not find numbers that match the rules in 500 attempts\nAttempts - 500\nClear Errs - ["), "{}", report);
+    assert_eq!(report.matches("\n\nInfo  : Attempt - ").count(), 500);
+    assert!(!error.clear_err_tracker().is_empty());
+    let mut clear_errs: Vec<usize> = error.clear_err_tracker().iter().copied().collect();
+    clear_errs.sort_unstable();
+    assert!(report.contains(&format!("Clear Errs - {:?}\n", clear_errs)), "{}", report);
+
+    //the settings can not work, so there are no attempts
+    let error = Settings::builder(5).range(20, 1).build().generate().unwrap_err();
+    assert!(error.report().ends_with("Status - BadRequest\nError - NumberRange min: 20 is greater than max: 1\nAttempts - 0\nClear Errs - []\n\nError : NumberRange min: 20 is greater than max: 1"), "{}", error.report());
 }
