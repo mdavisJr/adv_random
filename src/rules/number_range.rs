@@ -61,6 +61,15 @@ impl NumberRange {
         return self;
     }
 
+    //The problems with how this was created.  Nothing added to it is one of them, because then it does nothing.
+    fn chain_errors(&self) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if errors.is_empty() && self.ranges.is_empty() {
+            errors.push(format!("{} has no ranges", self.name()));
+        }
+        return errors;
+    }
+
     #[deprecated(since = "3.0.0", note = "use NumberRange::new().at(indexes, min, max)")]
     pub fn from_map(ranges: &[(&[usize], usize, usize)]) -> NumberRange {
         let mut number_range = NumberRange::new();
@@ -161,7 +170,7 @@ impl RuleTrait for NumberRange {
     }
 
     fn validate(&self, count: usize) -> Vec<String> {
-        let mut errors = self.errors.clone();
+        let mut errors = self.chain_errors();
         if let Err(e) = self.check_count(count) {
             errors.push(e);
         }
@@ -196,6 +205,6 @@ impl ExcludeRuleTrait for NumberRange {
     }
 
     fn validate_exclude(&self) -> Vec<String> {
-        return self.errors.clone();
+        return self.chain_errors();
     }
 }

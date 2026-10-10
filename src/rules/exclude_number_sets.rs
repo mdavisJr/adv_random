@@ -45,6 +45,14 @@ impl ExcludeNumberSets {
         return self;
     }
 
+    //The problems with how this was created.  Nothing added to it is one of them, because then it does nothing.
+    fn chain_errors(&self) -> Vec<String> {
+        if self.excluded_number_sets.is_empty() {
+            return vec![format!("{} has nothing to exclude", self.name())];
+        }
+        return Vec::new();
+    }
+
     #[deprecated(since = "3.0.0", note = "use ExcludeNumberSets::new().string(...) or .string_each(...)")]
     pub fn new_string(excluded_sets: &HashSet<String>) -> ExcludeNumberSets {
         return ExcludeNumberSets::new().string_each(excluded_sets);
@@ -125,6 +133,14 @@ impl RuleTrait for ExcludeNumberSets {
         }
         return Ok(true);
     }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.chain_errors();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
+    }
 }
 
 impl ExcludeRuleTrait for ExcludeNumberSets {
@@ -148,5 +164,9 @@ impl ExcludeRuleTrait for ExcludeNumberSets {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.chain_errors();
     }
 }

@@ -243,7 +243,12 @@ impl NumberPool {
     //Exactly this many of the characters are digits
     pub fn digits(mut self, count: usize) -> NumberPool {
         match &mut self.alphanumeric {
-            Some(alphanumeric) => alphanumeric.digits = Some(count),
+            Some(alphanumeric) => {
+                if alphanumeric.digits.is_some() {
+                    self.errors.push(String::from("NumberPool digits was set more than once"));
+                }
+                alphanumeric.digits = Some(count);
+            },
             None => self.errors.push(format!("{} digits can only be used with alphanumeric", self.name()))
         }
         return self;
@@ -252,7 +257,12 @@ impl NumberPool {
     //Adds 1 special character, or 1 or 2 when there are 10 or more characters
     pub fn with_special_characters(mut self) -> NumberPool {
         match &mut self.alphanumeric {
-            Some(alphanumeric) => alphanumeric.special_characters = SpecialCharacters::Some,
+            Some(alphanumeric) => {
+                if !matches!(alphanumeric.special_characters, SpecialCharacters::None) {
+                    self.errors.push(String::from("NumberPool special characters were set more than once"));
+                }
+                alphanumeric.special_characters = SpecialCharacters::Some;
+            },
             None => self.errors.push(format!("{} with_special_characters can only be used with alphanumeric", self.name()))
         }
         return self;
@@ -261,7 +271,12 @@ impl NumberPool {
     //Exactly this many of the characters are special characters
     pub fn special_characters(mut self, count: usize) -> NumberPool {
         match &mut self.alphanumeric {
-            Some(alphanumeric) => alphanumeric.special_characters = SpecialCharacters::Exactly(count),
+            Some(alphanumeric) => {
+                if !matches!(alphanumeric.special_characters, SpecialCharacters::None) {
+                    self.errors.push(String::from("NumberPool special characters were set more than once"));
+                }
+                alphanumeric.special_characters = SpecialCharacters::Exactly(count);
+            },
             None => self.errors.push(format!("{} special_characters can only be used with alphanumeric", self.name()))
         }
         return self;
@@ -379,6 +394,15 @@ impl NumberPool {
             self.errors.push(format!("{} has more than one pool with the key {:?}", self.name(), key));
         }
         return self;
+    }
+
+    //The problems with how this was created.  Nothing added to it is one of them, because then it does nothing.
+    fn chain_errors(&self) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if errors.is_empty() && self.number_pool_items.is_empty() && self.alphanumeric.is_none() {
+            errors.push(format!("{} has no pools", self.name()));
+        }
+        return errors;
     }
 
     //Checks the pools when no two numbers can be the same.  A pool can not give more numbers than it has.
@@ -600,7 +624,7 @@ impl RuleTrait for NumberPool {
     }
 
     fn validate(&self, count: usize) -> Vec<String> {
-        let mut errors = self.errors.clone();
+        let mut errors = self.chain_errors();
         if let Err(e) = self.check_count(count) {
             errors.push(e);
         }
@@ -632,6 +656,6 @@ impl ExcludeRuleTrait for NumberPool {
     }
 
     fn validate_exclude(&self) -> Vec<String> {
-        return self.errors.clone();
+        return self.chain_errors();
     }
 }

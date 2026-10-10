@@ -30,6 +30,15 @@ impl OddEvenByIndex {
         return self.add(indexes, OddEvenKey::Even);
     }
 
+    //The problems with how this was created.  Nothing added to it is one of them, because then it does nothing.
+    fn chain_errors(&self) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if errors.is_empty() && self.odd_even.is_empty() {
+            errors.push(format!("{} has no indexes", self.name()));
+        }
+        return errors;
+    }
+
     fn add(mut self, indexes: impl IntoIterator<Item = usize>, odd_even_key: OddEvenKey) -> OddEvenByIndex {
         for index in indexes {
             if let Some(other) = self.odd_even.insert(index, odd_even_key) {
@@ -150,7 +159,7 @@ impl RuleTrait for OddEvenByIndex {
     }
 
     fn validate(&self, count: usize) -> Vec<String> {
-        let mut errors = self.errors.clone();
+        let mut errors = self.chain_errors();
         if let Err(e) = self.check_count(count) {
             errors.push(e);
         }
@@ -182,6 +191,6 @@ impl ExcludeRuleTrait for OddEvenByIndex {
     }
 
     fn validate_exclude(&self) -> Vec<String> {
-        return self.errors.clone();
+        return self.chain_errors();
     }
 }

@@ -13,6 +13,9 @@ use super::exclude_rule_trait::is_excluded_helper;
 pub struct OddEven {
     odd: usize,
     even: usize,
+    //how many times odd and even were called, to find the ones that were called more than once
+    odd_calls: u8,
+    even_calls: u8,
 }
 
 impl OddEven {
@@ -24,12 +27,14 @@ impl OddEven {
     //How many of the numbers are odd
     pub fn odd(mut self, count: usize) -> OddEven {
         self.odd = count;
+        self.odd_calls = self.odd_calls.saturating_add(1);
         return self;
     }
 
     //How many of the numbers are even
     pub fn even(mut self, count: usize) -> OddEven {
         self.even = count;
+        self.even_calls = self.even_calls.saturating_add(1);
         return self;
     }
 
@@ -43,7 +48,19 @@ impl OddEven {
                 odd += 1;
             }
         }
-        return OddEven { odd, even };
+        return OddEven { odd, even, odd_calls: 0, even_calls: 0 };
+    }
+
+    //The problems with how this was created
+    fn chain_errors(&self) -> Vec<String> {
+        let mut errors: Vec<String> = Vec::new();
+        if self.odd_calls > 1 {
+            errors.push(format!("{} odd was set more than once", self.name()));
+        }
+        if self.even_calls > 1 {
+            errors.push(format!("{} even was set more than once", self.name()));
+        }
+        return errors;
     }
 
     pub fn odd_count(&self) -> usize {
@@ -179,6 +196,14 @@ impl RuleTrait for OddEven {
         }
         return Err(format!("Odd count: {} and Even count: {} must add up to count: {} ", self.odd, self.even, count));
     }
+
+    fn validate(&self, count: usize) -> Vec<String> {
+        let mut errors = self.chain_errors();
+        if let Err(e) = self.check_count(count) {
+            errors.push(e);
+        }
+        return errors;
+    }
 }
 
 impl ExcludeRuleTrait for OddEven {
@@ -202,5 +227,9 @@ impl ExcludeRuleTrait for OddEven {
 
     fn exclude_name(&self) -> String {
         return self.name();
+    }
+
+    fn validate_exclude(&self) -> Vec<String> {
+        return self.chain_errors();
     }
 }

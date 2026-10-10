@@ -1734,3 +1734,50 @@ fn exclude_number_sets_deprecated_constructor() {
     let new = ExcludeNumberSets::new().string("AB1234567").string("CB1234567");
     assert_eq!(old.excluded_number_sets(), new.excluded_number_sets());
 }
+
+#[test]
+fn rule_validation_incomplete_chains() {
+    fn errors(rule: impl RuleTrait + 'static, count: usize) -> Vec<String> {
+        return Settings::builder(count).range(1, 100).rule(rule).build().errors().to_vec();
+    }
+
+    //a rule that nothing was added to does nothing, so it is reported
+    assert_eq!(errors(NumberPool::new(), 5), ["NumberPool has no pools"]);
+    assert_eq!(errors(NumberSpace::new(), 5), ["NumberSpace has no runs"]);
+    assert_eq!(errors(NumberRange::new(), 5), ["NumberRange has no ranges"]);
+    assert_eq!(errors(OddEvenByIndex::new(), 5), ["OddEvenByIndex has no indexes"]);
+    assert_eq!(errors(NumberPoolByIndex::new(), 5), ["NumberPoolByIndex has no pools"]);
+    assert_eq!(errors(ExcludeNumberSets::new(), 5), ["ExcludeNumberSets has nothing to exclude"]);
+    assert_eq!(errors(NumberSpace::new().items(Vec::new()), 5), ["NumberSpace has no runs"]);
+    assert_eq!(errors(ExcludeNumberSets::new().numbers_each(Vec::new()), 5), ["ExcludeNumberSets has nothing to exclude"]);
+    //Sequential and OddEven with nothing added do not add up to the count
+    assert_eq!(errors(Sequential::new(), 5).len(), 1);
+    assert_eq!(errors(OddEven::new(), 5).len(), 1);
+
+    //the same rules with something added are fine
+    assert!(errors(NumberPool::new().none_of([7]), 5).is_empty());
+    assert!(errors(NumberPool::alphanumeric(5), 5).is_empty());
+    assert!(errors(NumberSpace::new().run(OperatorType::Lt(3), 2), 5).is_empty());
+    assert!(errors(NumberRange::new().at([0], 1, 9), 5).is_empty());
+    assert!(errors(OddEvenByIndex::new().odd([0]), 5).is_empty());
+    assert!(errors(NumberPoolByIndex::new().at([0], [1, 2]), 5).is_empty());
+    assert!(errors(ExcludeNumberSets::new().numbers(&[1, 2, 3, 4, 5]), 5).is_empty());
+
+    //a method that sets one value can only be called once
+    assert_eq!(errors(Sequential::new().singles(2).singles(5), 5), ["Sequential singles was set more than once"]);
+    assert_eq!(errors(OddEven::new().odd(1).odd(3).even(2), 5), ["OddEven odd was set more than once"]);
+    assert_eq!(errors(OddEven::new().odd(3).even(1).even(2), 5), ["OddEven even was set more than once"]);
+    assert_eq!(errors(NumberPool::alphanumeric(5).digits(1).digits(2), 5), ["NumberPool digits was set more than once"]);
+    assert_eq!(errors(NumberPool::alphanumeric(5).with_special_characters().special_characters(2), 5), ["NumberPool special characters were set more than once"]);
+    //a method that adds to a list can be called as many times as it is needed
+    assert!(errors(Sequential::new().singles(1).in_a_row(2).in_a_row(2), 5).is_empty());
+
+    //exclude rules are checked the same way
+    let settings = Settings::builder(5)
+        .range(1, 100)
+        .exclude(NumberSpace::new())
+        .exclude(OddEven::new().odd(1).odd(2))
+        .exclude(ExcludeNumberSets::new())
+        .build();
+    assert_eq!(settings.errors(), ["NumberSpace has no runs", "OddEven odd was set more than once", "ExcludeNumberSets has nothing to exclude"]);
+}

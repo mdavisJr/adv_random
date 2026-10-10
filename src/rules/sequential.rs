@@ -12,6 +12,7 @@ use super::exclude_rule_trait::is_excluded_helper;
 pub struct Sequential {
     not: usize,
     seq_counts: Vec<usize>,
+    is_singles_set: bool,
     errors: Vec<String>,
 }
 
@@ -23,6 +24,10 @@ impl Sequential {
 
     //How many numbers are not next to another number
     pub fn singles(mut self, count: usize) -> Sequential {
+        if self.is_singles_set {
+            self.errors.push(format!("{} singles was set more than once", self.name()));
+        }
+        self.is_singles_set = true;
         self.not = count;
         return self;
     }
@@ -74,6 +79,7 @@ impl Sequential {
         return Sequential {
             not: current_data.selected_numbers().len() - seq_counts.iter().copied().sum::<usize>(),
             seq_counts,
+            is_singles_set: false,
             errors: Vec::new(),
         };
     }

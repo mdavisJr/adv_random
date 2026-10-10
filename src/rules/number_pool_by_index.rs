@@ -28,6 +28,15 @@ impl NumberPoolByIndex {
         return NumberPoolByIndex::default();
     }
 
+    //The problems with how this was created.  Nothing added to it is one of them, because then it does nothing.
+    fn chain_errors(&self) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if errors.is_empty() && self.number_pool_items.is_empty() {
+            errors.push(format!("{} has no pools", self.name()));
+        }
+        return errors;
+    }
+
     //The numbers at these indexes come from this pool.  The first number is index 0.
     pub fn at(mut self, indexes: impl IntoIterator<Item = usize>, pool: impl Into<PoolType>) -> NumberPoolByIndex {
         let pool: PoolType = pool.into();
@@ -131,7 +140,7 @@ impl RuleTrait for NumberPoolByIndex {
     }
 
     fn validate(&self, count: usize) -> Vec<String> {
-        let mut errors = self.errors.clone();
+        let mut errors = self.chain_errors();
         if let Err(e) = self.check_count(count) {
             errors.push(e);
         }
@@ -163,6 +172,6 @@ impl ExcludeRuleTrait for NumberPoolByIndex {
     }
 
     fn validate_exclude(&self) -> Vec<String> {
-        return self.errors.clone();
+        return self.chain_errors();
     }
 }

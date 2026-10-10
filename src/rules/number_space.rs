@@ -522,6 +522,15 @@ impl NumberSpace {
         return self;
     }
 
+    //The problems with how this was created.  Nothing added to it is one of them, because then it does nothing.
+    fn chain_errors(&self) -> Vec<String> {
+        let mut errors = self.errors.clone();
+        if errors.is_empty() && self.number_space_items.is_empty() {
+            errors.push(format!("{} has no runs", self.name()));
+        }
+        return errors;
+    }
+
     //Says if the runs of every type are created in the same request, or one type per request
     pub fn process(mut self, process_number_space_items: ProcessNumberSpaceItems) -> NumberSpace {
         self.process_number_space_items = process_number_space_items;
@@ -745,7 +754,7 @@ impl RuleTrait for NumberSpace {
     }
 
     fn validate(&self, count: usize) -> Vec<String> {
-        let mut errors = self.errors.clone();
+        let mut errors = self.chain_errors();
         if let Err(e) = self.check_count(count) {
             errors.push(e);
         }
@@ -777,6 +786,6 @@ impl ExcludeRuleTrait for NumberSpace {
     }
 
     fn validate_exclude(&self) -> Vec<String> {
-        return self.errors.clone();
+        return self.chain_errors();
     }
 }
