@@ -13,9 +13,7 @@ adv_random = "3"
 ```
 Say how many numbers you want, add the rules, and call `generate`.
 ```rust
-use adv_random::random::RandomError;
-use adv_random::rules::*;
-use adv_random::settings::Settings;
+use adv_random::prelude::*;
 
 fn main() -> Result<(), RandomError> {
     //10 random numbers between 1 and 20 with no duplicates
@@ -28,7 +26,9 @@ fn main() -> Result<(), RandomError> {
     Ok(())
 }
 ```
-The examples below leave out the `use` lines and the function around them.  They use `?`, so they go in a function that returns `Result<(), RandomError>` like the one above.
+`use adv_random::prelude::*;` brings in everything the examples use.  The examples below call `unwrap` to stay short.  In your own code use `?` like the example above, or `match` on the result.
+
+Every example in this file is run by `cargo test`, so they all work with the current version.
 
 # Settings
 `Settings::builder(count)` starts the settings for `count` random numbers.
@@ -69,6 +69,8 @@ The examples below leave out the `use` lines and the function around them.  They
 | `RandomErrorType::InvalidCharacter` | A number is not a valid character, so the numbers can not be a string |
 
 ```rust
+use adv_random::prelude::*;
+
 match Settings::builder(10).range(1, 20).odd_even(5, 5).build().generate() {
     Ok(random_numbers) => println!("{:?}", random_numbers.numbers()),
     Err(e) => println!("{}", e)
@@ -78,13 +80,15 @@ match Settings::builder(10).range(1, 20).odd_even(5, 5).build().generate() {
 # Invalid Settings
 Settings that can not work do not panic.  Every rule checks what it is given, and `build` checks the rules against the count and against each other.  Examples are odd and even counts that do not add up to the count, a range with a min greater than its max, an index that is past the last number, and a pool that is empty.  `generate` returns an error with the type `RandomErrorType::BadRequest`, and the same problems are in `settings.errors()` before you generate anything.
 ```rust
+use adv_random::prelude::*;
+
 let settings = Settings::builder(5).range(20, 1).odd_even(1, 1).build();
 for error in settings.errors() {
     println!("{}", error);
 }
 ```
 #### Output:
-```
+```text
 NumberRange min: 20 is greater than max: 1
 Odd count: 1 and Even count: 1 must add up to count: 5
 ```
@@ -94,32 +98,47 @@ Every `Settings` uses `DefaultRandom`, which uses [rand](https://crates.io/crate
 
 `SeededRandom` gives the same numbers every time for the same seed.
 ```rust
-use adv_random::seeded_random::SeededRandom;
+use adv_random::prelude::*;
 
 let random_numbers = Settings::builder(10)
     .range(1, 20)
     .random(SeededRandom::new(42))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
+println!("{:?}", random_numbers.numbers());
 ```
-Your own generator is anything that implements `RandomTrait`.
+Your own generator is anything that implements `RandomTrait` and `Debug`.  This one counts up instead of being random, to keep the example short.
 ```rust
-use adv_random::random_trait::RandomTrait;
+use adv_random::prelude::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Debug)]
-struct MyRandom {}
+#[derive(Debug, Default)]
+struct CountingRandom {
+    next: AtomicUsize,
+}
 
-impl RandomTrait for MyRandom {
+impl RandomTrait for CountingRandom {
     //a number from min to max.  min and max are inclusive.
     fn get_number(&self, min: usize, max: usize) -> usize {
-        return min + my_random_number() % (max - min + 1);
+        let next = self.next.fetch_add(1, Ordering::Relaxed);
+        return min + next % (max - min).saturating_add(1);
     }
 
     fn get_bool(&self) -> bool {
-        return my_random_number() % 2 == 0;
+        return self.get_number(0, 1) == 1;
     }
 }
+
+let random_numbers = Settings::builder(5)
+    .range(1, 20)
+    .random(CountingRandom::default())
+    .build()
+    .generate()
+    .unwrap();
+println!("{:?}", random_numbers.numbers());
 ```
+#### Output: [3, 6, 9, 12, 15]
 If you do not want rand, turn off the default features.  There is no default generator then, so every `Settings` needs `.random(...)`, and `generate` returns a `BadRequest` error without it.
 ```toml
 [dependencies]
@@ -129,42 +148,54 @@ adv_random = { version = "3", default-features = false }
 # Examples
 ### Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 20)
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [7, 2, 2, 12, 8, 1, 19, 14, 13, 17]
 ---
 ### Create 10 random numbers between 1 and 20 with no duplicates
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 20)
     .no_duplicates()
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [5, 1, 8, 15, 20, 16, 4, 11, 9, 18]
 ---
 ### Create 10 random numbers between 1 and 20 with duplicates numbers
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 20)
     .exclude(NoDuplicate)
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [12, 13, 7, 1, 9, 20, 19, 8, 14, 13]
 ---
 ### Create random phone number
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(3)
     .rule(NumberRange::new().at([0, 1], 100, 999).at([2], 1000, 9999))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 let numbers = random_numbers.numbers();
 println!("{}-{}-{}", numbers[0], numbers[1], numbers[2]);
 ```
@@ -172,19 +203,24 @@ println!("{}-{}-{}", numbers[0], numbers[1], numbers[2]);
 ---
 ### Create 10 numbers between 1 and 100, excluding numbers 20 - 29 and 51 - 75, and with no duplicates
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .no_duplicates()
     .exclude(NumberRange::all(20, 29))
     .exclude(NumberRange::all(51, 75))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [94, 96, 90, 11, 12, 79, 34, 98, 43, 93]
 ---
 ### Create 10 numbers between 1 and 100 with no duplicates that doesn't contain the number 23, contains the numbers 1 and 4, and at least 3 numbers from 17, 18, 19, 20, 21
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .no_duplicates()
@@ -193,7 +229,8 @@ let random_numbers = Settings::builder(10)
         .exactly(2, [1, 4])
         .at_least(3, [17, 18, 19, 20, 21]))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [48, 17, 4, 1, 20, 35, 76, 95, 19, 88]
@@ -202,59 +239,74 @@ A pool is a list of numbers like `[1, 4]`, a range like `1..=10`, or the charact
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that are Odd, Even, Odd, Even, and Odd
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
     .rule(OddEvenByIndex::new().odd([0, 2, 4]).even([1, 3]))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [5, 4, 9, 10, 1]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates where first 3 numbers are Even and the last 2 numbers are Odd
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
     .rule(OddEvenByIndex::new().odd([3, 4]).even([0, 1, 2]))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [4, 10, 6, 9, 7]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates and the 5th number is odd
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
     .rule(OddEvenByIndex::new().odd([4]))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [5, 4, 2, 9, 7]
 ---
 ### Create 10 numbers between 1 and 20 with no duplicates that has 5 odd and 5 even numbers
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 20)
     .no_duplicates()
     .odd_even(5, 5)
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [7, 17, 4, 14, 9, 1, 13, 2, 6, 18]
 ---
 ### Create 10 numbers between 1 and 20 that has all even numbers
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 20)
     .odd_even(0, 10)
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [20, 20, 8, 2, 4, 14, 2, 2, 14, 8]
@@ -262,36 +314,45 @@ println!("{:?}", random_numbers.numbers());
 ### Create 5 numbers between 1 and 10 with no duplicates that are all nonsequential
 `singles` is how many numbers are not next to another number.  `in_a_row` adds one sequence, so `in_a_row(3)` is 3 numbers in a row like 4, 5, 6.
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
     .rule(Sequential::new().singles(5))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [7, 5, 1, 3, 10]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that has 3 nonsequential and has 1 sequential set of 2 numbers
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
     .rule(Sequential::new().singles(3).in_a_row(2))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [2, 3, 7, 5, 9]
 ---
 ### Create 5 numbers between 1 and 10 with no duplicates that has 1 nonsequential number and has 2 sequential sets of 2 numbers a piece
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(5)
     .range(1, 10)
     .no_duplicates()
     .rule(Sequential::new().singles(1).in_a_row(2).in_a_row(2))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [6, 7, 1, 2, 10]
@@ -299,80 +360,101 @@ println!("{:?}", random_numbers.numbers());
 ### Create a random 20 character string with no special characters
 `NumberPool::alphanumeric(20)` is letters and 1 to 3 digits.  `with_special_characters` adds 1 or 2 special characters.  `digits` and `special_characters` say exactly how many there are, and the rest are letters.
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(20)
     .rule(NumberPool::alphanumeric(20))
     .build()
-    .generate()?;
-println!("{}", random_numbers.shuffled_string()?);
+    .generate()
+    .unwrap();
+println!("{}", random_numbers.shuffled_string().unwrap());
 ```
 #### Output: kAKjsQ8iO5HLewV6frUt
 ---
 ### Create a random 20 character string with special characters
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(20)
     .rule(NumberPool::alphanumeric(20).with_special_characters())
     .build()
-    .generate()?;
-println!("{}", random_numbers.shuffled_string()?);
+    .generate()
+    .unwrap();
+println!("{}", random_numbers.shuffled_string().unwrap());
 ```
 #### Output: 0scj@HK+ZW4d2bDivAqY
 ---
 ### Create a random 20 character string with 10 letters, 10 numbers, no special characters, and no duplicates
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(20)
     .no_duplicates()
     .rule(NumberPool::alphanumeric(20).digits(10))
     .build()
-    .generate()?;
-println!("{}", random_numbers.shuffled_string()?);
+    .generate()
+    .unwrap();
+println!("{}", random_numbers.shuffled_string().unwrap());
 ```
 #### Output: 64VEU1C2brQu837y0J95
 ---
 ### Create a random 25 character string with 10 letters, 10 numbers, and 5 special characters and no duplicates
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(25)
     .no_duplicates()
     .rule(NumberPool::alphanumeric(25).digits(10).special_characters(5))
     .build()
-    .generate()?;
-println!("{}", random_numbers.shuffled_string()?);
+    .generate()
+    .unwrap();
+println!("{}", random_numbers.shuffled_string().unwrap());
 ```
 #### Output: uV605wKk*-)I2+3Hr4v987^1x
 ---
 ### Create random 15 character string from upper case characters, from numbers 3 6 5, and from special characters # *
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(15)
     .rule(NumberPool::new()
         .exactly(11, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         .exactly(2, "365")
         .exactly(2, "#*"))
     .build()
-    .generate()?;
-println!("{}", random_numbers.shuffled_string()?);
+    .generate()
+    .unwrap();
+println!("{}", random_numbers.shuffled_string().unwrap());
 ```
 #### Output: IN5#YTPUSM3ZV*E
 ---
 ### Create random license number that starts with 2 apha-characters followed by 7 numeric characters. Also excludes "AB1234567" and "CB1234567" because they are already assigned to someone.
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(9)
     .rule(ExcludeNumberSets::new().string("AB1234567").string("CB1234567"))
     .rule(NumberPoolByIndex::new()
         .at([0, 1], "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         .at(2..=8, "1234567890"))
     .build()
-    .generate()?;
-println!("{}", random_numbers.string()?);
+    .generate()
+    .unwrap();
+println!("{}", random_numbers.string().unwrap());
 ```
 #### Output: MW6406422
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
 `run(OperatorType::Lt(3), 9)` is 9 spaces in a row that are less than 3.  10 numbers have 9 spaces between them.
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .rule(NumberSpace::new().run(OperatorType::Lt(3), 9))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 let mut sorted_numbers = random_numbers.into_numbers();
 sorted_numbers.sort_unstable();
 println!("{:?}", sorted_numbers);
@@ -381,11 +463,14 @@ println!("{:?}", sorted_numbers);
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is less than or equal to 3
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .rule(NumberSpace::new().run(OperatorType::Lte(3), 9))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 let mut sorted_numbers = random_numbers.into_numbers();
 sorted_numbers.sort_unstable();
 println!("{:?}", sorted_numbers);
@@ -394,11 +479,14 @@ println!("{:?}", sorted_numbers);
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is 3
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .rule(NumberSpace::new().run(OperatorType::Eq(3), 9))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 let mut sorted_numbers = random_numbers.into_numbers();
 sorted_numbers.sort_unstable();
 println!("{:?}", sorted_numbers);
@@ -407,11 +495,14 @@ println!("{:?}", sorted_numbers);
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is greater than or equal to 3
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .rule(NumberSpace::new().run(OperatorType::Gte(3), 9))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 let mut sorted_numbers = random_numbers.into_numbers();
 sorted_numbers.sort_unstable();
 println!("{:?}", sorted_numbers);
@@ -420,11 +511,14 @@ println!("{:?}", sorted_numbers);
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is greater than 3
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .rule(NumberSpace::new().run(OperatorType::Gt(3), 9))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 let mut sorted_numbers = random_numbers.into_numbers();
 sorted_numbers.sort_unstable();
 println!("{:?}", sorted_numbers);
@@ -433,11 +527,14 @@ println!("{:?}", sorted_numbers);
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is between 3 and 6
 ```rust
+use adv_random::prelude::*;
+
 let random_numbers = Settings::builder(10)
     .range(1, 100)
     .rule(NumberSpace::new().run(OperatorType::Between(3, 6), 9))
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 let mut sorted_numbers = random_numbers.into_numbers();
 sorted_numbers.sort_unstable();
 println!("{:?}", sorted_numbers);
@@ -448,8 +545,7 @@ println!("{:?}", sorted_numbers);
 # Custom Rules
 A rule is anything that implements `RuleTrait`.  It also has to implement `Clone`, `Debug` and `Display`.  This rule only allows numbers that are a multiple of a number.
 ```rust
-use adv_random::random::CurrentData;
-use adv_random::rules::{IsWithinErrorType, RuleTrait, SharedData};
+use adv_random::prelude::*;
 use std::any::Any;
 use std::fmt;
 
@@ -501,14 +597,14 @@ impl RuleTrait for MultipleOf {
         return self.is_within_range(current_data).map_err(|x| x.1);
     }
 }
-```
-It is used like any other rule.
-```rust
+
+//It is used like any other rule
 let random_numbers = Settings::builder(5)
     .range(1, 100)
     .rule(MultipleOf { multiple: 5 })
     .build()
-    .generate()?;
+    .generate()
+    .unwrap();
 println!("{:?}", random_numbers.numbers());
 ```
 #### Output: [100, 40, 65, 50, 55]
