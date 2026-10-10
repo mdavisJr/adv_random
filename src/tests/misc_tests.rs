@@ -1781,3 +1781,129 @@ fn rule_validation_incomplete_chains() {
         .build();
     assert_eq!(settings.errors(), ["NumberSpace has no runs", "OddEven odd was set more than once", "ExcludeNumberSets has nothing to exclude"]);
 }
+
+#[test]
+fn number_pool_spread() {
+    //counts per pool, for the pools 1 to 13, 14 to 26 and 27 to 39
+    let counts = |numbers: &[usize]| -> [usize; 3] {
+        return [
+            numbers.iter().filter(|x| **x <= 13).count(),
+            numbers.iter().filter(|x| **x >= 14 && **x <= 26).count(),
+            numbers.iter().filter(|x| **x >= 27).count()
+        ];
+    };
+
+    let number_pool = NumberPool::new().spread([1, 0, 4]).over(1..=13).over(14..=26).over(27..=39);
+    assert_eq!(number_pool.spreads().len(), 1);
+    //the counts are kept from the largest to the smallest, because the order they are given in does not matter
+    assert_eq!(number_pool.spreads()[0].counts(), &vec![4, 1, 0]);
+    assert_eq!(number_pool.spreads()[0].pools().len(), 3);
+    assert_eq!(number_pool.spreads()[0].has(&[1, 2, 30, 31, 32]), vec![2, 0, 3]);
+
+    //4 numbers are from one pool, 1 number is from another pool, and every way that can happen is found
+    let settings = Settings::builder(5).range(1, 39).no_duplicates().rule(number_pool).build();
+    assert!(settings.errors().is_empty(), "{:?}", settings.errors());
+    let mut found: HashSet<[usize; 3]> = HashSet::new();
+    for _ in 0..600 {
+        let random_numbers_1 = settings.generate().unwrap();
+        let has = counts(random_numbers_1.numbers());
+        let mut sorted_has = has;
+        sorted_has.sort_unstable_by(|a, b| b.cmp(a));
+        assert_eq!(sorted_has, [4, 1, 0], "{:?}", random_numbers_1.numbers());
+        found.insert(has);
+    }
+    assert_eq!(found.len(), 6, "{:?}", found);
+
+    //another rule decides which pool gets which count.  The 5 numbers add up to 60 or less only when 4 of them are low.
+    #[derive(Clone, Debug)]
+    struct SumAtMost(usize);
+    impl std::fmt::Display for SumAtMost {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "SumAtMost:{}", self.0) }
+    }
+    impl RuleTrait for SumAtMost {
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> { None }
+        fn get_numbers(&self, _current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> { Ok(None) }
+        fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
+            let sum: usize = current_data.selected_numbers().iter().sum();
+            if sum > self.0 { Err((IsWithinErrorType::Regular, format!("Sum {} is more than {}", sum, self.0))) } else { Ok(()) }
+        }
+        fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> { self.is_within_range(current_data).map_err(|x| x.1) }
+        fn check_count(&self, _count: usize) -> std::result::Result<bool, String> { Ok(true) }
+        fn name(&self) -> String { String::from("SumAtMost") }
+    }
+    let settings = Settings::builder(5)
+        .range(1, 39)
+        .no_duplicates()
+        .rule(NumberPool::new().spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39))
+        .rule(SumAtMost(60))
+        .build();
+    for _ in 0..50 {
+        let random_numbers_1 = settings.generate().unwrap();
+        assert_eq!(counts(random_numbers_1.numbers())[0], 4, "{:?}", random_numbers_1.numbers());
+        assert!(random_numbers_1.numbers().iter().sum::<usize>() <= 60);
+    }
+
+    //it works with the other pool methods, with pools of different kinds, and with numbers that are not in any pool
+    let settings = Settings::builder(6)
+        .range(1, 100)
+        .rule(NumberPool::new().spread([2, 1]).over(1..=10).over([50, 60, 70]).none_of([5]).exactly(1, [99]))
+        .build();
+    assert!(settings.errors().is_empty(), "{:?}", settings.errors());
+    for _ in 0..100 {
+        let numbers = settings.generate().unwrap().into_numbers();
+        let low = numbers.iter().filter(|x| **x <= 10).count();
+        let tens = numbers.iter().filter(|x| [50, 60, 70].contains(*x)).count();
+        assert!((low == 2 && tens == 1) || (low == 1 && tens == 2), "{:?}", numbers);
+        assert!(!numbers.contains(&5) && numbers.iter().filter(|x| **x == 99).count() == 1, "{:?}", numbers);
+    }
+
+    //a full house: 3 of one number and 2 of another
+    let settings = Settings::builder(5)
+        .range(1, 6)
+        .rule(NumberPool::new().spread([3, 2, 0, 0, 0, 0]).over([1]).over([2]).over([3]).over([4]).over([5]).over([6]))
+        .build();
+    for _ in 0..50 {
+        let numbers = settings.generate().unwrap().into_numbers();
+        let mut of_a_kind: Vec<usize> = (1..=6).map(|x| numbers.iter().filter(|y| **y == x).count()).filter(|x| *x > 0).collect();
+        of_a_kind.sort_unstable();
+        assert_eq!(of_a_kind, vec![2, 3], "{:?}", numbers);
+    }
+}
+
+#[test]
+fn number_pool_spread_validation() {
+    fn errors(number_pool: NumberPool, count: usize, no_duplicates: bool) -> Vec<String> {
+        let builder = Settings::builder(count).range(1, 100).rule(number_pool);
+        let builder = if no_duplicates { builder.no_duplicates() } else { builder };
+        return builder.build().errors().to_vec();
+    }
+
+    assert!(errors(NumberPool::new().spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39), 5, true).is_empty());
+    //a pool that only has a spread is not empty
+    assert!(errors(NumberPool::new().spread([1]).over([7]), 5, false).is_empty());
+
+    assert_eq!(errors(NumberPool::new().over(1..=13), 5, false), ["NumberPool over can only be used after spread"]);
+    assert_eq!(errors(NumberPool::new().spread([4, 1, 0]).over(1..=13).over(14..=26), 5, false),
+        ["NumberPool spread [4, 1, 0] has 3 counts and 2 pools.  Call over one time for every count"]);
+    assert_eq!(errors(NumberPool::new().spread([4, 1]).over(1..=13).over(14..=26).over(27..=39), 5, false),
+        ["NumberPool spread [4, 1] has 2 counts and 3 pools.  Call over one time for every count"]);
+    assert_eq!(errors(NumberPool::new().spread([4, 1]).over(1..=13).over(13..=26), 5, false),
+        ["NumberPool spread [4, 1] pools 1 and 2 both have the number 13"]);
+    assert_eq!(errors(NumberPool::new().spread([4, 1]).over([3, 20, 40]).over(15..=26), 5, false),
+        ["NumberPool spread [4, 1] pools 1 and 2 both have the number 20"]);
+    assert_eq!(errors(NumberPool::new().spread(Vec::new()), 5, false), ["NumberPool spread has no counts"]);
+    //the counts are more than the count of the settings
+    assert_eq!(errors(NumberPool::new().spread([4, 2]).over(1..=13).over(14..=26), 5, false), ["NumberPool count: 6 is greater than count: 5 "]);
+    //3 different numbers can not come from a pool of 2 numbers
+    assert!(errors(NumberPool::new().spread([3, 1]).over([1, 2]).over([8, 9]), 5, false).is_empty());
+    assert_eq!(errors(NumberPool::new().spread([3, 1]).over([1, 2]).over([8, 9]), 5, true),
+        ["NumberPool spread [3, 1] needs 3 numbers from a pool that only has 2, which is not possible with NoDuplicate"]);
+    //the largest count goes in the largest pool
+    assert!(errors(NumberPool::new().spread([1, 3]).over([1, 2]).over([7, 8, 9]), 5, true).is_empty());
+
+    assert_eq!(PoolType::MinMax(1, 13).first_shared_number(&PoolType::MinMax(14, 26)), None);
+    assert_eq!(PoolType::MinMax(1, 13).first_shared_number(&PoolType::MinMax(10, 26)), Some(10));
+    assert_eq!(PoolType::set([5, 30]).first_shared_number(&PoolType::MinMax(14, 39)), Some(30));
+    assert_eq!(PoolType::set([5, 30]).first_shared_number(&PoolType::set([6, 31])), None);
+}

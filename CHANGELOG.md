@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1.0
+
+### Added
+- **Counts in any order for a `NumberPool`.**  `NumberPool::new().spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39)` is 4 numbers from one of the three pools, 1 number from another one, and none from the pool that is left.  `spread` gives the counts and `over` gives one pool for every count.  It works with the other pool methods.
+  - While the numbers are picked, a number is only allowed when the pools can still end up with the counts in some order, so another rule can decide which pool gets which count.
+  - `settings.errors()` reports a different number of counts and pools, `over` without `spread`, pools that share a number, counts that add up to more than the count, and a count that no pool is large enough for with `NoDuplicate`.
+  - `NumberPool::spreads` returns them as `NumberPoolSpread`.
+- `PoolType::first_shared_number`.
+
+Nothing else changed.  Code written for 3.0.0 works the same.
+
 ## 3.0.0
 
 Version 3 changes how settings and rules are created, checks them before any numbers are generated, and fixes the rules that gave wrong or unreliable results.  Most version 2 code has to change.  The [README](README.md#upgrading-from-version-2) has a table that shows the version 2 code next to the version 3 code.

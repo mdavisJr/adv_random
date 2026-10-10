@@ -237,6 +237,22 @@ println!("{:?}", random_numbers.numbers());
 A pool is a list of numbers like `[1, 4]`, a range like `1..=10`, or the characters of a string like `"ABC"`.  A number that is picked twice counts twice, so `exactly(2, [1, 4])` means both 1 and 4 because there are no duplicates.  `NumberPool` also has `at_most` and `between`.
 
 ---
+### Create 5 numbers between 1 and 39 with no duplicates where 4 are from one third of the numbers, 1 is from another third, and none are from the third that is left
+`spread` gives counts that can be in any order, and `over` gives one pool for every count.  The 4 numbers can come from any one of the three pools.
+```rust
+use adv_random::prelude::*;
+
+let random_numbers = Settings::builder(5)
+    .range(1, 39)
+    .no_duplicates()
+    .rule(NumberPool::new().spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39))
+    .build()
+    .generate()
+    .unwrap();
+println!("{:?}", random_numbers.numbers());
+```
+#### Output: [30, 21, 37, 28, 33]
+---
 ### Create 5 numbers between 1 and 10 with no duplicates that are Odd, Even, Odd, Even, and Odd
 ```rust
 use adv_random::prelude::*;

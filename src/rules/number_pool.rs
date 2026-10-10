@@ -1,5 +1,5 @@
 use crate::random::{CurrentData, NumberType};
-use crate::random_trait::RandomTrait;
+use crate::random_trait::{get_random_vec_item, RandomTrait};
 use crate::rules::{IsWithinErrorType, SharedData, OperatorType, RuleTrait};
 use std::any::Any;
 use std::collections::{BTreeMap, HashSet};
@@ -146,6 +146,18 @@ impl PoolType {
         return self.len() == 0;
     }
 
+    //Returns a number that is in both pools.  None when they have no number in common.
+    pub fn first_shared_number(&self, other: &PoolType) -> Option<usize> {
+        return match (self, other) {
+            (PoolType::MinMax(min_1, max_1), PoolType::MinMax(min_2, max_2)) => {
+                let lowest = *min_1.max(min_2);
+                let highest = *max_1.min(max_2);
+                if min_1 <= max_1 && min_2 <= max_2 && lowest <= highest { Some(lowest) } else { None }
+            },
+            (PoolType::Set(set), pool) | (pool, PoolType::Set(set)) => set.numbers().iter().copied().find(|x| pool.contains(*x))
+        };
+    }
+
     pub fn len(&self) -> usize {
         match self {
             PoolType::Set(set) => set.numbers().len(),
@@ -201,6 +213,52 @@ impl NumberPoolItemFull {
     }
 }
 
+//Counts that are spread over pools in any order.  The counts 4, 1, 0 over three pools is 4 numbers from one of the
+//pools, 1 number from another one, and none from the pool that is left.  Created with NumberPool::spread.
+#[derive(Clone, Debug)]
+pub struct NumberPoolSpread {
+    //from the largest to the smallest
+    counts: Vec<usize>,
+    pools: Vec<PoolType>,
+}
+
+impl NumberPoolSpread {
+    pub fn counts(&self) -> &Vec<usize> {
+        return &self.counts;
+    }
+
+    pub fn pools(&self) -> &Vec<PoolType> {
+        return &self.pools;
+    }
+
+    //How many of the numbers are from each pool
+    pub fn has(&self, numbers: &[usize]) -> Vec<usize> {
+        return self.pools.iter().map(|x| x.has(numbers)).collect();
+    }
+
+    //Returns true when the pools can still end up with the counts in some order.  That is when the largest "has" is
+    //not more than the largest count, the next largest is not more than the next largest count, and so on.
+    fn fits(&self, has: &[usize]) -> bool {
+        if has.len() != self.counts.len() {
+            return false;
+        }
+        let mut has = has.to_vec();
+        has.sort_unstable_by(|a, b| b.cmp(a));
+        return has.iter().zip(self.counts.iter()).all(|(has, count)| has <= count);
+    }
+
+    //Returns true when one more number can come from this pool
+    fn can_take(&self, has: &[usize], pool_index: usize) -> bool {
+        let mut has = has.to_vec();
+        has[pool_index] += 1;
+        return self.fits(&has);
+    }
+
+    fn total(&self) -> usize {
+        return self.counts.iter().fold(0, |a, b| a.saturating_add(*b));
+    }
+}
+
 //How many digits and special characters NumberPool::alphanumeric was asked for
 #[derive(Clone, Copy)]
 struct Alphanumeric {
@@ -226,6 +284,7 @@ pub struct NumberPool {
     //Settings turns this into pools of letters, digits and special characters when it is built, because how many
     //digits there are can depend on the random number generator of the settings
     alphanumeric: Option<Alphanumeric>,
+    spreads: Vec<NumberPoolSpread>,
 }
 
 impl NumberPool {
@@ -237,6 +296,7 @@ impl NumberPool {
             number_pool_items: BTreeMap::new(),
             errors: Vec::new(),
             alphanumeric: Some(Alphanumeric { count, digits: None, special_characters: SpecialCharacters::None }),
+            spreads: Vec::new(),
         };
     }
 
@@ -396,10 +456,55 @@ impl NumberPool {
         return self;
     }
 
+    //Starts counts that are spread over pools in any order.  Give the pools with over, one for every count.
+    //spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39) is 4 numbers from one of the three pools, 1 number
+    //from another one, and none from the pool that is left.
+    pub fn spread(mut self, counts: impl IntoIterator<Item = usize>) -> NumberPool {
+        let mut counts: Vec<usize> = counts.into_iter().collect();
+        counts.sort_unstable_by(|a, b| b.cmp(a));
+        self.spreads.push(NumberPoolSpread { counts, pools: Vec::new() });
+        return self;
+    }
+
+    //Adds a pool to the counts that the last call to spread started
+    pub fn over(mut self, pool: impl Into<PoolType>) -> NumberPool {
+        match self.spreads.last_mut() {
+            Some(spread) => spread.pools.push(pool.into()),
+            None => self.errors.push(format!("{} over can only be used after spread", self.name()))
+        }
+        return self;
+    }
+
+    pub fn spreads(&self) -> &Vec<NumberPoolSpread> {
+        return &self.spreads;
+    }
+
     //The problems with how this was created.  Nothing added to it is one of them, because then it does nothing.
     fn chain_errors(&self) -> Vec<String> {
         let mut errors = self.errors.clone();
-        if errors.is_empty() && self.number_pool_items.is_empty() && self.alphanumeric.is_none() {
+        for spread in &self.spreads {
+            if spread.counts.is_empty() {
+                errors.push(format!("{} spread has no counts", self.name()));
+            }
+            if spread.counts.len() != spread.pools.len() {
+                errors.push(format!(
+                    "{} spread {:?} has {} counts and {} pools.  Call over one time for every count",
+                    self.name(), spread.counts, spread.counts.len(), spread.pools.len()
+                ));
+            }
+            //a number has to be from one pool only, so that it is counted one time
+            for (index_1, pool_1) in spread.pools.iter().enumerate() {
+                for (index_2, pool_2) in spread.pools.iter().enumerate().skip(index_1 + 1) {
+                    if let Some(number) = pool_1.first_shared_number(pool_2) {
+                        errors.push(format!(
+                            "{} spread {:?} pools {} and {} both have the number {}",
+                            self.name(), spread.counts, index_1 + 1, index_2 + 1, number
+                        ));
+                    }
+                }
+            }
+        }
+        if errors.is_empty() && self.number_pool_items.is_empty() && self.alphanumeric.is_none() && self.spreads.is_empty() {
             errors.push(format!("{} has no pools", self.name()));
         }
         return errors;
@@ -407,6 +512,17 @@ impl NumberPool {
 
     //Checks the pools when no two numbers can be the same.  A pool can not give more numbers than it has.
     pub fn check_no_duplicates(&self) -> std::result::Result<(), String> {
+        for spread in &self.spreads {
+            //the largest count has to fit in the largest pool, the next largest in the next largest pool, and so on
+            let mut pool_sizes: Vec<usize> = spread.pools.iter().map(|x| x.len()).collect();
+            pool_sizes.sort_unstable_by(|a, b| b.cmp(a));
+            if let Some((count, pool_size)) = spread.counts.iter().zip(pool_sizes.iter()).find(|(count, pool_size)| count > pool_size) {
+                return Err(format!(
+                    "{} spread {:?} needs {} numbers from a pool that only has {}, which is not possible with NoDuplicate",
+                    self.name(), spread.counts, count, pool_size
+                ));
+            }
+        }
         for (key, number_pool_item) in &self.number_pool_items {
             let numbers_needed = number_pool_item.needs.get_missing_without_has();
             if numbers_needed > number_pool_item.pool.len() {
@@ -429,6 +545,7 @@ impl NumberPool {
                 .collect(),
             errors: Vec::new(),
             alphanumeric: None,
+            spreads: Vec::new(),
         };
     }
 
@@ -467,6 +584,7 @@ impl NumberPool {
             number_pool_items: number_pool_items_full,
             errors: Vec::new(),
             alphanumeric: None,
+            spreads: Vec::new(),
         };
     }
 
@@ -501,7 +619,10 @@ impl NumberPool {
 
 impl Display for NumberPool {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{:?}", self.number_pool_items)
+        if self.spreads.is_empty() {
+            return write!(f, "{:?}", self.number_pool_items);
+        }
+        write!(f, "{:?} {:?}", self.number_pool_items, self.spreads)
     }
 }
 
@@ -518,10 +639,21 @@ impl RuleTrait for NumberPool {
 
     fn share_data(
         &self,
-        _current_data: &CurrentData,
+        current_data: &CurrentData,
     ) -> Option<SharedData> {
-        let pool_types: Vec<PoolType> = self.number_pool_items().values().filter(|x| x.needs.is_absolute_zero()).map(|x|x.pool().clone()).collect();
-        
+        let mut pool_types: Vec<PoolType> = self.number_pool_items().values().filter(|x| x.needs.is_absolute_zero()).map(|x|x.pool().clone()).collect();
+        //the next number can not be from a pool of a spread that can not take another number
+        for spread in &self.spreads {
+            let has = spread.has(current_data.selected_numbers());
+            if spread.fits(&has) {
+                for (pool_index, pool) in spread.pools.iter().enumerate() {
+                    if !spread.can_take(&has, pool_index) {
+                        pool_types.push(pool.clone());
+                    }
+                }
+            }
+        }
+
         if pool_types.is_empty() {
             None
         } else {
@@ -553,6 +685,18 @@ impl RuleTrait for NumberPool {
                 }
             }
         }
+        for spread in &self.spreads {
+            let has = spread.has(current_data.selected_numbers());
+            if spread.fits(&has) && has.iter().sum::<usize>() < spread.total() {
+                //one number from any of the pools that can still take one
+                let pools: Vec<&PoolType> = spread.pools.iter().enumerate().filter(|(pool_index, _)| spread.can_take(&has, *pool_index)).map(|(_, pool)| pool).collect();
+                let pool = current_data.random().and_then(|random| get_random_vec_item(random, &pools));
+                match pool.and_then(|pool| pool.random_number(current_data)) {
+                    Some(number) => numbers.push(number),
+                    None => number_not_found = true
+                }
+            }
+        }
         if !numbers.is_empty() {
             return Ok(Some(numbers));
         }
@@ -578,6 +722,16 @@ impl RuleTrait for NumberPool {
             if !number_pool_item.needs.is_absolute_zero() {
                 total_missing += missing;
             }
+        }
+        for spread in &self.spreads {
+            let has = spread.has(current_data.selected_numbers());
+            if !spread.fits(&has) {
+                return Err((IsWithinErrorType::Regular, format!(
+                    "Too many from a pool of the spread {:?}, the pools have {:?}",
+                    spread.counts, has
+                )));
+            }
+            total_missing += spread.total() - has.iter().sum::<usize>();
         }
         let len_remaining = if current_data.selected_numbers().len() > current_data.settings().count() {
             0
@@ -605,6 +759,17 @@ impl RuleTrait for NumberPool {
                 ));
             }
         }
+        for spread in &self.spreads {
+            let has = spread.has(current_data.selected_numbers());
+            let mut sorted_has = has.clone();
+            sorted_has.sort_unstable_by(|a, b| b.cmp(a));
+            if sorted_has != spread.counts {
+                return Err(format!(
+                    "Expected--Spread:{:?} in any order. Actual Counts:{:?}",
+                    spread.counts, has
+                ));
+            }
+        }
         return Ok(());
     }
 
@@ -616,7 +781,8 @@ impl RuleTrait for NumberPool {
         &self,
         count: usize,
     ) -> std::result::Result<bool, String> {
-        let needs_count:usize = self.number_pool_items.values().map(|x| x.needs.get_missing_without_has()).sum::<usize>();
+        let needs_count:usize = self.number_pool_items.values().map(|x| x.needs.get_missing_without_has()).sum::<usize>()
+            + self.spreads.iter().map(|x| x.total()).sum::<usize>();
         if needs_count <= count {
             return Ok(true);
         }
