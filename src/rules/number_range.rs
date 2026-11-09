@@ -13,9 +13,8 @@ fn is_within_range_helper(
     exclude: bool
 ) -> std::result::Result<(), (IsWithinErrorType, String)> {
     for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
-        let key = if number_range.use_0_idx_for_all {0} else {idx};
-        if number_range.ranges.contains_key(&key) {
-            let (min, max) = number_range.ranges[&key];
+        let key = if number_range.all.is_some() {0} else {idx};
+        if let Some((min, max)) = number_range.range_at(idx) {
             if (!exclude && (selected_number < min || selected_number > max)) || (exclude && (selected_number >= min && selected_number <= max)) {
                 return Err((IsWithinErrorType::Regular, format!(
                     "Exclude: {} - Selected number {} at index {} is not within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
@@ -30,7 +29,8 @@ fn is_within_range_helper(
 #[derive(Clone, Default)]
 pub struct NumberRange {
     ranges: HashMap<usize, (usize, usize)>,
-    use_0_idx_for_all: bool,
+    //The range of every number, when all made it.  It is in ranges too, at index 0.
+    all: Option<(usize, usize)>,
     errors: Vec<String>,
 }
 
@@ -39,7 +39,7 @@ impl NumberRange {
     pub fn all(min: usize, max: usize) -> NumberRange {
         let mut ranges: HashMap<usize, (usize, usize)> = HashMap::new();
         ranges.insert(0, (min, max));
-        return NumberRange { ranges, use_0_idx_for_all: true, errors: Vec::new() };
+        return NumberRange { ranges, all: Some((min, max)), errors: Vec::new() };
     }
 
     //No number has a range yet.  Give the numbers at some indexes a range with at.
@@ -49,7 +49,7 @@ impl NumberRange {
 
     //The numbers at these indexes are from min to max.  The first number is index 0.
     pub fn at(mut self, indexes: impl IntoIterator<Item = usize>, min: usize, max: usize) -> NumberRange {
-        if self.use_0_idx_for_all {
+        if self.all.is_some() {
             self.errors.push(format!("{} at can not be used with all", self.name()));
             return self;
         }
@@ -79,6 +79,14 @@ impl NumberRange {
             }
         }
         return number_range;
+    }
+
+    //The range of the number at index idx, if it has one
+    fn range_at(&self, idx: usize) -> Option<(usize, usize)> {
+        return match self.all {
+            Some(range) => Some(range),
+            None => self.ranges.get(&idx).copied(),
+        };
     }
 
     pub fn len(&self) -> usize {
@@ -113,12 +121,7 @@ impl RuleTrait for NumberRange {
         &self,
         current_data: &CurrentData,
     ) -> Option<SharedData> {
-        let key = if self.use_0_idx_for_all {0} else {current_data.selected_numbers().len()};
-        if self.ranges.contains_key(&key) {
-            let (min, max) = self.ranges[&key];
-            return Some(SharedData::new().with_min_max(min, max));
-        }
-        return None;
+        return self.range_at(current_data.selected_numbers().len()).map(|(min, max)| SharedData::new().with_min_max(min, max));
     }
 
     fn get_numbers(
@@ -161,7 +164,7 @@ impl RuleTrait for NumberRange {
                 return Err(format!("{} min: {} is greater than max: {}", self.name(), min, max));
             }
         }
-        if !self.use_0_idx_for_all {
+        if self.all.is_none() {
             if let Some(index) = self.ranges.keys().copied().filter(|x| *x >= count).min() {
                 return Err(format!("{} index: {} is past the last number for count: {}", self.name(), index, count));
             }
