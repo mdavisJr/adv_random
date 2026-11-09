@@ -11,6 +11,9 @@ use std::fmt::{Debug, Formatter, Result};
 use std::hash::Hash;
 
 pub const NO_NUMBER_FOUND_ERR: &str = "Could not find a number that fits the rules";
+//Up to this many selected numbers are quicker to look through than to put in a set
+const LOOK_THROUGH_UP_TO: usize = 16;
+
 pub const NO_RANDOM_ERR: &str = "No random number generator. Please call Settings::with_random or use feature \"rand\"";
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -556,7 +559,7 @@ impl<'a> CurrentData<'a> {
             if exclusion_pools.iter().any(|x| x.contains(val)) {
                 continue;
             }
-            if no_duplicates && self.selected_numbers_set().contains(&val) {
+            if no_duplicates && self.is_selected(val) {
                 continue;
             }
             match number_type {
@@ -602,6 +605,23 @@ impl<'a> CurrentData<'a> {
 
     pub fn shared_data(&self) -> &'a SharedData {
         return self.shared_data;
+    }
+
+    //Whether val is one of the selected numbers
+    pub fn is_selected(&self, val: usize) -> bool {
+        if self.selected_numbers.len() <= LOOK_THROUGH_UP_TO {
+            return self.selected_numbers.contains(&val);
+        }
+        return self.selected_numbers_set().contains(&val);
+    }
+
+    //Whether a selected number is there more than once
+    pub fn has_duplicates(&self) -> bool {
+        let numbers = self.selected_numbers;
+        if numbers.len() <= LOOK_THROUGH_UP_TO {
+            return numbers.iter().enumerate().any(|(idx, x)| numbers[idx + 1..].contains(x));
+        }
+        return numbers.len() != self.selected_numbers_set().len();
     }
 
     pub fn selected_numbers_set(&self) -> &HashSet<usize> {

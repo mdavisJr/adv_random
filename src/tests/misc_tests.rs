@@ -486,6 +486,30 @@ fn current_data_1() {
     assert_eq!(format!("{:?}", current_data_1.selected_numbers_set().intersection(current_data_3.selected_numbers_set())), "[]");
 }
 
+//is_selected and has_duplicates give the same answers as the set, both for a few numbers, which are looked through,
+//and for more, which go by the set
+#[test]
+fn is_selected_and_has_duplicates_match_the_set() {
+    let settings = Settings::builder(1).build();
+    let shared_data = SharedData::new();
+    for len in [0, 1, 5, 16, 17, 40] {
+        let unique: Vec<usize> = (1..=len).map(|x| x * 3).collect();
+        let mut repeated = unique.clone();
+        if let Some(first) = unique.first() {
+            repeated.push(*first);
+        }
+        for numbers in [&unique, &repeated] {
+            let current_data = CurrentData::new(numbers, &settings, &shared_data);
+            for val in 0..=len * 3 + 1 {
+                assert_eq!(current_data.is_selected(val), current_data.selected_numbers_set().contains(&val), "{} in {:?}", val, numbers);
+            }
+            assert_eq!(current_data.has_duplicates(), numbers.len() != current_data.selected_numbers_set().len(), "{:?}", numbers);
+        }
+        assert!(!CurrentData::new(&unique, &settings, &shared_data).has_duplicates());
+        assert_eq!(CurrentData::new(&repeated, &settings, &shared_data).has_duplicates(), len > 0);
+    }
+}
+
 
 #[test]
 fn get_num_spaces_1() {

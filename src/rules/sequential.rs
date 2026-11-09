@@ -154,11 +154,10 @@ impl RuleTrait for Sequential {
         if seq_count_needed > 0 {
             let random = current_data.random().ok_or_else(|| NO_RANDOM_ERR.to_owned())?;
             //A selected number that is not part of a sequence can be extended into one.  None starts a new sequence.
-            let selected_numbers_set = current_data.selected_numbers_set();
             let mut starts: Vec<Option<usize>> = current_data.selected_numbers_sorted().iter().copied()
                 .filter(|x| {
-                    let has_lower = x.checked_sub(1).is_some_and(|v| selected_numbers_set.contains(&v));
-                    let has_higher = x.checked_add(1).is_some_and(|v| selected_numbers_set.contains(&v));
+                    let has_lower = x.checked_sub(1).is_some_and(|v| current_data.is_selected(v));
+                    let has_higher = x.checked_add(1).is_some_and(|v| current_data.is_selected(v));
                     !has_lower && !has_higher
                 })
                 .map(Some)

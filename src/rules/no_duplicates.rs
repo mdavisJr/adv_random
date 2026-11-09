@@ -45,7 +45,7 @@ impl RuleTrait for NoDuplicate {
         &self,
         current_data: &CurrentData
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-        if current_data.selected_numbers().len() != current_data.selected_numbers_set().len() {
+        if current_data.has_duplicates() {
             return Err((IsWithinErrorType::Regular, format!("Duplicate found in {:?}", current_data.selected_numbers())));
         }
         return Ok(());
