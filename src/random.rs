@@ -24,7 +24,7 @@ pub struct RandomResult {
     status: RandomResultType,
     numbers: Vec<usize>,
     attempts: usize,
-    logs: Vec<Log>,
+    logs: Logs,
     clear_err_tracker: HashSet<usize>,
     settings: String,
     random: Option<Arc<dyn RandomTrait + Send + Sync>>
@@ -78,7 +78,7 @@ impl RandomResult {
             }),
             RandomResultType::BadRequest => Err(RandomError { data: Box::new(RandomErrorData {
                 error_type: RandomErrorType::BadRequest,
-                messages: self.logs.iter().filter_map(|x| if let Log::Error { msg } = x { Some(msg.to_owned()) } else { None }).collect(),
+                messages: self.logs.errors().map(|x| x.to_owned()).collect(),
                 attempts: self.attempts,
                 logs: self.logs,
                 clear_err_tracker: self.clear_err_tracker,
@@ -98,7 +98,7 @@ impl RandomResult {
         return self.attempts;
     }
     pub fn logs(&self) -> &Vec<Log> {
-        return &self.logs;
+        return self.logs.logs();
     }
     pub fn clear_err_tracker(&self) -> &HashSet<usize> {
         return &self.clear_err_tracker;
@@ -118,6 +118,7 @@ impl fmt::Display for RandomResult {
             self.attempts,
             sorted_clear_err_tracker,
             self.logs
+                .logs()
                 .iter()
                 .map(|x| if x.to_string().starts_with("Info  : Attempt - ") {
                     format!("\n{}", x)
@@ -176,7 +177,7 @@ fn format_report(settings: &str, status: &str, attempts: usize, clear_err_tracke
 pub struct RandomNumbers {
     numbers: Vec<usize>,
     attempts: usize,
-    logs: Vec<Log>,
+    logs: Logs,
     clear_err_tracker: HashSet<usize>,
     random: Option<Arc<dyn RandomTrait + Send + Sync>>
 }
@@ -205,7 +206,7 @@ impl RandomNumbers {
     }
 
     pub fn logs(&self) -> &Vec<Log> {
-        return &self.logs;
+        return self.logs.logs();
     }
 
     //The attempts where the numbers selected so far were cleared to start over
@@ -220,7 +221,7 @@ impl RandomNumbers {
             &format!("Status - Success\nNumbers - {:?}", self.numbers),
             self.attempts,
             &self.clear_err_tracker,
-            &self.logs
+            self.logs.logs()
         );
     }
 
@@ -229,7 +230,7 @@ impl RandomNumbers {
             error_type: RandomErrorType::InvalidCharacter,
             messages: vec![message],
             attempts: self.attempts,
-            logs: Vec::new(),
+            logs: Logs::default(),
             clear_err_tracker: HashSet::new(),
             settings: String::new()
         }) };
@@ -264,7 +265,7 @@ struct RandomErrorData {
     error_type: RandomErrorType,
     messages: Vec<String>,
     attempts: usize,
-    logs: Vec<Log>,
+    logs: Logs,
     clear_err_tracker: HashSet<usize>,
     settings: String
 }
@@ -284,7 +285,7 @@ impl RandomError {
 
     //Everything that happened in every attempt
     pub fn logs(&self) -> &Vec<Log> {
-        return &self.data.logs;
+        return self.data.logs.logs();
     }
 
     //The attempts where the numbers selected so far were cleared to start over
@@ -299,7 +300,7 @@ impl RandomError {
             &format!("Status - {:?}\nError - {}", self.data.error_type, self.data.messages.join("; ")),
             self.data.attempts,
             &self.data.clear_err_tracker,
-            &self.data.logs
+            self.data.logs.logs()
         );
     }
 }
@@ -330,14 +331,91 @@ fn set_numbers(
 }
 
 fn clear_numbers(
-    logs: &mut Vec<Log>,
+    logs: &mut Logs,
     numbers: &mut Vec<usize>,
     _settings: &Settings,
 ) {
-    logs.push(Log::Info {
-        msg: format!("CLEAR - {:?}", numbers),
-    });
+    logs.clear(numbers);
     numbers.clear();
+}
+
+//What happened while the numbers were generated.  Each entry is kept as it
+//happens, without making its text, and the text is made the first time the
+//logs are read: most generations succeed and their logs are never read.
+#[derive(Default)]
+struct Logs {
+    entries: Vec<Entry>,
+    //The text of the rules that entries name, made the first time an entry
+    //names one.  A rule's text is the same for the whole generation.
+    rule_names: HashMap<usize, String>,
+    rule_lines: HashMap<RuleRef, String>,
+    text: OnceLock<Vec<Log>>,
+}
+
+//One log entry, as what it is about.  `Logs::logs` makes its text.
+enum Entry {
+    Log(Log),
+    Attempt(usize),
+    //The numbers selected so far, cleared to start over
+    Clear(Vec<usize>),
+    //The rule that got numbers, by its index in settings.expected_rules(), the numbers it got, and every number with them
+    GenType { rule: usize, potential: Vec<usize>, all: Vec<usize> },
+    //A rule that a check stopped at
+    Rule(RuleRef),
+}
+
+impl Logs {
+    fn from_logs(logs: Vec<Log>) -> Logs {
+        return Logs { entries: logs.into_iter().map(Entry::Log).collect(), ..Default::default() };
+    }
+
+    fn push(&mut self, log: Log) {
+        self.entries.push(Entry::Log(log));
+    }
+
+    fn attempt(&mut self, attempt: usize) {
+        self.entries.push(Entry::Attempt(attempt));
+    }
+
+    fn clear(&mut self, numbers: &[usize]) {
+        self.entries.push(Entry::Clear(numbers.to_vec()));
+    }
+
+    fn gen_type(&mut self, idx: usize, rule: &dyn RuleTrait, potential: &[usize], all: &[usize]) {
+        self.rule_names.entry(idx).or_insert_with(|| rule.name());
+        self.entries.push(Entry::GenType { rule: idx, potential: potential.to_vec(), all: all.to_vec() });
+    }
+
+    fn expected_rule(&mut self, idx: usize, rule: &dyn RuleTrait) {
+        self.rule_lines.entry(RuleRef::Expected(idx)).or_insert_with(|| format!("Expected Rule - {} - {}", rule.name(), rule));
+        self.entries.push(Entry::Rule(RuleRef::Expected(idx)));
+    }
+
+    fn exclude_rule(&mut self, idx: usize, rule: &dyn ExcludeRuleTrait) {
+        self.rule_lines.entry(RuleRef::Exclude(idx)).or_insert_with(|| format!("Exclude Rule - {} - {}", rule.exclude_name(), rule));
+        self.entries.push(Entry::Rule(RuleRef::Exclude(idx)));
+    }
+
+    //The messages of the error entries
+    fn errors(&self) -> impl Iterator<Item = &String> {
+        return self.entries.iter().filter_map(|x| if let Entry::Log(Log::Error { msg }) = x { Some(msg) } else { None });
+    }
+
+    //Every entry as text, made the first time they are asked for
+    fn logs(&self) -> &Vec<Log> {
+        return self.text.get_or_init(|| self.entries.iter().map(|x| self.text_of(x)).collect());
+    }
+
+    fn text_of(&self, entry: &Entry) -> Log {
+        let msg = match entry {
+            Entry::Log(log) => return log.clone(),
+            Entry::Attempt(attempt) => format!("Attempt - {:?}", attempt),
+            Entry::Clear(numbers) => format!("CLEAR - {:?}", numbers),
+            Entry::GenType { rule, potential, all } => format!("GEN_TYPE - {}; P - {:?}; A&P - {:?}", self.rule_names[rule], potential, all),
+            Entry::Rule(rule) => self.rule_lines[rule].clone(),
+        };
+        return Log::Info { msg };
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -378,7 +456,7 @@ enum ErrKey {
 fn halt_from_error(
     err_key: ErrKey,
     err: &str,
-    logs: &mut Vec<Log>,
+    logs: &mut Logs,
     err_tracker: &mut HashMap<ErrKey, usize>,
     attempts: usize,
     numbers: &mut Vec<usize>,
@@ -402,7 +480,7 @@ fn halt_from_error(
 }
 
 fn reset(
-    logs: &mut Vec<Log>,
+    logs: &mut Logs,
     numbers: &mut Vec<usize>,
     settings: &Settings,
     err_tracker: &mut HashMap<ErrKey, usize>,
@@ -559,7 +637,7 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
                 status: RandomResultType::BadRequest,
                 numbers: Vec::new(),
                 attempts: 0,
-                logs: errors,
+                logs: Logs::from_logs(errors),
                 clear_err_tracker: HashSet::new(),
                 settings: format!("{:#?}", settings),
                 random: None
@@ -571,7 +649,7 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
             status: RandomResultType::Success,
             numbers: Vec::new(),
             attempts: 0,
-            logs: Vec::new(),
+            logs: Logs::default(),
             clear_err_tracker: HashSet::new(),
             settings: String::new(),
             random: Some(random)
@@ -581,19 +659,18 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
     let mut is_match_attempts: usize = 0;
     let mut err_tracker: HashMap<ErrKey, usize> = HashMap::new();
     let mut num_attempts = 1;
-    let mut logs: Vec<Log> = Vec::new();
+    let mut logs = Logs::default();
     let mut clear_err_tracker: HashSet<usize> = HashSet::new();
     //each rule is paired with its index in settings.expected_rules() so it can be found again after a shuffle
     let mut expected_rules: Vec<(usize, &dyn RuleTrait)> = settings.expected_rules().iter().map(|x| x.as_ref()).enumerate().collect();
     let mut rule_to_make_priority: Option<usize> = None;
     clear_numbers(&mut logs, &mut numbers, settings);
     for attempts in 1..=settings.max_tries() {
-        logs.push(Log::Info {
-            msg: format!("Attempt - {:?}", attempts),
-        });
+        logs.attempt(attempts);
         num_attempts = attempts;
         let mut potential_numbers = Vec::new();
-        let mut gen_type = String::from("");
+        //the rule that got the numbers, with its index in settings.expected_rules()
+        let mut gen_rule: Option<(usize, &dyn RuleTrait)> = None;
 
         let current_data_numbers: Vec<usize> = numbers.to_vec();
         let current_data_shared_data = SharedData::new();
@@ -641,7 +718,7 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
         for (idx, expected_rule) in &expected_rules {
             match expected_rule.get_numbers(&current_data_selected_numbers_gn) {
                 Ok(Some(v)) => {
-                    gen_type = expected_rule.name();
+                    gen_rule = Some((*idx, *expected_rule));
                     potential_numbers.extend(&v);
                     break;
                 }
@@ -670,12 +747,9 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
             .collect::<Vec<usize>>();
             let current_data_with_potential_numbers = CurrentData::new(&_temp_numbers, settings, &shared_data);
 
-            logs.push(Log::Info {
-                msg: format!(
-                    "GEN_TYPE - {}; P - {:?}; A&P - {:?}",
-                    gen_type, potential_numbers, current_data_with_potential_numbers.selected_numbers
-                ),
-            });
+            if let Some((idx, rule)) = gen_rule {
+                logs.gen_type(idx, rule, &potential_numbers, current_data_with_potential_numbers.selected_numbers);
+            }
 
             if current_data_with_potential_numbers.selected_numbers().len() > settings.count() {
                 halt_from_error(
@@ -780,21 +854,17 @@ fn is_match_check(
     expected_rules: &[(usize, &dyn RuleTrait)], 
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, current_data: &CurrentData,
-    logs: &mut Vec<Log>) -> std::result::Result<(), (String, RuleRef)> {
+    logs: &mut Logs) -> std::result::Result<(), (String, RuleRef)> {
     for (idx, expected_rule) in expected_rules {
         if let Err(e) = expected_rule.is_match(current_data) {
-            logs.push(Log::Info {
-                msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
-            });
+            logs.expected_rule(*idx, *expected_rule);
             return Err((e, RuleRef::Expected(*idx)));
         }
     }
     if let Some(exc_rules) = exclude_rules {
         for (idx, exclude_rule) in exc_rules.iter().enumerate() {
             if let Err(e) = exclude_rule.is_excluded(current_data) {
-                logs.push(Log::Info {
-                    msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
-                });
+                logs.exclude_rule(idx, exclude_rule.as_ref());
                 return Err((e, RuleRef::Exclude(idx)));
             }
         }
@@ -809,21 +879,17 @@ fn is_within_range_check(
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
     _settings: &Settings, 
     current_data: &CurrentData,
-    logs: &mut Vec<Log>) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
+    logs: &mut Logs) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
     for (idx, expected_rule) in expected_rules {
         if let Err(e) = expected_rule.is_within_range(current_data) {
-            logs.push(Log::Info {
-                msg: format!("Expected Rule - {} - {}", expected_rule.name(), expected_rule),
-            });
+            logs.expected_rule(*idx, *expected_rule);
             return Err((e.0, e.1, RuleRef::Expected(*idx)));
         }
     }
     if let Some(exc_rules) = exclude_rules {
         for (idx, exclude_rule) in exc_rules.iter().enumerate() {
             if let Err(e) = exclude_rule.is_within_excluded_range(current_data) {
-                logs.push(Log::Info {
-                    msg: format!("Exclude Rule - {} - {}", exclude_rule.exclude_name(), exclude_rule),
-                });
+                logs.exclude_rule(idx, exclude_rule.as_ref());
                 return Err((e.0, e.1, RuleRef::Exclude(idx)));
             }
         }
