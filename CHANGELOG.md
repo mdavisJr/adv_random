@@ -8,8 +8,25 @@
   - `settings.errors()` reports a different number of counts and pools, `over` without `spread`, pools that share a number, counts that add up to more than the count, and a count that no pool is large enough for with `NoDuplicate`.
   - `NumberPool::spreads` returns them as `NumberPoolSpread`.
 - `PoolType::first_shared_number`.
+- `CurrentData::is_selected` and `CurrentData::has_duplicates`, for custom rules.  They look through a few selected numbers instead of making a set of them.
 
-Nothing else changed.  Code written for 3.0.0 works the same.
+### Faster
+Generating is quicker, with the same results: the same seed gives the same numbers, logs and reports as in 3.0.0.
+
+| Settings | 3.0.0 | 3.1.0 |
+|---|---|---|
+| 5 numbers from 1 to 39 with `NoDuplicate` | 2.63 µs | 1.10 µs (58% less) |
+| 5 numbers from 1 to 69 with `NoDuplicate` | 2.66 µs | 1.09 µs (59% less) |
+| The same with `OddEven` and `Sequential` | 4.68 µs | 2.62 µs (44% less) |
+
+Times are for one `generate`, on an Apple silicon Mac with a release build.
+
+- **The logs' text is made when it is read.**  Every attempt made text for its log entries, and most generations succeed without anyone reading them.  The entries now keep what they are about, and `logs`, `report` and `{:?}` make the text the first time they are asked for.  The text is the same.
+- **A few selected numbers are looked through instead of put in a set.**  The check that a new number is not a repeat, `NoDuplicate` and `Sequential` made a `HashSet` every attempt.  Up to 16 numbers are looked through instead.
+- **`NumberRange::all` keeps its range** instead of looking it up for every number.  Ranges at indexes are looked up once instead of twice.
+- **Each attempt reuses its vectors** instead of making new ones.
+
+Nothing else changed.  Code written for 3.0.0 works the same, and gives the same numbers for the same seed.
 
 ## 3.0.0
 
