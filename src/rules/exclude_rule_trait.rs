@@ -27,6 +27,11 @@ pub trait ExcludeRuleTrait: ExcludeRuleTraitClone + Display + std::fmt::Debug + 
 
     fn exclude_name(&self) -> String;
 
+    //The same as RuleTrait::can_stop_early, for is_within_excluded_range
+    fn can_stop_early_excluded(&self) -> bool {
+        return false;
+    }
+
     //Returns every problem with how this rule was created.  Settings::builder(...).build() calls it.
     fn validate_exclude(&self) -> Vec<String> {
         return Vec::new();

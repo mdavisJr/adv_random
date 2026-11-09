@@ -52,6 +52,11 @@ impl RuleTrait for RandomNumber {
         return Ok(());
     }
 
+    //rules_only_stop_tickets_that_can_not_match checks it
+    fn can_stop_early(&self) -> bool {
+        return true;
+    }
+
     fn name(&self) -> String {
         return String::from("RandomNumber");
     }

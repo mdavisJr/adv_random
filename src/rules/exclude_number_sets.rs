@@ -114,6 +114,11 @@ impl RuleTrait for ExcludeNumberSets {
         return Ok(());
     }
 
+    //rules_only_stop_tickets_that_can_not_match checks it
+    fn can_stop_early(&self) -> bool {
+        return true;
+    }
+
     fn name(&self) -> String {
         return String::from("ExcludeNumberSets");
     }
@@ -160,6 +165,10 @@ impl ExcludeRuleTrait for ExcludeNumberSets {
         _current_data: &CurrentData,
     ) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
+    }
+
+    fn can_stop_early_excluded(&self) -> bool {
+        return true;
     }
 
     fn exclude_name(&self) -> String {

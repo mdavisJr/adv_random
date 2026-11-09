@@ -136,6 +136,14 @@ pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
             Err(e) => vec![e]
         };
     }
+
+    //Whether is_within_range only says no when no numbers added to the ticket could make it match.  Uniform
+    //settings stop a ticket early only with rules that say so, and check the others on full tickets.  It is
+    //off unless a rule turns it on, because a rule that says no too soon would make uniform settings leave
+    //tickets out.
+    fn can_stop_early(&self) -> bool {
+        return false;
+    }
 }
 
 pub trait RuleTraitClone {

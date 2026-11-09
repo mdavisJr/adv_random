@@ -8,6 +8,7 @@ pub mod rules;
 pub mod random_trait;
 pub mod default_random;
 pub mod seeded_random;
+pub mod uniform_check;
 pub mod prelude;
 
 

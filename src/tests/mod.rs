@@ -4,3 +4,4 @@ mod custom_random_tests;
 mod main_tests;
 #[cfg(feature="rand")]
 mod misc_tests;
+mod uniform_tests;

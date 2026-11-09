@@ -1,3 +1,4 @@
+mod any_of;
 mod exclude_number_sets;
 mod no_duplicates;
 mod number_pool;
@@ -11,6 +12,7 @@ mod odd_even_by_index;
 mod number_pool_by_index;
 mod number_space;
 
+pub use self::any_of::AnyOf;
 pub use self::exclude_number_sets::ExcludeNumberSets;
 pub use self::no_duplicates::NoDuplicate;
 pub use self::number_pool::{NumberPool, NumberPoolItem, NumberPoolItemFull, NumberPoolSpread, PoolSet, PoolType, NP_ALPHABET_SET, NP_NUMERIC_SET, NP_SPECIAL_CHAR_SET};

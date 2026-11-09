@@ -348,12 +348,19 @@ fn clear_numbers(
 #[derive(Default)]
 struct Logs {
     entries: Vec<Entry>,
+    //Entries past LOG_ENTRIES_KEPT are counted instead of kept
+    not_kept: usize,
+    //How many times each rule stopped a ticket, kept or not, with its name
+    stopped_by: HashMap<RuleRef, (String, usize)>,
     //The text of the rules that entries name, made the first time an entry
     //names one.  A rule's text is the same for the whole generation.
     rule_names: HashMap<usize, String>,
     rule_lines: HashMap<RuleRef, String>,
     text: OnceLock<Vec<Log>>,
 }
+
+//The most log entries kept.  Generating that is not uniform stops long before it: 500 attempts by default.
+const LOG_ENTRIES_KEPT: usize = 10_000;
 
 //One log entry, as what it is about.  `Logs::logs` makes its text.
 enum Entry {
@@ -372,31 +379,46 @@ impl Logs {
         return Logs { entries: logs.into_iter().map(Entry::Log).collect(), ..Default::default() };
     }
 
+    //Keeps the entry, or counts it once LOG_ENTRIES_KEPT are kept
+    fn add(&mut self, entry: impl FnOnce() -> Entry) {
+        if self.entries.len() < LOG_ENTRIES_KEPT {
+            self.entries.push(entry());
+        } else {
+            self.not_kept += 1;
+        }
+    }
+
     fn push(&mut self, log: Log) {
-        self.entries.push(Entry::Log(log));
+        self.add(|| Entry::Log(log));
     }
 
     fn attempt(&mut self, attempt: usize) {
-        self.entries.push(Entry::Attempt(attempt));
+        self.add(|| Entry::Attempt(attempt));
     }
 
     fn clear(&mut self, numbers: &[usize]) {
-        self.entries.push(Entry::Clear(numbers.to_vec()));
+        self.add(|| Entry::Clear(numbers.to_vec()));
     }
 
     fn gen_type(&mut self, idx: usize, rule: &dyn RuleTrait, potential: &[usize], all: &[usize]) {
         self.rule_names.entry(idx).or_insert_with(|| rule.name());
-        self.entries.push(Entry::GenType { rule: idx, potential: potential.to_vec(), all: all.to_vec() });
+        self.add(|| Entry::GenType { rule: idx, potential: potential.to_vec(), all: all.to_vec() });
     }
 
     fn expected_rule(&mut self, idx: usize, rule: &dyn RuleTrait) {
+        self.stopped(RuleRef::Expected(idx), || rule.name());
         self.rule_lines.entry(RuleRef::Expected(idx)).or_insert_with(|| format!("Expected Rule - {} - {}", rule.name(), rule));
-        self.entries.push(Entry::Rule(RuleRef::Expected(idx)));
+        self.add(|| Entry::Rule(RuleRef::Expected(idx)));
     }
 
     fn exclude_rule(&mut self, idx: usize, rule: &dyn ExcludeRuleTrait) {
+        self.stopped(RuleRef::Exclude(idx), || rule.exclude_name());
         self.rule_lines.entry(RuleRef::Exclude(idx)).or_insert_with(|| format!("Exclude Rule - {} - {}", rule.exclude_name(), rule));
-        self.entries.push(Entry::Rule(RuleRef::Exclude(idx)));
+        self.add(|| Entry::Rule(RuleRef::Exclude(idx)));
+    }
+
+    fn stopped(&mut self, rule: RuleRef, name: impl FnOnce() -> String) {
+        self.stopped_by.entry(rule).or_insert_with(|| (name(), 0)).1 += 1;
     }
 
     //The messages of the error entries
@@ -406,7 +428,17 @@ impl Logs {
 
     //Every entry as text, made the first time they are asked for
     fn logs(&self) -> &Vec<Log> {
-        return self.text.get_or_init(|| self.entries.iter().map(|x| self.text_of(x)).collect());
+        return self.text.get_or_init(|| {
+            let mut logs: Vec<Log> = self.entries.iter().map(|x| self.text_of(x)).collect();
+            //Only when entries were not kept, which generating that is not uniform never gets to
+            if self.not_kept > 0 {
+                let mut stopped: Vec<&(String, usize)> = self.stopped_by.values().collect();
+                stopped.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+                let stopped = stopped.iter().map(|(name, times)| format!("{} {}", name, times)).collect::<Vec<String>>().join(", ");
+                logs.push(Log::Info { msg: format!("{} more entries were not kept.  Times each rule stopped a ticket: {}", self.not_kept, stopped) });
+            }
+            return logs;
+        });
     }
 
     fn text_of(&self, entry: &Entry) -> Log {
@@ -664,6 +696,9 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
             };
         }
     };
+    if settings.uniform() {
+        return generate_uniform(settings, random);
+    }
     if settings.count() == 0 {
         return RandomResult {
             status: RandomResultType::Success,
@@ -871,6 +906,138 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
 }
 
 
+//Every result that matches the rules is equally likely.  The numbers are drawn at random, one at a time,
+//without the rules steering them.  After each one, a ticket that a rule says can not match any more is
+//started again from scratch, and a full ticket is kept only if every rule matches.  Stopping a ticket early
+//leaves out exactly the tickets that checking full ones would, as long as is_within_range only says no
+//when no numbers added to the ticket could make it match.
+//
+//Only what is the same for every ticket is taken from the rules' shared data: the range of the number at
+//each index and whether numbers can be repeated.  Anything that depends on the numbers so far, like a
+//NumberPool's exclusion pools, would steer the numbers, so is_within_range and is_match decide instead.
+fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sync>) -> RandomResult {
+    let count = settings.count();
+    let expected_rules = indexed_rules(settings);
+    //Settings always has one: the numbers are a RandomNumber's
+    let random_number = expected_rules.iter().copied().find(|x| x.1.as_any().is::<crate::rules::RandomNumber>());
+    let mut logs = Logs::default();
+    let mut numbers: Vec<usize> = Vec::with_capacity(count);
+    let (ranges, no_duplicates) = match uniform_ranges(settings) {
+        Ok(x) => x,
+        Err(e) => {
+            logs.push(Log::Error { msg: e });
+            return RandomResult { status: RandomResultType::BadRequest, numbers: Vec::new(), attempts: 0, logs, clear_err_tracker: HashSet::new(), settings: format!("{:#?}", settings), random: None };
+        }
+    };
+    for attempt in 1..=settings.max_draws() {
+        logs.attempt(attempt);
+        numbers.clear();
+        let mut kept = true;
+        while numbers.len() < count {
+            let (min, max) = ranges[numbers.len()];
+            if no_duplicates && (min..=max).all(|x| numbers.contains(&x)) {
+                kept = false;
+                break;
+            }
+            //drawing again until it is new is drawing without putting numbers back, which keeps every ticket as likely
+            let number = loop {
+                let number = random.get_number(min, max);
+                if !(no_duplicates && numbers.contains(&number)) {
+                    break number;
+                }
+            };
+            numbers.push(number);
+            let shared_data = rules_shared_data(&expected_rules, settings, &numbers);
+            let current_data = CurrentData::new(&numbers, settings, &shared_data);
+            if let Some((idx, rule)) = random_number {
+                logs.gen_type(idx, rule, &numbers[numbers.len() - 1..], &numbers);
+            }
+            if is_within_range_check_of(&expected_rules, settings.exclude_rules(), &current_data, &mut logs, true).is_err() {
+                kept = false;
+                break;
+            }
+        }
+        if kept {
+            let shared_data = rules_shared_data(&expected_rules, settings, &numbers);
+            let current_data = CurrentData::new(&numbers, settings, &shared_data);
+            if is_match_check(&expected_rules, settings.exclude_rules(), settings, &current_data, &mut logs).is_ok() {
+                return RandomResult { status: RandomResultType::Success, numbers, attempts: attempt, logs, clear_err_tracker: HashSet::new(), settings: String::new(), random: Some(random) };
+            }
+        }
+        logs.clear(&numbers);
+    }
+    return RandomResult { status: RandomResultType::Failed, numbers: Vec::new(), attempts: settings.max_draws(), logs, clear_err_tracker: HashSet::new(), settings: format!("{:#?}", settings), random: None };
+}
+
+//What the rules share about these numbers, for checking them.  Checks may use it, such as for the range
+//of the numbers: it is only the numbers being drawn that it must not steer.
+fn rules_shared_data(expected_rules: &[(usize, &dyn RuleTrait)], settings: &Settings, numbers: &Vec<usize>) -> SharedData {
+    let empty_shared_data = SharedData::new();
+    let current_data = CurrentData::new(numbers, settings, &empty_shared_data);
+    let mut shared_data = SharedData::new();
+    for (_, rule) in expected_rules {
+        if let Some(x) = rule.share_data(&current_data) {
+            let _ = shared_data.merge(x);
+        }
+    }
+    return shared_data;
+}
+
+//Each rule with its index in settings.expected_rules()
+fn indexed_rules(settings: &Settings) -> Vec<(usize, &dyn RuleTrait)> {
+    return settings.expected_rules().iter().map(|x| x.as_ref()).enumerate().collect();
+}
+
+//For uniform generation: the range of the number at each index, and whether numbers can not be repeated.
+//Only what the rules share that is the same for every ticket is used.
+pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<(usize, usize)>, bool), String> {
+    let expected_rules = indexed_rules(settings);
+    let empty_shared_data = SharedData::new();
+    let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(settings.count());
+    let mut no_duplicates = false;
+    for index in 0..settings.count() {
+        //Stand-in numbers: only how many there are matters for what is used
+        let so_far: Vec<usize> = (0..index).collect();
+        let current_data = CurrentData::new(&so_far, settings, &empty_shared_data);
+        let mut shared_data = SharedData::new();
+        for (_, rule) in &expected_rules {
+            if let Some(x) = rule.share_data(&current_data) {
+                let _ = shared_data.merge(x);
+            }
+        }
+        no_duplicates |= shared_data.no_duplicates();
+        let (min, max) = shared_data.min_max();
+        if max == usize::MAX || min > max {
+            return Err(format!("Uniform needs a range for every number, such as a NumberRange.  Number {} has none", index + 1));
+        }
+        ranges.push((min, max));
+    }
+    //Without repeats, the ranges have to have a number for every index between them
+    if no_duplicates {
+        let available: HashSet<usize> = ranges.iter().flat_map(|(min, max)| *min..=(*max).min(min.saturating_add(settings.count()))).collect();
+        if available.len() < settings.count() {
+            return Err(format!("Uniform without repeats needs {} different numbers, and the ranges only have {}", settings.count(), available.len()));
+        }
+    }
+    return Ok((ranges, no_duplicates));
+}
+
+//For uniform generation: whether a partial or full ticket gets past is_within_range, so it is not stopped
+pub(crate) fn uniform_can_go_on(settings: &Settings, numbers: &[usize]) -> bool {
+    let numbers = numbers.to_vec();
+    let shared_data = rules_shared_data(&indexed_rules(settings), settings, &numbers);
+    let current_data = CurrentData::new(&numbers, settings, &shared_data);
+    return is_within_range_check_of(&indexed_rules(settings), settings.exclude_rules(), &current_data, &mut Logs::default(), true).is_ok();
+}
+
+//For uniform generation: whether a full ticket matches every rule
+pub(crate) fn uniform_matches(settings: &Settings, numbers: &[usize]) -> bool {
+    let numbers = numbers.to_vec();
+    let shared_data = rules_shared_data(&indexed_rules(settings), settings, &numbers);
+    let current_data = CurrentData::new(&numbers, settings, &shared_data);
+    return is_match_check(&indexed_rules(settings), settings.exclude_rules(), settings, &current_data, &mut Logs::default()).is_ok();
+}
+
 //Checks every rule in order and returns the error from the first rule that does not match, with which rule it was
 fn is_match_check(
     expected_rules: &[(usize, &dyn RuleTrait)], 
@@ -902,7 +1069,20 @@ fn is_within_range_check(
     _settings: &Settings, 
     current_data: &CurrentData,
     logs: &mut Logs) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
+    return is_within_range_check_of(expected_rules, exclude_rules, current_data, logs, false);
+}
+
+//is_within_range_check, only with the rules that can stop a ticket early when early_only is on
+fn is_within_range_check_of(
+    expected_rules: &[(usize, &dyn RuleTrait)],
+    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>,
+    current_data: &CurrentData,
+    logs: &mut Logs,
+    early_only: bool) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
     for (idx, expected_rule) in expected_rules {
+        if early_only && !expected_rule.can_stop_early() {
+            continue;
+        }
         if let Err(e) = expected_rule.is_within_range(current_data) {
             logs.expected_rule(*idx, *expected_rule);
             return Err((e.0, e.1, RuleRef::Expected(*idx)));
@@ -910,6 +1090,9 @@ fn is_within_range_check(
     }
     if let Some(exc_rules) = exclude_rules {
         for (idx, exclude_rule) in exc_rules.iter().enumerate() {
+            if early_only && !exclude_rule.can_stop_early_excluded() {
+                continue;
+            }
             if let Err(e) = exclude_rule.is_within_excluded_range(current_data) {
                 logs.exclude_rule(idx, exclude_rule.as_ref());
                 return Err((e.0, e.1, RuleRef::Exclude(idx)));

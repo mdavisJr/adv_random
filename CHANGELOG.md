@@ -3,6 +3,14 @@
 ## 3.1.0
 
 ### Added
+- **Every result equally likely, with `.uniform()`.**  By default the rules steer the numbers, so some matching results come up more often than others.  With `Settings::builder(count)....uniform()` the numbers are drawn at random without steering, a ticket is started again as soon as a rule says it can not match, and a full ticket is kept only if every rule matches.  Every matching result is equally likely.
+  - `.max_draws(n)` is how many tickets to start before giving up, 1,000,000 by default (`DEFAULT_MAX_DRAWS`).  Then `generate` returns a `Failed` error.
+  - Every number needs a range.  Without repeats, the ranges need enough different numbers.  Otherwise `generate` returns a `BadRequest` error.
+  - The logs keep the first 10,000 entries, and then end with how many times each rule stopped a ticket.  Generating without `.uniform()` never gets that far.
+  - `settings.uniform()` and `settings.max_draws()`.
+- **`AnyOf`**, which matches when any one of its rules matches, such as one of a few odd/even counts.  It works with and without `.uniform()`.
+- **`RuleTrait::can_stop_early` and `ExcludeRuleTrait::can_stop_early_excluded`.**  `.uniform()` stops a ticket early only with rules that say they can: their `is_within_range` only says no when no numbers added could make a match.  The other rules are checked on full tickets.  They are optional and off unless a rule turns them on.  Every rule but `Sequential` and `NumberSpace` turns it on.
+- **`uniform_check::check_uniform`**, which goes through every ticket of small settings and returns the matching ones and any wrong early stops, to check a custom rule before it turns on `can_stop_early`.
 - **Counts in any order for a `NumberPool`.**  `NumberPool::new().spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39)` is 4 numbers from one of the three pools, 1 number from another one, and none from the pool that is left.  `spread` gives the counts and `over` gives one pool for every count.  It works with the other pool methods.
   - While the numbers are picked, a number is only allowed when the pools can still end up with the counts in some order, so another rule can decide which pool gets which count.
   - `settings.errors()` reports a different number of counts and pools, `over` without `spread`, pools that share a number, counts that add up to more than the count, and a count that no pool is large enough for with `NoDuplicate`.

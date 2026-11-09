@@ -3,9 +3,13 @@ use crate::default_random::DefaultRandom;
 use crate::random::{generate_result, RandomError, RandomNumbers};
 use crate::random_trait::RandomTrait;
 use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait, NoDuplicate, NumberPool, NumberRange, NumberSpace, OddEven};
+use std::fmt;
 use std::sync::Arc;
 
-#[derive(Clone, Debug)]
+//How many tickets uniform generation starts before it stops, unless max_draws says otherwise
+pub const DEFAULT_MAX_DRAWS: usize = 1_000_000;
+
+#[derive(Clone)]
 pub struct Settings {
     expected_rules: Vec<Box<dyn RuleTrait>>,
     count: usize,
@@ -14,7 +18,29 @@ pub struct Settings {
     max_is_match_attempts: usize,
     max_specific_error_count: usize,
     random: Option<Arc<dyn RandomTrait + Send + Sync>>,
-    errors: Vec<String>
+    errors: Vec<String>,
+    uniform: bool,
+    max_draws: usize,
+}
+
+//The same as a derived Debug.  uniform and max_draws are only shown when uniform is on, so the
+//settings in reports are the same as before there was uniform.
+impl fmt::Debug for Settings {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("Settings");
+        d.field("expected_rules", &self.expected_rules)
+            .field("count", &self.count)
+            .field("exclude_rules", &self.exclude_rules)
+            .field("max_tries", &self.max_tries)
+            .field("max_is_match_attempts", &self.max_is_match_attempts)
+            .field("max_specific_error_count", &self.max_specific_error_count)
+            .field("random", &self.random)
+            .field("errors", &self.errors);
+        if self.uniform {
+            d.field("uniform", &self.uniform).field("max_draws", &self.max_draws);
+        }
+        return d.finish();
+    }
 }
 
 //Builds Settings.  Created with Settings::builder.
@@ -24,6 +50,8 @@ pub struct SettingsBuilder {
     expected_rules: Vec<Box<dyn RuleTrait>>,
     exclude_rules: Vec<Box<dyn ExcludeRuleTrait>>,
     random: Option<Arc<dyn RandomTrait + Send + Sync>>,
+    uniform: bool,
+    max_draws: usize,
 }
 
 impl SettingsBuilder {
@@ -51,6 +79,20 @@ impl SettingsBuilder {
         return self;
     }
 
+    //Every result that matches the rules is equally likely.  The numbers are drawn at random, without the rules
+    //steering them, and a ticket is started again as soon as a rule says it can not match.  Rules that only a
+    //few tickets match take many draws: see max_draws.
+    pub fn uniform(mut self) -> SettingsBuilder {
+        self.uniform = true;
+        return self;
+    }
+
+    //With uniform, how many tickets to start before giving up.  DEFAULT_MAX_DRAWS without it.
+    pub fn max_draws(mut self, max_draws: usize) -> SettingsBuilder {
+        self.max_draws = max_draws;
+        return self;
+    }
+
     //Uses this random number generator instead of DefaultRandom
     pub fn random(mut self, random: impl RandomTrait + Send + Sync + 'static) -> SettingsBuilder {
         self.random = Some(Arc::new(random));
@@ -74,7 +116,10 @@ impl SettingsBuilder {
 
     pub fn build(self) -> Settings {
         let exclude_rules = if self.exclude_rules.is_empty() { None } else { Some(self.exclude_rules) };
-        return Settings::from_parts(self.expected_rules, self.count, exclude_rules, self.random);
+        let mut settings = Settings::from_parts(self.expected_rules, self.count, exclude_rules, self.random);
+        settings.uniform = self.uniform;
+        settings.max_draws = self.max_draws;
+        return settings;
     }
 }
 
@@ -86,6 +131,8 @@ impl Settings {
             expected_rules: Vec::new(),
             exclude_rules: Vec::new(),
             random: None,
+            uniform: false,
+            max_draws: DEFAULT_MAX_DRAWS,
         };
     }
 
@@ -167,7 +214,9 @@ impl Settings {
             max_is_match_attempts: 10,
             max_specific_error_count: 3 * count,
             random,
-            errors
+            errors,
+            uniform: false,
+            max_draws: DEFAULT_MAX_DRAWS,
         };
     }
 
@@ -210,6 +259,14 @@ impl Settings {
 
     pub fn count(&self) -> usize {
         return self.count;
+    }
+
+    pub fn uniform(&self) -> bool {
+        return self.uniform;
+    }
+
+    pub fn max_draws(&self) -> usize {
+        return self.max_draws;
     }
 
     pub fn max_tries(&self) -> usize {

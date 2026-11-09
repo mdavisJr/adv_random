@@ -41,6 +41,8 @@ Every example in this file is run by `cargo test`, so they all work with the cur
 | `.no_duplicates()` | No number is there more than once.  The same as `.rule(NoDuplicate)` |
 | `.odd_even(odd, even)` | This many odd numbers and this many even numbers.  The same as `.rule(OddEven::new().odd(odd).even(even))` |
 | `.random(generator)` | Uses your random number generator |
+| `.uniform()` | Every result that matches the rules is equally likely.  See [Every Result Equally Likely](#every-result-equally-likely) |
+| `.max_draws(n)` | With `.uniform()`, how many tickets to start before giving up.  1,000,000 by default |
 | `.boxed_rules(rules)` and `.boxed_excludes(rules)` | Adds rules that are already in a `Vec<Box<dyn RuleTrait>>` or a `Vec<Box<dyn ExcludeRuleTrait>>` |
 | `.build()` | Returns the `Settings` |
 
@@ -144,6 +146,32 @@ If you do not want rand, turn off the default features.  There is no default gen
 [dependencies]
 adv_random = { version = "3", default-features = false }
 ```
+
+# Every Result Equally Likely
+By default the rules steer the numbers: a rule like `OddEven` picks odd or even numbers so the result fits quickly.  That finds numbers that match, but some matching results come up more often than others, depending on how they were put together.
+
+With `.uniform()`, every result that matches the rules is equally likely.  The numbers are drawn at random, one at a time, without the rules steering them.  As soon as a rule says the numbers so far can not match, they are thrown away and the next ticket starts from scratch, and a full ticket is kept only if every rule matches.  Use it when the results have to be fair, such as for statistics or games.
+```rust
+use adv_random::prelude::*;
+
+//5 numbers from 1 to 39 with no duplicates, either 3 odd and 2 even or 2 odd and 3 even.  Every 5 numbers
+//like that are equally likely.
+let random_numbers = Settings::builder(5)
+    .range(1, 39)
+    .no_duplicates()
+    .rule(AnyOf::new().rule(OddEven::new().odd(3).even(2)).rule(OddEven::new().odd(2).even(3)))
+    .uniform()
+    .build()
+    .generate()
+    .unwrap();
+println!("{:?}", random_numbers.numbers());
+```
+`AnyOf` matches when any one of its rules matches.  It works without `.uniform()` too.
+
+Things to know about `.uniform()`:
+- Every number needs a range, such as `.range(min, max)` or `NumberRange::new().at(...)`.  Pools and other rules decide whether the numbers are kept, not which numbers are drawn.
+- Rules that only a few results match take many tickets.  When none matches in `.max_draws(n)`, `generate` returns a `Failed` error.  Its logs keep the first 10,000 entries and end with how many times each rule stopped a ticket, which says which rule is the hard one.
+- A rule stops a ticket early only when it says it can with `can_stop_early`.  The other rules are checked on full tickets, which is just as fair but slower.  `Sequential` and `NumberSpace` are checked on full tickets.
 
 # Examples
 ### Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
@@ -612,6 +640,12 @@ impl RuleTrait for MultipleOf {
     fn is_match(&self, current_data: &CurrentData) -> Result<(), String> {
         return self.is_within_range(current_data).map_err(|x| x.1);
     }
+
+    //is_within_range only says no when the numbers can not match whatever is added to them: a number that is
+    //not a multiple stays one.  So uniform settings can stop a ticket as soon as it says no.
+    fn can_stop_early(&self) -> bool {
+        return true;
+    }
 }
 
 //It is used like any other rule
@@ -622,8 +656,16 @@ let random_numbers = Settings::builder(5)
     .generate()
     .unwrap();
 println!("{:?}", random_numbers.numbers());
+
+//check_uniform goes through every ticket of small settings, and finds where is_within_range says no too soon
+let settings = Settings::builder(3).range(1, 12).rule(MultipleOf { multiple: 3 }).uniform().build();
+let check = adv_random::uniform_check::check_uniform(&settings).unwrap();
+assert!(check.wrong_stops.is_empty());
+assert_eq!(check.matching.len(), 64);
 ```
 #### Output: [100, 40, 65, 50, 55]
+
+`can_stop_early` is optional and off unless a rule turns it on.  Only turn it on when `is_within_range` never says no to numbers that could still match once more are added, and check it with `check_uniform` on small settings like the example above.  A rule that says no too soon would make `.uniform()` leave some results out.
 
 To use a rule with `.exclude(...)` it also has to implement `ExcludeRuleTrait`.
 
