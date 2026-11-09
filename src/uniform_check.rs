@@ -1,6 +1,6 @@
-//Checks rules for uniform settings: that is_within_range only stops a ticket early when no numbers added
-//to it could make it match.  A rule that stops too soon makes uniform settings leave tickets out, so a
-//custom rule should only say it can_stop_early when this finds no wrong stops for it.
+//Checks rules for uniform settings: that can_still_match only says no when no numbers added could make the
+//numbers match.  A rule that says no too soon makes uniform settings leave tickets out, so a custom rule's
+//can_still_match should only be used when this finds no wrong stops for it.
 //
 //  let settings = Settings::builder(4).range(1, 10).no_duplicates().rule(MyRule::new()).uniform().build();
 //  let check = check_uniform(&settings).unwrap();

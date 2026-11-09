@@ -95,9 +95,9 @@ impl RuleTrait for AnyOf {
         return self.rules.iter().flat_map(|x| x.validate(count)).collect();
     }
 
-    //One rule saying no too soon would make this one too
-    fn can_stop_early(&self) -> bool {
-        return self.rules.iter().all(|x| x.can_stop_early());
+    //It can still match while any one of its rules can
+    fn can_still_match(&self, current_data: &CurrentData) -> bool {
+        return self.rules.iter().any(|x| x.can_still_match(current_data));
     }
 
     fn name(&self) -> String {

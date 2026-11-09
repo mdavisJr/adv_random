@@ -952,7 +952,7 @@ fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sy
             if let Some((idx, rule)) = random_number {
                 logs.gen_type(idx, rule, &numbers[numbers.len() - 1..], &numbers);
             }
-            if is_within_range_check_of(&expected_rules, settings.exclude_rules(), &current_data, &mut logs, true).is_err() {
+            if !can_still_match_check(&expected_rules, settings.exclude_rules(), &current_data, &mut logs) {
                 kept = false;
                 break;
             }
@@ -981,6 +981,28 @@ fn rules_shared_data(expected_rules: &[(usize, &dyn RuleTrait)], settings: &Sett
         }
     }
     return shared_data;
+}
+
+//For uniform generation: whether every rule says numbers can still be added so they match.  The first
+//rule that says no is logged.
+fn can_still_match_check(
+    expected_rules: &[(usize, &dyn RuleTrait)],
+    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>,
+    current_data: &CurrentData,
+    logs: &mut Logs) -> bool {
+    for (idx, expected_rule) in expected_rules {
+        if !expected_rule.can_still_match(current_data) {
+            logs.expected_rule(*idx, *expected_rule);
+            return false;
+        }
+    }
+    for (idx, exclude_rule) in exclude_rules.iter().flatten().enumerate() {
+        if !exclude_rule.can_still_match_excluded(current_data) {
+            logs.exclude_rule(idx, exclude_rule.as_ref());
+            return false;
+        }
+    }
+    return true;
 }
 
 //Each rule with its index in settings.expected_rules()
@@ -1027,7 +1049,7 @@ pub(crate) fn uniform_can_go_on(settings: &Settings, numbers: &[usize]) -> bool 
     let numbers = numbers.to_vec();
     let shared_data = rules_shared_data(&indexed_rules(settings), settings, &numbers);
     let current_data = CurrentData::new(&numbers, settings, &shared_data);
-    return is_within_range_check_of(&indexed_rules(settings), settings.exclude_rules(), &current_data, &mut Logs::default(), true).is_ok();
+    return can_still_match_check(&indexed_rules(settings), settings.exclude_rules(), &current_data, &mut Logs::default());
 }
 
 //For uniform generation: whether a full ticket matches every rule
@@ -1069,20 +1091,7 @@ fn is_within_range_check(
     _settings: &Settings, 
     current_data: &CurrentData,
     logs: &mut Logs) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
-    return is_within_range_check_of(expected_rules, exclude_rules, current_data, logs, false);
-}
-
-//is_within_range_check, only with the rules that can stop a ticket early when early_only is on
-fn is_within_range_check_of(
-    expected_rules: &[(usize, &dyn RuleTrait)],
-    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>,
-    current_data: &CurrentData,
-    logs: &mut Logs,
-    early_only: bool) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
     for (idx, expected_rule) in expected_rules {
-        if early_only && !expected_rule.can_stop_early() {
-            continue;
-        }
         if let Err(e) = expected_rule.is_within_range(current_data) {
             logs.expected_rule(*idx, *expected_rule);
             return Err((e.0, e.1, RuleRef::Expected(*idx)));
@@ -1090,9 +1099,6 @@ fn is_within_range_check_of(
     }
     if let Some(exc_rules) = exclude_rules {
         for (idx, exclude_rule) in exc_rules.iter().enumerate() {
-            if early_only && !exclude_rule.can_stop_early_excluded() {
-                continue;
-            }
             if let Err(e) = exclude_rule.is_within_excluded_range(current_data) {
                 logs.exclude_rule(idx, exclude_rule.as_ref());
                 return Err((e.0, e.1, RuleRef::Exclude(idx)));

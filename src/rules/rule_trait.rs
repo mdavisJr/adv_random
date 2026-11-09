@@ -137,12 +137,13 @@ pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
         };
     }
 
-    //Whether is_within_range only says no when no numbers added to the ticket could make it match.  Uniform
-    //settings stop a ticket early only with rules that say so, and check the others on full tickets.  It is
-    //off unless a rule turns it on, because a rule that says no too soon would make uniform settings leave
-    //tickets out.
-    fn can_stop_early(&self) -> bool {
-        return false;
+    //Whether numbers can still be added to the selected numbers so they match.  Uniform settings throw a
+    //ticket away as soon as a rule says false, so it must only say false when nothing added could make the
+    //numbers match: a rule that says it too soon makes uniform settings leave results out, and
+    //uniform_check::check_uniform finds where it does.  Settings that are not uniform never call it.  By
+    //default it is always true, so the rule is only checked with is_match on full tickets.
+    fn can_still_match(&self, _current_data: &CurrentData) -> bool {
+        return true;
     }
 }
 

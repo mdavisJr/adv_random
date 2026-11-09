@@ -171,7 +171,7 @@ println!("{:?}", random_numbers.numbers());
 Things to know about `.uniform()`:
 - Every number needs a range, such as `.range(min, max)` or `NumberRange::new().at(...)`.  Pools and other rules decide whether the numbers are kept, not which numbers are drawn.
 - Rules that only a few results match take many tickets.  When none matches in `.max_draws(n)`, `generate` returns a `Failed` error.  Its logs keep the first 10,000 entries and end with how many times each rule stopped a ticket, which says which rule is the hard one.
-- A rule stops a ticket early only when it says it can with `can_stop_early`.  The other rules are checked on full tickets, which is just as fair but slower.  `Sequential` and `NumberSpace` are checked on full tickets.
+- A ticket is thrown away early when a rule's `can_still_match` says no numbers added to it could make it match.  Rules without one are checked on full tickets, which is just as fair but slower.  `Sequential` and `NumberSpace` are checked on full tickets.
 
 # Examples
 ### Create 10 random numbers between 1 and 20 (min and max numbers are inclusive)
@@ -641,10 +641,10 @@ impl RuleTrait for MultipleOf {
         return self.is_within_range(current_data).map_err(|x| x.1);
     }
 
-    //is_within_range only says no when the numbers can not match whatever is added to them: a number that is
-    //not a multiple stays one.  So uniform settings can stop a ticket as soon as it says no.
-    fn can_stop_early(&self) -> bool {
-        return true;
+    //For uniform settings: whether numbers can still be added so these match.  A number that is not a
+    //multiple stays one, so the numbers can not match once one is there.
+    fn can_still_match(&self, current_data: &CurrentData) -> bool {
+        return current_data.selected_numbers().iter().all(|x| x % self.multiple == 0);
     }
 }
 
@@ -657,7 +657,7 @@ let random_numbers = Settings::builder(5)
     .unwrap();
 println!("{:?}", random_numbers.numbers());
 
-//check_uniform goes through every ticket of small settings, and finds where is_within_range says no too soon
+//check_uniform goes through every ticket of small settings, and finds where can_still_match says no too soon
 let settings = Settings::builder(3).range(1, 12).rule(MultipleOf { multiple: 3 }).uniform().build();
 let check = adv_random::uniform_check::check_uniform(&settings).unwrap();
 assert!(check.wrong_stops.is_empty());
@@ -665,7 +665,7 @@ assert_eq!(check.matching.len(), 64);
 ```
 #### Output: [100, 40, 65, 50, 55]
 
-`can_stop_early` is optional and off unless a rule turns it on.  Only turn it on when `is_within_range` never says no to numbers that could still match once more are added, and check it with `check_uniform` on small settings like the example above.  A rule that says no too soon would make `.uniform()` leave some results out.
+`can_still_match` is optional and only used by `.uniform()`.  Without it a rule is checked on full tickets.  It must only say no when no numbers added could make the numbers match: a rule that says no too soon would make `.uniform()` leave some results out.  Check it with `check_uniform` on small settings like the example above.
 
 To use a rule with `.exclude(...)` it also has to implement `ExcludeRuleTrait`.
 

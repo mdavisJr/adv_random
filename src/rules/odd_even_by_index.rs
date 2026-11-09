@@ -144,9 +144,10 @@ impl RuleTrait for OddEvenByIndex {
         }
     }
 
-    //rules_only_stop_tickets_that_can_not_match checks it
-    fn can_stop_early(&self) -> bool {
-        return true;
+    //Its is_within_range only says no when nothing added could make the numbers match.
+    //rules_only_stop_tickets_that_can_not_match checks it.
+    fn can_still_match(&self, current_data: &CurrentData) -> bool {
+        return self.is_within_range(current_data).is_ok();
     }
 
     fn name(&self) -> String {
