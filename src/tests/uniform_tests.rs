@@ -78,6 +78,8 @@ fn small_cases() -> Vec<(&'static str, SettingsBuilder)> {
         ("small: AnyOf", b(6).rule(AnyOf::new().rule(OddEven::new().odd(3).even(0)).rule(Sequential::new().in_a_row(3)))),
         ("small: ExcludeNumberSets", b(6).exclude(ExcludeNumberSets::new().numbers(&[1, 2, 3]).numbers(&[4, 5, 6]))),
         ("small: repeats allowed, OddEven 2/1", Settings::builder(3).range(1, 4).rule(OddEven::new().odd(2).even(1))),
+        ("small: pools without a range", Settings::builder(3).no_duplicates().rule(NumberPool::new().exactly(2, [1, 2, 3, 4]).exactly(1, [8, 9]))),
+        ("small: pools by index without a range", Settings::builder(3).rule(NumberPoolByIndex::new().at([0], [1, 2, 3]).at([1, 2], [5, 6, 7]))),
     ]
 }
 
@@ -169,6 +171,78 @@ fn any_of_works_without_uniform_and_needs_rules() {
 #[test]
 fn uniform_needs_a_range_and_is_off_by_default() {
     assert!(!Settings::builder(3).range(1, 9).build().uniform());
-    let error = Settings::builder(3).rule(NumberPool::new().exactly(3, [1, 2, 3, 4])).uniform().build().generate().unwrap_err();
+    let error = Settings::builder(3).rule(OddEven::new().odd(2).even(1)).uniform().build().generate().unwrap_err();
     assert!(error.messages().iter().any(|x| x.contains("Uniform needs a range")), "{:?}", error.messages());
+}
+
+//Pools give the numbers to draw when every number has to come from them, so settings like passwords work
+//without a range
+#[test]
+fn uniform_draws_from_pools_every_number_comes_from() {
+    // The README's 15 characters: 11 capital letters, 2 of "365" and 2 of "#*"
+    let settings = Settings::builder(15)
+        .rule(NumberPool::new().exactly(11, "ABCDEFGHIJKLMNOPQRSTUVWXYZ").exactly(2, "365").exactly(2, "#*"))
+        .uniform()
+        .build();
+    for _ in 0..50 {
+        let text = settings.generate().unwrap().string().unwrap();
+        assert_eq!(text.len(), 15);
+        assert_eq!(text.chars().filter(|x| x.is_ascii_uppercase()).count(), 11, "{}", text);
+        assert_eq!(text.chars().filter(|x| "365".contains(*x)).count(), 2, "{}", text);
+        assert_eq!(text.chars().filter(|x| "#*".contains(*x)).count(), 2, "{}", text);
+    }
+    // The README's license number: 2 letters and 7 digits, but not two that are taken
+    let settings = Settings::builder(9)
+        .rule(ExcludeNumberSets::new().string("AB1234567").string("CB1234567"))
+        .rule(NumberPoolByIndex::new().at([0, 1], "ABCDEFGHIJKLMNOPQRSTUVWXYZ").at(2..=8, "1234567890"))
+        .uniform()
+        .build();
+    for _ in 0..50 {
+        let text = settings.generate().unwrap().string().unwrap();
+        assert!(text[..2].chars().all(|x| x.is_ascii_uppercase()) && text[2..].chars().all(|x| x.is_ascii_digit()), "{}", text);
+    }
+    // Pools that share numbers can count a number twice, so they don't say where every number comes from
+    let error = Settings::builder(4).rule(NumberPool::new().exactly(2, [1, 2, 3]).exactly(2, [3, 4, 5])).uniform().build().generate().unwrap_err();
+    assert!(error.messages().iter().any(|x| x.contains("Uniform needs a range")), "{:?}", error.messages());
+}
+
+//sample_uniform finds a can_still_match that says no too soon, and none in the built-in rules on settings
+//too big to go through every ticket
+#[test]
+fn sample_uniform_finds_wrong_stops() {
+    use crate::random::CurrentData;
+    use crate::uniform_check::sample_uniform;
+    // Says the numbers can't match once the first one is odd, but every ticket matches
+    #[derive(Clone, Debug)]
+    struct OddFirstStops;
+    impl std::fmt::Display for OddFirstStops {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "OddFirstStops") }
+    }
+    impl RuleTrait for OddFirstStops {
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn share_data(&self, _c: &CurrentData) -> Option<SharedData> { None }
+        fn get_numbers(&self, _c: &CurrentData) -> Result<Option<Vec<usize>>, String> { Ok(None) }
+        fn is_within_range(&self, _c: &CurrentData) -> Result<(), (IsWithinErrorType, String)> { Ok(()) }
+        fn is_match(&self, _c: &CurrentData) -> Result<(), String> { Ok(()) }
+        fn check_count(&self, _count: usize) -> Result<bool, String> { Ok(true) }
+        fn name(&self) -> String { "OddFirstStops".into() }
+        fn can_still_match(&self, c: &CurrentData) -> bool { c.selected_numbers()[0] % 2 == 0 }
+    }
+    let settings = Settings::builder(6).range(1, 40).no_duplicates().rule(OddFirstStops).random(SeededRandom::new(3)).uniform().build();
+    let check = sample_uniform(&settings, 200).unwrap();
+    assert_eq!(check.matching.len(), 200);
+    assert!(!check.wrong_stops.is_empty() && check.wrong_stops.iter().all(|x| x[0] % 2 == 1), "{:?}", &check.wrong_stops[..3.min(check.wrong_stops.len())]);
+
+    let b = || Settings::builder(6).range(1, 40).no_duplicates().random(SeededRandom::new(5));
+    for (name, builder) in [
+        ("OddEven 4/2", b().rule(OddEven::new().odd(4).even(2))),
+        ("NumberPool", b().rule(NumberPool::new().exactly(2, 1..=10).at_least(1, [38, 39, 40]).none_of([20]))),
+        ("NumberPool spread", b().rule(NumberPool::new().spread([3, 2, 1]).over(1..=13).over(14..=26).over(27..=40))),
+        ("OddEvenByIndex", b().rule(OddEvenByIndex::new().odd([0, 2, 4]).even([1]))),
+        ("AnyOf", b().rule(AnyOf::new().rule(OddEven::new().odd(6).even(0)).rule(NumberPool::new().at_least(3, 1..=10)))),
+    ] {
+        let check = sample_uniform(&builder.uniform().build(), 20_000).unwrap();
+        assert!(check.matching.len() > 50, "{}: only {} matched", name, check.matching.len());
+        assert!(check.wrong_stops.is_empty(), "{}: {:?}", name, &check.wrong_stops[..3.min(check.wrong_stops.len())]);
+    }
 }

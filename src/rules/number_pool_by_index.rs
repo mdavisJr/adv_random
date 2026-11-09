@@ -131,6 +131,11 @@ impl RuleTrait for NumberPoolByIndex {
         return self.is_within_range(current_data).is_ok();
     }
 
+    //The number at an index comes from that index's pool
+    fn uniform_choices(&self, index: usize, _count: usize) -> Option<PoolType> {
+        return self.number_pool_items.iter().find(|x| x.indexes.contains(&index)).map(|x| x.pool.clone());
+    }
+
     fn name(&self) -> String {
         return String::from("NumberPoolByIndex");
     }

@@ -922,7 +922,7 @@ fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sy
     let random_number = expected_rules.iter().copied().find(|x| x.1.as_any().is::<crate::rules::RandomNumber>());
     let mut logs = Logs::default();
     let mut numbers: Vec<usize> = Vec::with_capacity(count);
-    let (ranges, no_duplicates) = match uniform_ranges(settings) {
+    let (all_choices, no_duplicates) = match uniform_ranges(settings) {
         Ok(x) => x,
         Err(e) => {
             logs.push(Log::Error { msg: e });
@@ -934,17 +934,9 @@ fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sy
         numbers.clear();
         let mut kept = true;
         while numbers.len() < count {
-            let (min, max) = ranges[numbers.len()];
-            if no_duplicates && (min..=max).all(|x| numbers.contains(&x)) {
+            let Some(number) = all_choices[numbers.len()].draw(random.as_ref(), &numbers, no_duplicates) else {
                 kept = false;
                 break;
-            }
-            //drawing again until it is new is drawing without putting numbers back, which keeps every ticket as likely
-            let number = loop {
-                let number = random.get_number(min, max);
-                if !(no_duplicates && numbers.contains(&number)) {
-                    break number;
-                }
             };
             numbers.push(number);
             let shared_data = rules_shared_data(&expected_rules, settings, &numbers);
@@ -1012,10 +1004,10 @@ fn indexed_rules(settings: &Settings) -> Vec<(usize, &dyn RuleTrait)> {
 
 //For uniform generation: the range of the number at each index, and whether numbers can not be repeated.
 //Only what the rules share that is the same for every ticket is used.
-pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<(usize, usize)>, bool), String> {
+pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<Choices>, bool), String> {
     let expected_rules = indexed_rules(settings);
     let empty_shared_data = SharedData::new();
-    let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(settings.count());
+    let mut all_choices: Vec<Choices> = Vec::with_capacity(settings.count());
     let mut no_duplicates = false;
     for index in 0..settings.count() {
         //Stand-in numbers: only how many there are matters for what is used
@@ -1028,20 +1020,106 @@ pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<(u
             }
         }
         no_duplicates |= shared_data.no_duplicates();
+        //The range, then what each rule says the number can be
         let (min, max) = shared_data.min_max();
-        if max == usize::MAX || min > max {
-            return Err(format!("Uniform needs a range for every number, such as a NumberRange.  Number {} has none", index + 1));
+        let mut choices = if max == usize::MAX { None } else { Some(Choices::Range(min, max)) };
+        for (_, rule) in &expected_rules {
+            if let Some(pool) = rule.uniform_choices(index, settings.count()) {
+                let pool = Choices::from_pool(&pool);
+                choices = Some(match choices {
+                    Some(x) => x.and(&pool),
+                    None => pool,
+                });
+            }
         }
-        ranges.push((min, max));
+        let Some(choices) = choices else {
+            return Err(format!("Uniform needs a range for every number, such as a NumberRange, or pools that every number comes from.  Number {} has none", index + 1));
+        };
+        if choices.len() == 0 {
+            return Err(format!("Uniform can not draw number {}: no number fits its range and pools", index + 1));
+        }
+        all_choices.push(choices);
     }
-    //Without repeats, the ranges have to have a number for every index between them
+    //Without repeats, the choices have to have a number for every index between them
     if no_duplicates {
-        let available: HashSet<usize> = ranges.iter().flat_map(|(min, max)| *min..=(*max).min(min.saturating_add(settings.count()))).collect();
+        let available: HashSet<usize> = all_choices.iter().flat_map(|x| x.numbers().take(settings.count())).collect();
         if available.len() < settings.count() {
             return Err(format!("Uniform without repeats needs {} different numbers, and the ranges only have {}", settings.count(), available.len()));
         }
     }
-    return Ok((ranges, no_duplicates));
+    return Ok((all_choices, no_duplicates));
+}
+
+//The numbers uniform generation can draw at an index
+#[derive(Clone, Debug)]
+pub(crate) enum Choices {
+    Range(usize, usize),
+    //sorted, without repeats, and not one range
+    Set(Vec<usize>),
+}
+
+impl Choices {
+    //A set that is one range is kept as the range, so it is drawn the same way
+    fn from_numbers(numbers: Vec<usize>) -> Choices {
+        return match (numbers.first(), numbers.last()) {
+            (Some(&min), Some(&max)) if max - min + 1 == numbers.len() => Choices::Range(min, max),
+            _ => Choices::Set(numbers),
+        };
+    }
+
+    fn from_pool(pool: &PoolType) -> Choices {
+        return match pool {
+            PoolType::MinMax(min, max) => Choices::Range(*min, *max),
+            PoolType::Set(set) => Choices::from_numbers(set.numbers().to_vec()),
+        };
+    }
+
+    //The numbers in both
+    fn and(&self, other: &Choices) -> Choices {
+        return match (self, other) {
+            (Choices::Range(min_1, max_1), Choices::Range(min_2, max_2)) => Choices::Range(*min_1.max(min_2), *max_1.min(max_2)),
+            (Choices::Set(numbers), choices) | (choices, Choices::Set(numbers)) => Choices::from_numbers(numbers.iter().copied().filter(|x| choices.contains(*x)).collect()),
+        };
+    }
+
+    fn contains(&self, number: usize) -> bool {
+        return match self {
+            Choices::Range(min, max) => *min <= number && number <= *max,
+            Choices::Set(numbers) => numbers.binary_search(&number).is_ok(),
+        };
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        return match self {
+            Choices::Range(min, max) => if min > max { 0 } else { (max - min).saturating_add(1) },
+            Choices::Set(numbers) => numbers.len(),
+        };
+    }
+
+    //Every choice, smallest first
+    pub(crate) fn numbers(&self) -> Box<dyn Iterator<Item = usize> + '_> {
+        return match self {
+            Choices::Range(min, max) => Box::new(*min..=*max),
+            Choices::Set(numbers) => Box::new(numbers.iter().copied()),
+        };
+    }
+
+    //A random choice that is not in numbers when there can be no repeats, or None when every choice is.
+    //Drawing again until one is new is drawing without putting numbers back, which keeps every ticket as likely.
+    pub(crate) fn draw(&self, random: &dyn RandomTrait, numbers: &[usize], no_duplicates: bool) -> Option<usize> {
+        if no_duplicates && self.numbers().all(|x| numbers.contains(&x)) {
+            return None;
+        }
+        loop {
+            let number = match self {
+                Choices::Range(min, max) => random.get_number(*min, *max),
+                Choices::Set(choices) => choices[random.get_number(0, choices.len() - 1)],
+            };
+            if !(no_duplicates && numbers.contains(&number)) {
+                return Some(number);
+            }
+        }
+    }
 }
 
 //For uniform generation: whether a partial or full ticket gets past is_within_range, so it is not stopped

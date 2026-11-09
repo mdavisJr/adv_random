@@ -164,6 +164,14 @@ impl PoolType {
             PoolType::MinMax(min, max) => if min > max { 0 } else { (max - min).saturating_add(1) },
         }
     }
+
+    //Every number in the pool, smallest first
+    pub(crate) fn numbers_iter(&self) -> Box<dyn Iterator<Item = usize> + '_> {
+        match self {
+            PoolType::Set(set) => Box::new(set.numbers().iter().copied()),
+            PoolType::MinMax(min, max) => Box::new(*min..=*max),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -777,6 +785,41 @@ impl RuleTrait for NumberPool {
     //rules_only_stop_tickets_that_can_not_match checks it.
     fn can_still_match(&self, current_data: &CurrentData) -> bool {
         return self.is_within_range(current_data).is_ok();
+    }
+
+    //When the pools that need numbers share no number and need count numbers between them, every number
+    //comes from one of them: a number in two pools could count twice, so that is only known without sharing
+    fn uniform_choices(&self, _index: usize, count: usize) -> Option<PoolType> {
+        let least = |needs: OperatorType| match needs {
+            OperatorType::Eq(x) | OperatorType::Gte(x) | OperatorType::Between(x, _) => x,
+            OperatorType::Gt(x) => x + 1,
+            OperatorType::Lt(_) | OperatorType::Lte(_) => 0,
+        };
+        let mut pools: Vec<&PoolType> = Vec::new();
+        let mut needed: usize = 0;
+        for item in self.number_pool_items.values() {
+            if least(item.needs()) > 0 {
+                pools.push(item.pool());
+                needed = needed.saturating_add(least(item.needs()));
+            }
+        }
+        for spread in &self.spreads {
+            pools.extend(spread.pools().iter());
+            needed = needed.saturating_add(spread.total());
+        }
+        if needed < count || pools.is_empty() {
+            return None;
+        }
+        for (index, pool) in pools.iter().enumerate() {
+            if pools[index + 1..].iter().any(|other| pool.first_shared_number(other).is_some()) {
+                return None;
+            }
+        }
+        //A pool that is a very wide range is no use as a list of numbers
+        if pools.iter().map(|x| x.len()).sum::<usize>() > 1_000_000 {
+            return None;
+        }
+        return Some(PoolType::set(pools.iter().flat_map(|x| x.numbers_iter())));
     }
 
     fn name(&self) -> String {

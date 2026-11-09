@@ -168,8 +168,24 @@ println!("{:?}", random_numbers.numbers());
 ```
 `AnyOf` matches when any one of its rules matches.  It works without `.uniform()` too.
 
+Pools can say where the numbers are drawn from.  Every 15 characters with 11 capital letters, 2 of `365` and 2 of `#*` are equally likely here.
+```rust
+use adv_random::prelude::*;
+
+let random_numbers = Settings::builder(15)
+    .rule(NumberPool::new()
+        .exactly(11, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        .exactly(2, "365")
+        .exactly(2, "#*"))
+    .uniform()
+    .build()
+    .generate()
+    .unwrap();
+println!("{}", random_numbers.string().unwrap());
+```
+
 Things to know about `.uniform()`:
-- Every number needs a range, such as `.range(min, max)` or `NumberRange::new().at(...)`.  Pools and other rules decide whether the numbers are kept, not which numbers are drawn.
+- Every number needs a range, such as `.range(min, max)` or `NumberRange::new().at(...)`, or pools that every number comes from.  `NumberPoolByIndex` gives each index's pool.  A `NumberPool` whose pools share no number, and need all of the numbers between them, gives every number's pools, like the password below.  Other pools decide whether the numbers are kept, not which numbers are drawn.
 - Rules that only a few results match take many tickets.  When none matches in `.max_draws(n)`, `generate` returns a `Failed` error.  Its logs keep the first 10,000 entries and end with how many times each rule stopped a ticket, which says which rule is the hard one.
 - A ticket is thrown away early when a rule's `can_still_match` says no numbers added to it could make it match.  Rules without one are checked on full tickets, which is just as fair but slower.  `Sequential` and `NumberSpace` are checked on full tickets.
 
@@ -665,7 +681,9 @@ assert_eq!(check.matching.len(), 64);
 ```
 #### Output: [100, 40, 65, 50, 55]
 
-`can_still_match` is optional and only used by `.uniform()`.  Without it a rule is checked on full tickets.  It must only say no when no numbers added could make the numbers match: a rule that says no too soon would make `.uniform()` leave some results out.  Check it with `check_uniform` on small settings like the example above.
+`can_still_match` is optional and only used by `.uniform()`.  Without it a rule is checked on full tickets.  It must only say no when no numbers added could make the numbers match: a rule that says no too soon would make `.uniform()` leave some results out.  Check it with `check_uniform` on small settings like the example above, or with `sample_uniform(&settings, tickets)` on settings too big to go through every ticket: it draws that many random tickets, and asks `can_still_match` about every start of the ones that match.
+
+`uniform_choices(index, count)` is optional too, and only used by `.uniform()`.  It returns the numbers that can be at an index whatever else is drawn, like a pool every number has to come from, and `.uniform()` only draws from them.  It must not leave out a number that a result could have there.
 
 To use a rule with `.exclude(...)` it also has to implement `ExcludeRuleTrait`.
 

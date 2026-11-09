@@ -145,6 +145,14 @@ pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
     fn can_still_match(&self, _current_data: &CurrentData) -> bool {
         return true;
     }
+
+    //For uniform settings: the numbers that can be at this index whatever else is drawn, or None when the
+    //rule does not limit them.  count is how many numbers there are.  Uniform settings only draw from the
+    //choices every rule gives, which is as fair as drawing others and throwing them away, so a rule must not
+    //leave out a number that a match could have there.  Settings that are not uniform never call it.
+    fn uniform_choices(&self, _index: usize, _count: usize) -> Option<PoolType> {
+        return None;
+    }
 }
 
 pub trait RuleTraitClone {
