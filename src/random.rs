@@ -685,14 +685,19 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
     let mut expected_rules: Vec<(usize, &dyn RuleTrait)> = settings.expected_rules().iter().map(|x| x.as_ref()).enumerate().collect();
     let mut rule_to_make_priority: Option<usize> = None;
     clear_numbers(&mut logs, &mut numbers, settings);
+    //Every attempt uses these again, cleared, instead of making new ones
+    let mut potential_numbers: Vec<usize> = Vec::with_capacity(settings.count());
+    let mut current_data_numbers: Vec<usize> = Vec::with_capacity(settings.count());
+    let mut numbers_with_potential: Vec<usize> = Vec::with_capacity(settings.count());
     for attempts in 1..=settings.max_tries() {
         logs.attempt(attempts);
         num_attempts = attempts;
-        let mut potential_numbers = Vec::new();
+        potential_numbers.clear();
         //the rule that got the numbers, with its index in settings.expected_rules()
         let mut gen_rule: Option<(usize, &dyn RuleTrait)> = None;
 
-        let current_data_numbers: Vec<usize> = numbers.to_vec();
+        current_data_numbers.clear();
+        current_data_numbers.extend_from_slice(&numbers);
         let current_data_shared_data = SharedData::new();
         let current_data_selected_numbers_sd = CurrentData::new(&current_data_numbers, settings, &current_data_shared_data);
         let mut shared_data = SharedData::new();
@@ -760,12 +765,9 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
 
         //Check if potential_numbers are valid
         if !potential_numbers.is_empty() {
-            let _temp_numbers = numbers
-            .iter()
-            .copied()
-            .chain(potential_numbers.iter().copied())
-            .collect::<Vec<usize>>();
-            let current_data_with_potential_numbers = CurrentData::new(&_temp_numbers, settings, &shared_data);
+            numbers_with_potential.clear();
+            numbers_with_potential.extend(numbers.iter().chain(potential_numbers.iter()));
+            let current_data_with_potential_numbers = CurrentData::new(&numbers_with_potential, settings, &shared_data);
 
             if let Some((idx, rule)) = gen_rule {
                 logs.gen_type(idx, rule, &potential_numbers, current_data_with_potential_numbers.selected_numbers);
