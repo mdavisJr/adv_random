@@ -143,6 +143,41 @@ fn uniform_stops_at_max_draws_and_counts_what_stopped_it() {
     println!("{}", last);
 }
 
+//Uniform logs keep one number for every draw, and their text says every number drawn so far in the attempt
+#[test]
+fn uniform_logs_say_every_number_drawn_in_the_attempt() {
+    let settings = Settings::builder(5).range(1, 39).no_duplicates()
+        .rule(OddEven::new().odd(4).even(1)).rule(NumberPool::new().exactly(3, 1..=13))
+        .random(SeededRandom::new(2)).uniform().build();
+    let numbers = settings.generate().unwrap();
+    let list = |text: &str| -> Vec<usize> {
+        let text = text.trim().trim_start_matches('[').trim_end_matches(']');
+        if text.is_empty() { Vec::new() } else { text.split(", ").map(|x| x.parse().unwrap()).collect() }
+    };
+    let mut drawn: Vec<usize> = Vec::new();
+    let (mut attempts, mut draws, mut clears) = (0, 0, 0);
+    for log in numbers.logs() {
+        let text = log.to_string();
+        if text.starts_with("Info  : Attempt - ") {
+            attempts += 1;
+            drawn.clear();
+        } else if let Some(rest) = text.strip_prefix("Info  : GEN_TYPE - RandomNumber; P - ") {
+            let (p, all) = rest.split_once("; A&P - ").unwrap();
+            drawn.extend(list(p));
+            assert_eq!(list(all), drawn, "{}", text);
+            draws += 1;
+        } else if let Some(rest) = text.strip_prefix("Info  : CLEAR - ") {
+            assert_eq!(list(rest), drawn, "{}", text);
+            clears += 1;
+        }
+    }
+    assert_eq!(attempts, numbers.attempts());
+    assert_eq!(clears, attempts - 1);
+    assert!(draws > attempts, "{} draws in {} attempts", draws, attempts);
+    // The last attempt's numbers are the ones made
+    assert_eq!(&drawn, numbers.numbers());
+}
+
 //check_uniform refuses settings with too many tickets, and max_draws(0) is a mistake
 #[test]
 fn check_uniform_is_for_small_settings_and_max_draws_is_at_least_1() {

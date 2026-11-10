@@ -391,6 +391,12 @@ enum Entry {
     GenType { rule: usize, potential: Vec<usize>, all: Vec<usize> },
     //A rule that a check stopped at
     Rule(RuleRef),
+    //For uniform generation, which draws one number at a time and starts every attempt from no numbers: the
+    //rule that got this number.  Its text says every number drawn since the attempt started, without a copy
+    //of them kept for every number.
+    Drawn { rule: usize, number: usize },
+    //For uniform generation: the numbers drawn since the attempt started were cleared
+    ClearDrawn,
 }
 
 impl Logs {
@@ -417,6 +423,15 @@ impl Logs {
 
     fn clear(&mut self, numbers: &[usize]) {
         self.add(|| Entry::Clear(numbers.to_vec()));
+    }
+
+    fn drawn(&mut self, idx: usize, rule: &dyn RuleTrait, number: usize) {
+        self.rule_names.entry(idx).or_insert_with(|| rule.name());
+        self.add(|| Entry::Drawn { rule: idx, number });
+    }
+
+    fn clear_drawn(&mut self) {
+        self.add(|| Entry::ClearDrawn);
     }
 
     fn gen_type(&mut self, idx: usize, rule: &dyn RuleTrait, potential: &[usize], all: &[usize]) {
@@ -448,7 +463,27 @@ impl Logs {
     //Every entry as text, made the first time they are asked for
     fn logs(&self) -> &Vec<Log> {
         return self.text.get_or_init(|| {
-            let mut logs: Vec<Log> = self.entries.iter().map(|x| self.text_of(x)).collect();
+            //The numbers drawn since the attempt started, for Drawn and ClearDrawn
+            let mut drawn: Vec<usize> = Vec::new();
+            let mut logs: Vec<Log> = Vec::with_capacity(self.entries.len());
+            for entry in &self.entries {
+                let msg = match entry {
+                    Entry::Attempt(_) => {
+                        drawn.clear();
+                        None
+                    }
+                    Entry::Drawn { rule, number } => {
+                        drawn.push(*number);
+                        Some(format!("GEN_TYPE - {}; P - {:?}; A&P - {:?}", self.rule_names[rule], [*number], drawn))
+                    }
+                    Entry::ClearDrawn => Some(format!("CLEAR - {:?}", drawn)),
+                    _ => None,
+                };
+                logs.push(match msg {
+                    Some(msg) => Log::Info { msg },
+                    None => self.text_of(entry),
+                });
+            }
             //Only when entries were not kept, which generating that is not uniform never gets to
             if self.not_kept > 0 {
                 let mut stopped: Vec<&(String, usize)> = self.stopped_by.values().collect();
@@ -467,6 +502,8 @@ impl Logs {
             Entry::Clear(numbers) => format!("CLEAR - {:?}", numbers),
             Entry::GenType { rule, potential, all } => format!("GEN_TYPE - {}; P - {:?}; A&P - {:?}", self.rule_names[rule], potential, all),
             Entry::Rule(rule) => self.rule_lines[rule].clone(),
+            //logs makes these, which need the entries before them
+            Entry::Drawn { .. } | Entry::ClearDrawn => unreachable!(),
         };
         return Log::Info { msg };
     }
@@ -978,7 +1015,7 @@ fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sy
             let shared_data = rules_shared_data(&expected_rules, settings, &numbers);
             let current_data = CurrentData::new(&numbers, settings, &shared_data);
             if let Some((idx, rule)) = random_number {
-                logs.gen_type(idx, rule, &numbers[numbers.len() - 1..], &numbers);
+                logs.drawn(idx, rule, number);
             }
             if !can_still_match_check(&expected_rules, settings.exclude_rules(), &current_data, &mut logs) {
                 kept = false;
@@ -992,7 +1029,7 @@ fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sy
                 return RandomResult { status: RandomResultType::Success, numbers, attempts: attempt, logs, clear_err_tracker: HashSet::new(), settings: String::new(), random: Some(random) };
             }
         }
-        logs.clear(&numbers);
+        logs.clear_drawn();
     }
     return RandomResult { status: RandomResultType::Failed, numbers: Vec::new(), attempts: settings.max_draws(), logs, clear_err_tracker: HashSet::new(), settings: format!("{:#?}", settings), random: None };
 }
