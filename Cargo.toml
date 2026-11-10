@@ -7,11 +7,17 @@ rust-version = "1.87"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mdavisJr/adv_random"
-description = "Create random numbers, passwords, or strings based on rules"
-keywords = ["rand", "random", "rule", "string", "password"]
+homepage = "https://github.com/mdavisJr/adv_random"
+documentation = "https://docs.rs/adv_random"
+description = "Random numbers, passwords and strings from rules: ranges, odd/even counts, pools, sequences, gaps and your own rules, with a mode where every matching result is equally likely"
+keywords = ["random", "rng", "password-generator", "lottery", "generator"]
+categories = ["algorithms", "mathematics", "simulation", "game-development"]
 
 [dependencies]
 rand = { version = "^0.10", optional = true }
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = ["rand"]

@@ -1,5 +1,17 @@
 # adv_random
+[![crates.io](https://img.shields.io/crates/v/adv_random.svg)](https://crates.io/crates/adv_random)
+[![docs.rs](https://img.shields.io/docsrs/adv_random)](https://docs.rs/adv_random)
+[![license](https://img.shields.io/crates/l/adv_random.svg)](#license)
+[![CI](https://github.com/mdavisJr/adv_random/actions/workflows/ci.yml/badge.svg)](https://github.com/mdavisJr/adv_random/actions/workflows/ci.yml)
+
 Create random numbers, passwords, or strings based on rules.
+
+- **Rules:** ranges, no duplicates, odd and even counts, numbers from pools, runs of numbers in a row, the spaces between numbers, numbers to leave out, one of several rules with `AnyOf`, and your own rules.
+- **Every result equally likely** with `.uniform()`, for statistics, games and lotteries: see [Every Result Equally Likely](#every-result-equally-likely).
+- **Passwords and strings** from letters, digits and special characters.
+- **Your own random number generator**, or `SeededRandom` for the same numbers every time.
+- Settings are checked before anything is generated, and every result can say what happened in every attempt.
+  You can choose your own random number generator to work with this framework.  By default this framework will use [rand](https://crates.io/crates/rand) if you do not provide a random number generator.
 
 This framework comes with some standard rules that you can use.  If you don't see a rule that you need, you can create your own custom rules to use with this framework or send me a request to add in a new rule.
 
@@ -729,3 +741,6 @@ Custom rules can share their own values with each other.  One rule returns `Some
 Custom rules have to change too.  `get_numbers` returns `Ok(None)` instead of `Err("Skip")`, and `share_data` returns `Option<SharedData>`.
 
 A `match` on `OperatorType` or `RandomErrorType` needs a `_` arm, because more types can be added to them.
+
+# License
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
