@@ -113,37 +113,22 @@ pub enum IsWithinErrorType {
 /// A rule the numbers have to match.  Every rule in adv_random implements it, and your own rules can too: see Custom Rules in the README.
 pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
     /// Without uniform settings, called every time numbers are added: an error when the numbers so far can not work.
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)>;
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)>;
 
     /// The rule as `Any`, to find out which rule it is.
     fn as_any(&self) -> &dyn Any;
 
     /// Called when all of the numbers are there: an error when they don't match.
-    fn is_match(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String>;
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String>;
 
     /// Ok(None) means this rule has no numbers to add right now
-    fn get_numbers(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<Option<Vec<usize>>, String>;
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String>;
 
     /// What the rule tells the other rules about the next number, such as its range.
-    fn share_data(
-        &self,
-        current_data: &CurrentData,
-    ) -> Option<SharedData>;
+    fn share_data(&self, current_data: &CurrentData) -> Option<SharedData>;
 
     /// An error when the count can not work with this rule.
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String>;
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String>;
 
     /// The rule's name, for logs and errors.
     fn name(&self) -> String;
@@ -153,7 +138,7 @@ pub trait RuleTrait: RuleTraitClone + Display + std::fmt::Debug + Send + Sync {
     fn validate(&self, count: usize) -> Vec<String> {
         return match self.check_count(count) {
             Ok(_) => Vec::new(),
-            Err(e) => vec![e]
+            Err(e) => vec![e],
         };
     }
 
@@ -188,7 +173,6 @@ where
         Box::new(self.clone())
     }
 }
-
 
 impl Clone for Box<dyn RuleTrait> {
     fn clone(&self) -> Box<dyn RuleTrait> {

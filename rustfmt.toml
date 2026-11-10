@@ -1,0 +1,5 @@
+# The width the code was written with, so formatting rewraps as little as it can.
+# Stable options only, so cargo fmt works on stable Rust.  The files have Windows line endings.
+max_width = 140
+use_small_heuristics = "Max"
+newline_style = "Windows"

@@ -1,12 +1,12 @@
 use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::get_random_vec_item;
-use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
+use crate::rules::{IsWithinErrorType, RuleTrait, SharedData};
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
-use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
+use super::ExcludeRuleTrait;
 
 #[derive(Clone, Default)]
 /// How many numbers are next to another number, in runs like 4, 5, 6, and how many are not.
@@ -109,7 +109,7 @@ impl Sequential {
         }
         return match current_data.random() {
             Some(random) => get_random_vec_item(random, &other_seq_counts).copied().unwrap_or(0),
-            None => other_seq_counts.first().copied().unwrap_or(0)
+            None => other_seq_counts.first().copied().unwrap_or(0),
         };
     }
 }
@@ -143,23 +143,20 @@ impl RuleTrait for Sequential {
         self
     }
 
-    fn share_data(
-        &self,
-        _current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
         None
     }
 
-    fn get_numbers(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         let act_seq = Sequential::from_numbers(current_data, false);
         let seq_count_needed = act_seq.needs_seq(self, current_data);
         if seq_count_needed > 0 {
             let random = current_data.random().ok_or_else(|| NO_RANDOM_ERR.to_owned())?;
             //A selected number that is not part of a sequence can be extended into one.  None starts a new sequence.
-            let mut starts: Vec<Option<usize>> = current_data.selected_numbers_sorted().iter().copied()
+            let mut starts: Vec<Option<usize>> = current_data
+                .selected_numbers_sorted()
+                .iter()
+                .copied()
                 .filter(|x| {
                     let has_lower = x.checked_sub(1).is_some_and(|v| current_data.is_selected(v));
                     let has_higher = x.checked_add(1).is_some_and(|v| current_data.is_selected(v));
@@ -173,58 +170,58 @@ impl RuleTrait for Sequential {
                 None => {
                     //leave room for the whole sequence before max
                     let (min, max) = current_data.shared_data().min_max();
-                    let max_start = max.checked_sub(seq_count_needed - 1).filter(|v| *v >= min)
-                        .ok_or_else(|| format!("Sequence of {} numbers does not fit between min: {} and max: {}", seq_count_needed, min, max))?;
-                    let num = current_data.get_rand(NumberType::Any, None, Some((min, max_start))).ok_or_else(|| current_data.no_number_err())?;
+                    let max_start = max.checked_sub(seq_count_needed - 1).filter(|v| *v >= min).ok_or_else(|| {
+                        format!("Sequence of {} numbers does not fit between min: {} and max: {}", seq_count_needed, min, max)
+                    })?;
+                    let num =
+                        current_data.get_rand(NumberType::Any, None, Some((min, max_start))).ok_or_else(|| current_data.no_number_err())?;
                     (Some(num), num.checked_add(seq_count_needed - 1))
                 }
             };
             return match (first, last) {
                 (Some(first), Some(last)) => Ok(Some((first..=last).collect())),
-                _ => Err(format!("Sequence of {} numbers does not fit after the selected number", seq_count_needed))
+                _ => Err(format!("Sequence of {} numbers does not fit after the selected number", seq_count_needed)),
             };
         }
         return Ok(None);
     }
 
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         let other = Sequential::from_numbers(current_data, false);
         if (other.not > self.not) || (other.seq_counts.len() > self.seq_counts.len()) {
-            return Err((IsWithinErrorType::Regular, format!(
-                "Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}.",
-                self.not, self.seq_counts, other.not, other.seq_counts
-            )));
+            return Err((
+                IsWithinErrorType::Regular,
+                format!(
+                    "Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}.",
+                    self.not, self.seq_counts, other.not, other.seq_counts
+                ),
+            ));
         }
-        for (idx, (a, b)) in self
-            .seq_counts
-            .iter()
-            .zip(other.seq_counts.iter())
-            .enumerate()
-        {
+        for (idx, (a, b)) in self.seq_counts.iter().zip(other.seq_counts.iter()).enumerate() {
             if a > b {
-                return Err((IsWithinErrorType::Regular, format!(
-                    "Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}. IDX:{}",
-                    self.not, self.seq_counts, other.not, other.seq_counts, idx
-                )));
+                return Err((
+                    IsWithinErrorType::Regular,
+                    format!(
+                        "Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}. IDX:{}",
+                        self.not, self.seq_counts, other.not, other.seq_counts, idx
+                    ),
+                ));
             }
         }
         //a sequence never gets shorter, so the longest sequences have to fit in the longest expected sequences
         if self.seq_counts.iter().rev().zip(other.seq_counts.iter().rev()).any(|(a, b)| b > a) {
-            return Err((IsWithinErrorType::Regular, format!(
-                "Sequence is too long. Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}.",
-                self.not, self.seq_counts, other.not, other.seq_counts
-            )));
+            return Err((
+                IsWithinErrorType::Regular,
+                format!(
+                    "Sequence is too long. Expected Not: {} and Seq_Counts: {:?}.  Actual Not: {} and Seq_Counts: {:?}.",
+                    self.not, self.seq_counts, other.not, other.seq_counts
+                ),
+            ));
         }
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         let other = Sequential::from_numbers(current_data, false);
         if self.not == other.not && self.seq_counts == other.seq_counts {
             return Ok(());
@@ -239,11 +236,8 @@ impl RuleTrait for Sequential {
         return String::from("Sequential");
     }
 
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String> {
-        let this_count:usize = self.not + self.seq_counts.iter().sum::<usize>();
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String> {
+        let this_count: usize = self.not + self.seq_counts.iter().sum::<usize>();
         if this_count == count {
             return Ok(true);
         }
@@ -264,17 +258,11 @@ impl ExcludeRuleTrait for Sequential {
         self
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 
-    fn is_within_excluded_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 

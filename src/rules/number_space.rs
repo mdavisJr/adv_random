@@ -1,12 +1,11 @@
-
 use crate::random::{CurrentData, NumberType};
 use crate::random_trait::get_random_vec_item;
-use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
+use crate::rules::{IsWithinErrorType, RuleTrait, SharedData};
 use std::any::Any;
-use std::{cmp, fmt};
 use std::fmt::{Debug, Display, Formatter, Result};
+use std::{cmp, fmt};
 
-use super::{ExcludeRuleTrait, is_excluded_helper};
+use super::{is_excluded_helper, ExcludeRuleTrait};
 
 /// More types can be added, so a match on this needs a _ arm
 #[non_exhaustive]
@@ -23,7 +22,7 @@ pub enum OperatorType {
     /// Greater than it.
     Gt(usize),
     /// From the first to the second, both included.
-    Between(usize, usize)
+    Between(usize, usize),
 }
 
 impl OperatorType {
@@ -33,8 +32,8 @@ impl OperatorType {
             OperatorType::Lt(0) => Err(String::from("Lt(0) never matches because nothing is less than 0")),
             OperatorType::Between(lower_bound, upper_bound) if lower_bound > upper_bound => {
                 Err(format!("Between lower: {} is greater than upper: {}", lower_bound, upper_bound))
-            },
-            _ => Ok(())
+            }
+            _ => Ok(()),
         };
     }
 
@@ -45,7 +44,7 @@ impl OperatorType {
             OperatorType::Lte(v) => v == 0,
             OperatorType::Eq(v) => v == 0,
             OperatorType::Between(lower_bound, upper_bound) => lower_bound == 0 && upper_bound == 0,
-            _ => false
+            _ => false,
         };
     }
 
@@ -60,8 +59,8 @@ impl OperatorType {
             OperatorType::Lt(_v) => 0,
             OperatorType::Lte(_v) => 0,
             OperatorType::Eq(v) => v.saturating_sub(value),
-            OperatorType::Gte(v) => v.saturating_sub(value),               
-            OperatorType::Gt(v) => (v+1).saturating_sub(value), 
+            OperatorType::Gte(v) => v.saturating_sub(value),
+            OperatorType::Gt(v) => (v + 1).saturating_sub(value),
             OperatorType::Between(lower_bound, _upper_bound) => lower_bound.saturating_sub(value),
         };
     }
@@ -72,9 +71,9 @@ impl OperatorType {
             OperatorType::Lt(v) => value < v,
             OperatorType::Lte(v) => value <= v,
             OperatorType::Eq(v) => value <= v,
-            OperatorType::Gte(_v) => true,               
-            OperatorType::Gt(_v) => true, 
-            OperatorType::Between(_lower_bound, upper_bound) => value <= upper_bound 
+            OperatorType::Gte(_v) => true,
+            OperatorType::Gt(_v) => true,
+            OperatorType::Between(_lower_bound, upper_bound) => value <= upper_bound,
         };
     }
 
@@ -84,9 +83,9 @@ impl OperatorType {
             OperatorType::Lt(v) => value < v,
             OperatorType::Lte(v) => value <= v,
             OperatorType::Eq(v) => value == v,
-            OperatorType::Gte(v) => value >= v,               
-            OperatorType::Gt(v) => value > v, 
-            OperatorType::Between(lower_bound, upper_bound) => value >= lower_bound && value <= upper_bound 
+            OperatorType::Gte(v) => value >= v,
+            OperatorType::Gt(v) => value > v,
+            OperatorType::Between(lower_bound, upper_bound) => value >= lower_bound && value <= upper_bound,
         };
     }
 
@@ -110,7 +109,7 @@ impl OperatorType {
                     match_count = 0;
                 }
                 last_gap_was_match = false;
-            }            
+            }
         }
         if match_count > 0 {
             matches.push(match_count);
@@ -118,10 +117,10 @@ impl OperatorType {
         }
 
         if !matches.is_empty() {
-            matches.sort();           
+            matches.sort();
         }
-        
-        return matches; 
+
+        return matches;
     }
 
     /// Returns true when the space between any two different numbers matches
@@ -130,7 +129,7 @@ impl OperatorType {
             OperatorType::Gte(v) => v <= 1,
             OperatorType::Gt(v) => v == 0,
             OperatorType::Between(lower_bound, upper_bound) => lower_bound <= 1 && upper_bound == usize::MAX,
-            _ => false
+            _ => false,
         };
     }
 
@@ -171,7 +170,7 @@ impl OperatorType {
                     //the starting number is new too
                     let start = match self.get_start_number(current_data, count, min, max) {
                         Some(v) => v,
-                        None => continue
+                        None => continue,
                     };
                     numbers.push(start);
                     (start, count + 1)
@@ -183,7 +182,7 @@ impl OperatorType {
                         numbers.push(v);
                         base_number = v;
                     }
-                    None => break
+                    None => break,
                 }
             }
 
@@ -211,8 +210,9 @@ impl OperatorType {
         return match *self {
             OperatorType::Gte(v) => v.checked_sub(1),
             OperatorType::Gt(v) => Some(v),
-            _ => None
-        }.filter(|v| *v >= 1);
+            _ => None,
+        }
+        .filter(|v| *v >= 1);
     }
 
     //Returns the numbers for a new run of "count" spaces just above the highest or just below the lowest selected number,
@@ -231,13 +231,9 @@ impl OperatorType {
             (Some(_), Some(_)) => random.get_bool(),
             (Some(_), None) => true,
             (None, Some(_)) => false,
-            (None, None) => return None
+            (None, None) => return None,
         };
-        let mut base_number = if go_above {
-            highest + random.get_number(1, above?)
-        } else {
-            lowest - random.get_number(1, below?)
-        };
+        let mut base_number = if go_above { highest + random.get_number(1, above?) } else { lowest - random.get_number(1, below?) };
         let mut numbers: Vec<usize> = vec![base_number];
         for _ in 0..count {
             base_number = if go_above {
@@ -267,7 +263,7 @@ impl OperatorType {
         let ub = match *self {
             OperatorType::Gte(v) => base_number.checked_sub(v)?,
             OperatorType::Gt(v) => base_number.checked_sub(v)?.checked_sub(1)?,
-            _ => return None
+            _ => return None,
         };
         if min > ub {
             return None;
@@ -283,18 +279,21 @@ impl OperatorType {
         let highest_start = self.smallest_space().checked_mul(count).and_then(|v| max.checked_sub(v)).filter(|v| *v >= min);
         return match highest_start {
             Some(v) => current_data.get_rand(NumberType::Any, None, Some((min, v))),
-            None => current_data.get_rand(NumberType::Any, None, None)
+            None => current_data.get_rand(NumberType::Any, None, None),
         };
     }
 
     fn get_next_number(&self, current_data: &CurrentData, base_number: usize, min: usize, max: usize) -> Option<usize> {
-        let (lower_b, upper_b) = match *self {                                                             //base 7, v 3
-            OperatorType::Lt(v) => (base_number.checked_add(1), base_number.checked_add(v)?.checked_sub(1)),       //8,9
-            OperatorType::Lte(v) => (base_number.checked_add(1), base_number.checked_add(v)),                      //8,9,10
-            OperatorType::Eq(v) => (base_number.checked_add(v), base_number.checked_add(v)),                       //10
-            OperatorType::Gt(v) => (base_number.checked_add(v)?.checked_add(1), Some(max)),                        //11..=max
-            OperatorType::Gte(v) => (base_number.checked_add(v), Some(max)),                                       //10..=max
-            OperatorType::Between(lower_bound, upper_bound) => (base_number.checked_add(lower_bound), Some(base_number.saturating_add(upper_bound))),
+        let (lower_b, upper_b) = match *self {
+            //base 7, v 3
+            OperatorType::Lt(v) => (base_number.checked_add(1), base_number.checked_add(v)?.checked_sub(1)), //8,9
+            OperatorType::Lte(v) => (base_number.checked_add(1), base_number.checked_add(v)),                //8,9,10
+            OperatorType::Eq(v) => (base_number.checked_add(v), base_number.checked_add(v)),                 //10
+            OperatorType::Gt(v) => (base_number.checked_add(v)?.checked_add(1), Some(max)),                  //11..=max
+            OperatorType::Gte(v) => (base_number.checked_add(v), Some(max)),                                 //10..=max
+            OperatorType::Between(lower_bound, upper_bound) => {
+                (base_number.checked_add(lower_bound), Some(base_number.saturating_add(upper_bound)))
+            }
         };
         let lb = cmp::max(lower_b?, min);
         let ub = cmp::min(upper_b?, max);
@@ -326,17 +325,13 @@ impl Display for OperatorType {
 pub struct NumberSpaceItem {
     number_space_type: OperatorType,
     needs: Vec<usize>,
-    has: Vec<usize>
+    has: Vec<usize>,
 }
 
 impl NumberSpaceItem {
     /// No runs yet.  Say what is needed with needs, and what a set of numbers has with has.
     pub fn new(number_space_type: OperatorType) -> NumberSpaceItem {
-        return NumberSpaceItem {
-            number_space_type,
-            needs: Vec::new(),
-            has: Vec::new()
-        };
+        return NumberSpaceItem { number_space_type, needs: Vec::new(), has: Vec::new() };
     }
 
     /// The runs that are needed.  Each count is how many spaces in a row match the type.
@@ -354,14 +349,14 @@ impl NumberSpaceItem {
     }
 
     /// The spaces between neighbouring numbers.
-    pub fn get_num_spaces(list: &[usize], is_sorted: bool) -> Vec<usize> {    
+    pub fn get_num_spaces(list: &[usize], is_sorted: bool) -> Vec<usize> {
         if list.len() > 1 {
-            let mut num_spaces:Vec<usize> = Vec::new();
-            let sorted_list: Vec<usize> = if is_sorted { 
+            let mut num_spaces: Vec<usize> = Vec::new();
+            let sorted_list: Vec<usize> = if is_sorted {
                 list.to_vec()
-            } else { 
-                let mut v = list.to_vec(); 
-                v.sort(); 
+            } else {
+                let mut v = list.to_vec();
+                v.sort();
                 v
             };
             for x in 1..sorted_list.len() {
@@ -376,31 +371,26 @@ impl NumberSpaceItem {
     pub fn from_numbers(
         number_space_types: &[(OperatorType, Option<Vec<usize>>)],
         numbers: &[usize],
-        is_sorted: bool
+        is_sorted: bool,
     ) -> Vec<NumberSpaceItem> {
         return NumberSpaceItem::from_number_spaces(number_space_types, &NumberSpaceItem::get_num_spaces(numbers, is_sorted));
     }
 
     /// Items from operator types, with how many spaces of each there are.
-    pub fn from_number_spaces(
-        number_space_types: &[(OperatorType, Option<Vec<usize>>)],
-        number_spaces: &[usize]
-    ) -> Vec<NumberSpaceItem> {
+    pub fn from_number_spaces(number_space_types: &[(OperatorType, Option<Vec<usize>>)], number_spaces: &[usize]) -> Vec<NumberSpaceItem> {
         let mut number_space_items: Vec<NumberSpaceItem> = Vec::new();
-        for number_space_type in number_space_types {            
+        for number_space_type in number_space_types {
             let has_count = number_space_type.0.has(number_spaces);
-            number_space_items.push(
-                NumberSpaceItem {
-                    number_space_type: number_space_type.0,
-                    needs: match &number_space_type.1 {
-                        Some(v) => v.clone(),
-                        None => has_count.clone()
-                    },
-                    has: has_count.clone()
+            number_space_items.push(NumberSpaceItem {
+                number_space_type: number_space_type.0,
+                needs: match &number_space_type.1 {
+                    Some(v) => v.clone(),
+                    None => has_count.clone(),
                 },
-            );
+                has: has_count.clone(),
+            });
         }
-        
+
         return number_space_items;
     }
 
@@ -432,7 +422,7 @@ impl NumberSpaceItem {
                 missing_list.push(self.needs[i]);
             }
         }
-        
+
         return missing_list;
     }
 
@@ -474,7 +464,7 @@ pub enum ProcessNumberSpaceItems {
     /// All of them.
     AllPerRequest,
     /// One.
-    OnePerRequest
+    OnePerRequest,
 }
 
 #[derive(Clone)]
@@ -515,8 +505,8 @@ impl NumberSpace {
             Some(number_space_item) => {
                 number_space_item.needs.push(count);
                 number_space_item.needs.sort_unstable();
-            },
-            None => self.number_space_items.push(NumberSpaceItem::new(number_space_type).needs(&[count]))
+            }
+            None => self.number_space_items.push(NumberSpaceItem::new(number_space_type).needs(&[count])),
         }
         return self;
     }
@@ -564,8 +554,8 @@ impl NumberSpace {
     #[deprecated(since = "3.0.0", note = "use NumberSpace::new().item(...).process(...)")]
     /// Items, with how many to make numbers for at a time.
     pub fn new_with_process_number_space_items(
-        number_space_items: &[NumberSpaceItem], 
-        process_number_space_items: ProcessNumberSpaceItems
+        number_space_items: &[NumberSpaceItem],
+        process_number_space_items: ProcessNumberSpaceItems,
     ) -> NumberSpace {
         let mut number_space = NumberSpace::new().process(process_number_space_items);
         for number_space_item in number_space_items {
@@ -598,13 +588,13 @@ impl NumberSpace {
     }
 
     /// The spaces these numbers have, as items.
-    pub fn from_numbers(
-        number_space: &NumberSpace,
-        numbers: &[usize],
-        is_sorted: bool
-    ) -> NumberSpace {
+    pub fn from_numbers(number_space: &NumberSpace, numbers: &[usize], is_sorted: bool) -> NumberSpace {
         return NumberSpace {
-            number_space_items: NumberSpaceItem::from_numbers(&number_space.number_space_items.iter().map(|x| (x.number_space_type, Some(x.needs.clone()))).collect::<Vec<_>>(), numbers, is_sorted),
+            number_space_items: NumberSpaceItem::from_numbers(
+                &number_space.number_space_items.iter().map(|x| (x.number_space_type, Some(x.needs.clone()))).collect::<Vec<_>>(),
+                numbers,
+                is_sorted,
+            ),
             process_number_space_items: number_space.process_number_space_items,
             errors: Vec::new(),
         };
@@ -629,7 +619,7 @@ impl Display for NumberSpace {
             }
             s.pop();
         }
-        write!(f,"{}",s)
+        write!(f, "{}", s)
     }
 }
 
@@ -644,22 +634,15 @@ impl RuleTrait for NumberSpace {
         self
     }
 
-    fn share_data(
-        &self,
-        _current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
         None
     }
 
-    fn get_numbers(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         if current_data.random().is_none() {
             return Err(current_data.no_number_err());
         }
-        let other_number_pool =
-        NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
+        let other_number_pool = NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         let mut numbers: Vec<usize> = Vec::new();
         let mut is_missing_a_run = false;
         for number_space_item in &other_number_pool.number_space_items {
@@ -673,12 +656,14 @@ impl RuleTrait for NumberSpace {
                     //Gte and Gt match any large space, so their new runs have to be right next to the selected numbers
                     match number_space_item.number_space_type.get_separated_run(current_data, count) {
                         Some(v) => numbers.extend(v),
-                        None => numbers.extend(number_space_item.number_space_type.get_new_run(current_data, count))
+                        None => numbers.extend(number_space_item.number_space_type.get_new_run(current_data, count)),
                     }
                 } else {
                     numbers.extend(number_space_item.number_space_type.get_number(current_data, count));
                 }
-                if self.process_number_space_items == ProcessNumberSpaceItems::OnePerRequest && !numbers.is_empty() { break; }
+                if self.process_number_space_items == ProcessNumberSpaceItems::OnePerRequest && !numbers.is_empty() {
+                    break;
+                }
             }
         }
         if !numbers.is_empty() {
@@ -687,7 +672,10 @@ impl RuleTrait for NumberSpace {
 
         //Every run is there.  The rest of the numbers can not make a run longer, so for Gte and Gt they have to be
         //right next to a selected number.
-        if !is_missing_a_run && !current_data.selected_numbers().is_empty() && current_data.selected_numbers().len() < current_data.settings().count() {
+        if !is_missing_a_run
+            && !current_data.selected_numbers().is_empty()
+            && current_data.selected_numbers().len() < current_data.settings().count()
+        {
             for number_space_item in &other_number_pool.number_space_items {
                 if let Some(number) = number_space_item.number_space_type.get_separated_number(current_data) {
                     return Ok(Some(vec![number]));
@@ -698,20 +686,19 @@ impl RuleTrait for NumberSpace {
         return Ok(None);
     }
 
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
-
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         let other_number_space = NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
 
         let mut total_missing: usize = 0;
         for number_space_item in &other_number_space.number_space_items {
             if number_space_item.has_too_many() {
-                return Err((IsWithinErrorType::Regular, format!(
-                    "Too many from pool {:?}, \"needs\" is {:?} and \"has\" {:?} from this pool",
-                    number_space_item.number_space_type, number_space_item.needs, number_space_item.has
-                )));
+                return Err((
+                    IsWithinErrorType::Regular,
+                    format!(
+                        "Too many from pool {:?}, \"needs\" is {:?} and \"has\" {:?} from this pool",
+                        number_space_item.number_space_type, number_space_item.needs, number_space_item.has
+                    ),
+                ));
             }
             if number_space_item.needs.iter().sum::<usize>() > 0 {
                 total_missing += number_space_item.missing().iter().sum::<usize>();
@@ -719,13 +706,17 @@ impl RuleTrait for NumberSpace {
                 //Every number that is not in a run uses up one of the spare numbers.  The highest number does not count
                 //because a new run can continue from it.
                 let spare_numbers = current_data.settings().count().saturating_sub(number_space_item.numbers_needed());
-                let (lone_count, highest_is_lone) = number_space_item.number_space_type.lone_numbers(current_data.selected_numbers_sorted());
+                let (lone_count, highest_is_lone) =
+                    number_space_item.number_space_type.lone_numbers(current_data.selected_numbers_sorted());
                 let lone_count = if highest_is_lone { lone_count - 1 } else { lone_count };
                 if lone_count > spare_numbers {
-                    return Err((IsWithinErrorType::Regular, format!(
-                        "Too many numbers that are not part of a run for {:?}, there are {} and only {} can be spared",
-                        number_space_item.number_space_type, lone_count, spare_numbers
-                    )));
+                    return Err((
+                        IsWithinErrorType::Regular,
+                        format!(
+                            "Too many numbers that are not part of a run for {:?}, there are {} and only {} can be spared",
+                            number_space_item.number_space_type, lone_count, spare_numbers
+                        ),
+                    ));
                 }
             }
         }
@@ -735,20 +726,19 @@ impl RuleTrait for NumberSpace {
             current_data.settings().count() - current_data.selected_numbers().len()
         };
         if total_missing > 0 && total_missing > len_remaining {
-            return Err((IsWithinErrorType::Regular, format!(
-                "Need to pull from number pool, \"missing\" {} and there are {} numbers left to pick",
-                total_missing, len_remaining
-            )));
+            return Err((
+                IsWithinErrorType::Regular,
+                format!(
+                    "Need to pull from number pool, \"missing\" {} and there are {} numbers left to pick",
+                    total_missing, len_remaining
+                ),
+            ));
         }
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
-        let other_number_space =
-        NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
+        let other_number_space = NumberSpace::from_numbers(self, current_data.selected_numbers_sorted(), true);
         for number_space_item in other_number_space.number_space_items {
             if number_space_item.has != number_space_item.needs {
                 return Err(format!(
@@ -764,16 +754,17 @@ impl RuleTrait for NumberSpace {
         return String::from("NumberSpace");
     }
 
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String> {
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String> {
         for number_space_item in &self.number_space_items {
             let numbers_needed = number_space_item.numbers_needed();
             if numbers_needed > count {
                 return Err(format!(
                     "{} {:?} with runs {:?} takes {} numbers, which is greater than count: {}",
-                    self.name(), number_space_item.number_space_type, number_space_item.needs, numbers_needed, count
+                    self.name(),
+                    number_space_item.number_space_type,
+                    number_space_item.needs,
+                    numbers_needed,
+                    count
                 ));
             }
         }
@@ -794,17 +785,11 @@ impl ExcludeRuleTrait for NumberSpace {
         self
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 
-    fn is_within_excluded_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 

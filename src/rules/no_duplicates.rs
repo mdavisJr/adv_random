@@ -1,11 +1,11 @@
 use crate::random::CurrentData;
-use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
+use crate::rules::{IsWithinErrorType, RuleTrait, SharedData};
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
-use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
+use super::ExcludeRuleTrait;
 
 #[derive(Clone)]
 /// No number is there more than once.
@@ -28,37 +28,25 @@ impl RuleTrait for NoDuplicate {
         self
     }
 
-    fn share_data(
-        &self,
-        _current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
         return Some(SharedData::new().with_no_duplicates());
     }
 
-    fn get_numbers(
-        &self,
-        _current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, _current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         return Ok(None);
     }
 
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         if current_data.has_duplicates() {
             return Err((IsWithinErrorType::Regular, format!("Duplicate found in {:?}", current_data.selected_numbers())));
         }
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
-            Err(e) => Err(e.1)
+            Err(e) => Err(e.1),
         }
     }
 
@@ -72,10 +60,7 @@ impl RuleTrait for NoDuplicate {
         return String::from("NoDuplicate");
     }
 
-    fn check_count(
-        &self,
-        _count: usize,
-    ) -> std::result::Result<bool, String> {
+    fn check_count(&self, _count: usize) -> std::result::Result<bool, String> {
         return Ok(true);
     }
 }
@@ -85,17 +70,11 @@ impl ExcludeRuleTrait for NoDuplicate {
         self
     }
 
-    fn is_within_excluded_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 

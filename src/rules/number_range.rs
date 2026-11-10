@@ -1,5 +1,5 @@
 use crate::random::CurrentData;
-use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
+use crate::rules::{IsWithinErrorType, RuleTrait, SharedData};
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
@@ -10,16 +10,21 @@ use super::ExcludeRuleTrait;
 fn is_within_range_helper(
     number_range: &NumberRange,
     current_data: &CurrentData,
-    exclude: bool
+    exclude: bool,
 ) -> std::result::Result<(), (IsWithinErrorType, String)> {
     for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
-        let key = if number_range.all.is_some() {0} else {idx};
+        let key = if number_range.all.is_some() { 0 } else { idx };
         if let Some((min, max)) = number_range.range_at(idx) {
-            if (!exclude && (selected_number < min || selected_number > max)) || (exclude && (selected_number >= min && selected_number <= max)) {
-                return Err((IsWithinErrorType::Regular, format!(
+            if (!exclude && (selected_number < min || selected_number > max))
+                || (exclude && (selected_number >= min && selected_number <= max))
+            {
+                return Err((
+                    IsWithinErrorType::Regular,
+                    format!(
                     "Exclude: {} - Selected number {} at index {} is not within range of min: {} and max: {}. Numbers:{:?}.  Map Index:{}",
                     exclude, selected_number, idx, min, max, current_data.selected_numbers(), key
-                )));
+                ),
+                ));
             }
         }
     }
@@ -122,34 +127,22 @@ impl RuleTrait for NumberRange {
         self
     }
 
-    fn share_data(
-        &self,
-        current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, current_data: &CurrentData) -> Option<SharedData> {
         return self.range_at(current_data.selected_numbers().len()).map(|(min, max)| SharedData::new().with_min_max(min, max));
     }
 
-    fn get_numbers(
-        &self,
-        _current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, _current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         return Ok(None);
     }
 
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return is_within_range_helper(self, current_data, false);
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
-            Err(e) => Err(e.1)
+            Err(e) => Err(e.1),
         }
     }
 
@@ -163,10 +156,7 @@ impl RuleTrait for NumberRange {
         return String::from("NumberRange");
     }
 
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String> {
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String> {
         let mut keys = self.ranges.keys().copied().collect::<Vec<usize>>();
         keys.sort();
         for key in keys {
@@ -197,20 +187,14 @@ impl ExcludeRuleTrait for NumberRange {
         self
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         match self.is_within_excluded_range(current_data) {
             Ok(()) => Ok(()),
-            Err(e) => Err(e.1)
+            Err(e) => Err(e.1),
         }
     }
 
-    fn is_within_excluded_range(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return is_within_range_helper(self, current_data, true);
     }
 

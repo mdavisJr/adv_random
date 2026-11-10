@@ -1,13 +1,13 @@
 use crate::random::{CurrentData, NumberType, NO_RANDOM_ERR};
 use crate::random_trait::get_random_vec_item;
-use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
+use crate::rules::{IsWithinErrorType, RuleTrait, SharedData};
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::Hash;
 
-use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
+use super::ExcludeRuleTrait;
 
 #[derive(Clone, Copy, Default)]
 /// How many numbers are odd and how many are even.
@@ -110,11 +110,7 @@ impl OddEven {
 
 impl Display for OddEven {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(
-            f,
-            "{}",
-            "ODD:".to_owned() + &self.odd.to_string() + ",EVEN:" + &self.even.to_string()
-        )
+        write!(f, "{}", "ODD:".to_owned() + &self.odd.to_string() + ",EVEN:" + &self.even.to_string())
     }
 }
 
@@ -138,17 +134,11 @@ impl RuleTrait for OddEven {
         self
     }
 
-    fn share_data(
-        &self,
-        _current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
         None
     }
 
-    fn get_numbers(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         let act_odd_even = OddEven::from_numbers(current_data.selected_numbers());
         let mut pool_keys: Vec<OddEvenKey> = Vec::with_capacity(2);
         if act_odd_even.needs_even(self) {
@@ -163,15 +153,12 @@ impl RuleTrait for OddEven {
         let random = current_data.random().ok_or_else(|| NO_RANDOM_ERR.to_owned())?;
         let number_type = match get_random_vec_item(random, &pool_keys) {
             Some(OddEvenKey::Even) => NumberType::Even,
-            _ => NumberType::Odd
+            _ => NumberType::Odd,
         };
         return Ok(Some(vec![current_data.get_rand(number_type, None, None).ok_or_else(|| current_data.no_number_err())?]));
     }
 
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         let other = OddEven::from_numbers(current_data.selected_numbers());
         if other.odd > self.odd {
             return Err((IsWithinErrorType::Regular, "Too Many Odds".to_owned()));
@@ -182,18 +169,12 @@ impl RuleTrait for OddEven {
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         let other = OddEven::from_numbers(current_data.selected_numbers());
         if self.odd == other.odd && self.even == other.even {
             return Ok(());
         }
-        return Err(format!(
-            "Expected Odd: {} and Even: {}.  Actual Odd: {} and Even: {}.",
-            self.odd, self.even, other.odd, other.even
-        ));
+        return Err(format!("Expected Odd: {} and Even: {}.  Actual Odd: {} and Even: {}.", self.odd, self.even, other.odd, other.even));
     }
 
     //Its is_within_range only says no when nothing added could make the numbers match.
@@ -206,10 +187,7 @@ impl RuleTrait for OddEven {
         return String::from("OddEven");
     }
 
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String> {
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String> {
         if (self.even + self.odd) == count {
             return Ok(true);
         }
@@ -230,17 +208,11 @@ impl ExcludeRuleTrait for OddEven {
         self
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 
-    fn is_within_excluded_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 

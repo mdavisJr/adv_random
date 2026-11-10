@@ -1,8 +1,8 @@
-#[cfg(feature="rand")]
+#[cfg(feature = "rand")]
 use crate::default_random::DefaultRandom;
 use crate::random::{generate_result, RandomError, RandomNumbers};
 use crate::random_trait::RandomTrait;
-use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait, NoDuplicate, NumberPool, NumberRange, NumberSpace, OddEven};
+use crate::rules::{ExcludeRuleTrait, NoDuplicate, NumberPool, NumberRange, NumberSpace, OddEven, RandomNumber, RuleTrait};
 use std::fmt;
 use std::sync::Arc;
 
@@ -143,10 +143,7 @@ impl Settings {
 
     /// Settings for count numbers that match these rules.  Use `Settings::builder(count)` instead.
     #[deprecated(since = "3.0.0", note = "use Settings::builder(count).rule(...).build()")]
-    pub fn new(
-        expected_rules: &[Box<dyn RuleTrait>],
-        count: usize,
-    ) -> Settings {
+    pub fn new(expected_rules: &[Box<dyn RuleTrait>], count: usize) -> Settings {
         return Settings::from_parts(expected_rules.to_vec(), count, None, None);
     }
 
@@ -156,7 +153,7 @@ impl Settings {
     pub fn with_exclude_rules(
         expected_rules: &[Box<dyn RuleTrait>],
         count: usize,
-        exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>
+        exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>,
     ) -> Settings {
         return Settings::from_parts(expected_rules.to_vec(), count, exclude_rules, None);
     }
@@ -165,17 +162,17 @@ impl Settings {
         expected_rules: Vec<Box<dyn RuleTrait>>,
         count: usize,
         exclude_rules: Option<Vec<Box<dyn ExcludeRuleTrait>>>,
-        random: Option<Arc<dyn RandomTrait + Send + Sync>>
+        random: Option<Arc<dyn RandomTrait + Send + Sync>>,
     ) -> Settings {
         let mut expected_rules_clone = expected_rules;
         if expected_rules_clone.iter().all(|x| !x.as_any().is::<RandomNumber>()) {
-            expected_rules_clone.push(Box::new(RandomNumber{}));
+            expected_rules_clone.push(Box::new(RandomNumber {}));
         }
         //NumberPool::alphanumeric picks how many digits there are with the random number generator of the settings
         let random = random.or_else(Settings::default_random);
         let random_for_rules: Option<&dyn RandomTrait> = match &random {
             Some(v) => Some(v.as_ref()),
-            None => None
+            None => None,
         };
         for rule in expected_rules_clone.iter_mut() {
             if let Some(number_pool) = rule.as_any().downcast_ref::<NumberPool>().and_then(|x| x.resolve_alphanumeric(random_for_rules)) {
@@ -185,7 +182,8 @@ impl Settings {
         let mut exclude_rules = exclude_rules;
         if let Some(exclude_rules) = exclude_rules.as_mut() {
             for rule in exclude_rules.iter_mut() {
-                if let Some(number_pool) = rule.as_any().downcast_ref::<NumberPool>().and_then(|x| x.resolve_alphanumeric(random_for_rules)) {
+                if let Some(number_pool) = rule.as_any().downcast_ref::<NumberPool>().and_then(|x| x.resolve_alphanumeric(random_for_rules))
+                {
                     *rule = Box::new(number_pool);
                 }
             }
@@ -233,12 +231,12 @@ impl Settings {
         return generate_result(self).into_result();
     }
 
-    #[cfg(feature="rand")]
+    #[cfg(feature = "rand")]
     fn default_random() -> Option<Arc<dyn RandomTrait + Send + Sync>> {
-        return Some(Arc::new(DefaultRandom{}));
+        return Some(Arc::new(DefaultRandom {}));
     }
 
-    #[cfg(not(feature="rand"))]
+    #[cfg(not(feature = "rand"))]
     fn default_random() -> Option<Arc<dyn RandomTrait + Send + Sync>> {
         return None;
     }

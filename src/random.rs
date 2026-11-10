@@ -1,9 +1,7 @@
 use std::sync::{Arc, OnceLock};
 
 use crate::random_trait::{get_random_vec_item, shuffle_vec, RandomTrait};
-use crate::rules::{
-    ExcludeRuleTrait, IsWithinErrorType, OddEven, PoolType, RuleTrait, SharedData
-};
+use crate::rules::{ExcludeRuleTrait, IsWithinErrorType, OddEven, PoolType, RuleTrait, SharedData};
 use crate::settings::Settings;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -37,7 +35,7 @@ pub struct RandomResult {
     logs: Logs,
     clear_err_tracker: HashSet<usize>,
     settings: String,
-    random: Option<Arc<dyn RandomTrait + Send + Sync>>
+    random: Option<Arc<dyn RandomTrait + Send + Sync>>,
 }
 
 impl Debug for RandomResult {
@@ -57,8 +55,8 @@ impl RandomResult {
         match self.status {
             RandomResultType::Success => {
                 return Ok(&self.numbers);
-            },
-            _ => Err("Error! Please Check Logs!".to_string())
+            }
+            _ => Err("Error! Please Check Logs!".to_string()),
         }
     }
 
@@ -66,7 +64,7 @@ impl RandomResult {
     pub fn string(&self) -> std::result::Result<String, String> {
         match self.status {
             RandomResultType::Success => numbers_to_string(&self.numbers),
-            _ => Err("Error! Please Check Logs!".to_string())
+            _ => Err("Error! Please Check Logs!".to_string()),
         }
     }
 
@@ -74,7 +72,7 @@ impl RandomResult {
     pub fn shuffled_string(&self) -> std::result::Result<String, String> {
         match self.status {
             RandomResultType::Success => numbers_to_string(&shuffled_numbers(&self.numbers, &self.random)),
-            _ => Err("Error! Please Check Logs!".to_string())
+            _ => Err("Error! Please Check Logs!".to_string()),
         }
     }
 
@@ -86,24 +84,28 @@ impl RandomResult {
                 attempts: self.attempts,
                 logs: self.logs,
                 clear_err_tracker: self.clear_err_tracker,
-                random: self.random
+                random: self.random,
             }),
-            RandomResultType::BadRequest => Err(RandomError { data: Box::new(RandomErrorData {
-                error_type: RandomErrorType::BadRequest,
-                messages: self.logs.errors().map(|x| x.to_owned()).collect(),
-                attempts: self.attempts,
-                logs: self.logs,
-                clear_err_tracker: self.clear_err_tracker,
-                settings: self.settings
-            }) }),
-            RandomResultType::Failed => Err(RandomError { data: Box::new(RandomErrorData {
-                error_type: RandomErrorType::Failed,
-                messages: vec![format!("Could not find numbers that match the rules in {} attempts", self.attempts)],
-                attempts: self.attempts,
-                logs: self.logs,
-                clear_err_tracker: self.clear_err_tracker,
-                settings: self.settings
-            }) })
+            RandomResultType::BadRequest => Err(RandomError {
+                data: Box::new(RandomErrorData {
+                    error_type: RandomErrorType::BadRequest,
+                    messages: self.logs.errors().map(|x| x.to_owned()).collect(),
+                    attempts: self.attempts,
+                    logs: self.logs,
+                    clear_err_tracker: self.clear_err_tracker,
+                    settings: self.settings,
+                }),
+            }),
+            RandomResultType::Failed => Err(RandomError {
+                data: Box::new(RandomErrorData {
+                    error_type: RandomErrorType::Failed,
+                    messages: vec![format!("Could not find numbers that match the rules in {} attempts", self.attempts)],
+                    attempts: self.attempts,
+                    logs: self.logs,
+                    clear_err_tracker: self.clear_err_tracker,
+                    settings: self.settings,
+                }),
+            }),
         };
     }
     /// How many attempts it took.
@@ -123,7 +125,7 @@ impl RandomResult {
 impl fmt::Display for RandomResult {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let mut sorted_clear_err_tracker: Vec<usize> = self.clear_err_tracker().iter().cloned().collect();
-        sorted_clear_err_tracker.sort_unstable();      
+        sorted_clear_err_tracker.sort_unstable();
         write!(
             fmt,
             "\n\nSettings:\n\n{}\n\nStatus - {:?}\nNumbers - {:?}\nAttempts - {}\nClear Errs - {:?}\n{}",
@@ -135,11 +137,7 @@ impl fmt::Display for RandomResult {
             self.logs
                 .logs()
                 .iter()
-                .map(|x| if x.to_string().starts_with("Info  : Attempt - ") {
-                    format!("\n{}", x)
-                } else {
-                    x.to_string()
-                })
+                .map(|x| if x.to_string().starts_with("Info  : Attempt - ") { format!("\n{}", x) } else { x.to_string() })
                 .collect::<Vec<String>>()
                 .join("\n")
         )
@@ -151,7 +149,7 @@ fn numbers_to_string(numbers: &[usize]) -> std::result::Result<String, String> {
     for digit in numbers {
         match u32::try_from(*digit).ok().and_then(char::from_u32) {
             Some(c) => random_string.push(c),
-            None => return Err(format!("Number {} is not a valid character", digit))
+            None => return Err(format!("Number {} is not a valid character", digit)),
         }
     }
     return Ok(random_string);
@@ -194,7 +192,7 @@ pub struct RandomNumbers {
     attempts: usize,
     logs: Logs,
     clear_err_tracker: HashSet<usize>,
-    random: Option<Arc<dyn RandomTrait + Send + Sync>>
+    random: Option<Arc<dyn RandomTrait + Send + Sync>>,
 }
 
 impl RandomNumbers {
@@ -240,19 +238,21 @@ impl RandomNumbers {
             &format!("Status - Success\nNumbers - {:?}", self.numbers),
             self.attempts,
             &self.clear_err_tracker,
-            self.logs.logs()
+            self.logs.logs(),
         );
     }
 
     fn invalid_character(&self, message: String) -> RandomError {
-        return RandomError { data: Box::new(RandomErrorData {
-            error_type: RandomErrorType::InvalidCharacter,
-            messages: vec![message],
-            attempts: self.attempts,
-            logs: Logs::default(),
-            clear_err_tracker: HashSet::new(),
-            settings: String::new()
-        }) };
+        return RandomError {
+            data: Box::new(RandomErrorData {
+                error_type: RandomErrorType::InvalidCharacter,
+                messages: vec![message],
+                attempts: self.attempts,
+                logs: Logs::default(),
+                clear_err_tracker: HashSet::new(),
+                settings: String::new(),
+            }),
+        };
     }
 }
 
@@ -277,7 +277,7 @@ pub enum RandomErrorType {
 /// Why Settings::generate, or a string from its numbers, did not work
 pub struct RandomError {
     //in a box so a Result with this error stays small
-    data: Box<RandomErrorData>
+    data: Box<RandomErrorData>,
 }
 
 struct RandomErrorData {
@@ -286,7 +286,7 @@ struct RandomErrorData {
     attempts: usize,
     logs: Logs,
     clear_err_tracker: HashSet<usize>,
-    settings: String
+    settings: String,
 }
 
 impl RandomError {
@@ -322,7 +322,7 @@ impl RandomError {
             &format!("Status - {:?}\nError - {}", self.data.error_type, self.data.messages.join("; ")),
             self.data.attempts,
             &self.data.clear_err_tracker,
-            self.data.logs.logs()
+            self.data.logs.logs(),
         );
     }
 }
@@ -343,20 +343,12 @@ impl Debug for RandomError {
 
 impl std::error::Error for RandomError {}
 
-fn set_numbers(
-    numbers: &mut Vec<usize>,
-    _settings: &Settings,
-    ds: &[usize],
-) {
+fn set_numbers(numbers: &mut Vec<usize>, _settings: &Settings, ds: &[usize]) {
     numbers.clear();
     numbers.extend(ds);
 }
 
-fn clear_numbers(
-    logs: &mut Logs,
-    numbers: &mut Vec<usize>,
-    _settings: &Settings,
-) {
+fn clear_numbers(logs: &mut Logs, numbers: &mut Vec<usize>, _settings: &Settings) {
     logs.clear(numbers);
     numbers.clear();
 }
@@ -489,7 +481,9 @@ impl Logs {
                 let mut stopped: Vec<&(String, usize)> = self.stopped_by.values().collect();
                 stopped.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
                 let stopped = stopped.iter().map(|(name, times)| format!("{} {}", name, times)).collect::<Vec<String>>().join(", ");
-                logs.push(Log::Info { msg: format!("{} more entries were not kept.  Times each rule stopped a ticket: {}", self.not_kept, stopped) });
+                logs.push(Log::Info {
+                    msg: format!("{} more entries were not kept.  Times each rule stopped a ticket: {}", self.not_kept, stopped),
+                });
             }
             return logs;
         });
@@ -500,7 +494,9 @@ impl Logs {
             Entry::Log(log) => return log.clone(),
             Entry::Attempt(attempt) => format!("Attempt - {:?}", attempt),
             Entry::Clear(numbers) => format!("CLEAR - {:?}", numbers),
-            Entry::GenType { rule, potential, all } => format!("GEN_TYPE - {}; P - {:?}; A&P - {:?}", self.rule_names[rule], potential, all),
+            Entry::GenType { rule, potential, all } => {
+                format!("GEN_TYPE - {}; P - {:?}; A&P - {:?}", self.rule_names[rule], potential, all)
+            }
             Entry::Rule(rule) => self.rule_lines[rule].clone(),
             //logs makes these, which need the entries before them
             Entry::Drawn { .. } | Entry::ClearDrawn => unreachable!(),
@@ -567,28 +563,16 @@ fn halt_from_error(
     settings: &Settings,
     clear_err_tracker: &mut HashSet<usize>,
 ) {
-    logs.push(Log::Error {
-        msg: err.to_owned(),
-    });
-    let count = *err_tracker
-        .entry(err_key)
-        .and_modify(|x| *x += 1)
-        .or_insert(1);
+    logs.push(Log::Error { msg: err.to_owned() });
+    let count = *err_tracker.entry(err_key).and_modify(|x| *x += 1).or_insert(1);
     if count > (settings.max_specific_error_count()) {
-        logs.push(Log::Error {
-            msg: format!("Reset Because Of Too Many Same Errors - {:?}: {}", err_key, err),
-        });
+        logs.push(Log::Error { msg: format!("Reset Because Of Too Many Same Errors - {:?}: {}", err_key, err) });
         reset(logs, numbers, settings, err_tracker);
         clear_err_tracker.insert(attempts);
     }
 }
 
-fn reset(
-    logs: &mut Logs,
-    numbers: &mut Vec<usize>,
-    settings: &Settings,
-    err_tracker: &mut HashMap<ErrKey, usize>,
-) {
+fn reset(logs: &mut Logs, numbers: &mut Vec<usize>, settings: &Settings, err_tracker: &mut HashMap<ErrKey, usize>) {
     clear_numbers(logs, numbers, settings);
     err_tracker.clear();
 }
@@ -601,7 +585,7 @@ pub enum NumberType {
     /// Only odd numbers.
     Odd,
     /// Only even numbers.
-    Even
+    Even,
 }
 
 #[derive(Debug, Clone)]
@@ -615,20 +599,25 @@ pub struct CurrentData<'a> {
 }
 
 impl<'a> CurrentData<'a> {
-
     /// The numbers so far, with the settings and what the rules share.
     pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a SharedData) -> CurrentData<'a> {
-        return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: OnceLock::new(), selected_numbers_sorted: OnceLock::new() };
+        return CurrentData {
+            selected_numbers,
+            settings,
+            shared_data,
+            selected_numbers_set: OnceLock::new(),
+            selected_numbers_sorted: OnceLock::new(),
+        };
     }
 
     /// The same numbers and settings with other shared data.
     pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a SharedData) -> CurrentData<'a> {
-        let new_current_data = CurrentData { 
-            selected_numbers: current_data.selected_numbers, 
-            settings: current_data.settings, 
-            shared_data, 
-            selected_numbers_set: OnceLock::new(), 
-            selected_numbers_sorted: OnceLock::new(), 
+        let new_current_data = CurrentData {
+            selected_numbers: current_data.selected_numbers,
+            settings: current_data.settings,
+            shared_data,
+            selected_numbers_set: OnceLock::new(),
+            selected_numbers_sorted: OnceLock::new(),
         };
         if current_data.selected_numbers_set.get().is_some() {
             let _ = new_current_data.selected_numbers_set.set(current_data.selected_numbers_set.get().unwrap().clone());
@@ -648,9 +637,7 @@ impl<'a> CurrentData<'a> {
         for _ in 1..=30 {
             let val = if let Some(v) = &from_pool_type {
                 match &v {
-                    PoolType::Set(set) => {
-                        *get_random_vec_item(random, set.numbers())?
-                    }
+                    PoolType::Set(set) => *get_random_vec_item(random, set.numbers())?,
                     PoolType::MinMax(pool_type_min, pool_type_max) => {
                         if pool_type_min > pool_type_max {
                             return None;
@@ -671,12 +658,12 @@ impl<'a> CurrentData<'a> {
                 continue;
             }
             match number_type {
-                NumberType::Any => {},
+                NumberType::Any => {}
                 NumberType::Odd => {
                     if OddEven::is_even(val) {
                         continue;
                     }
-                },
+                }
                 NumberType::Even => {
                     if OddEven::is_odd(val) {
                         continue;
@@ -737,9 +724,7 @@ impl<'a> CurrentData<'a> {
 
     /// The numbers so far, as a set.
     pub fn selected_numbers_set(&self) -> &HashSet<usize> {
-        return self.selected_numbers_set.get_or_init(|| {
-            self.selected_numbers.iter().copied().collect()
-        });
+        return self.selected_numbers_set.get_or_init(|| self.selected_numbers.iter().copied().collect());
     }
 
     /// The numbers so far, smallest first.
@@ -749,7 +734,7 @@ impl<'a> CurrentData<'a> {
             selected_numbers.sort_unstable();
             return selected_numbers;
         });
-    }  
+    }
 }
 
 #[deprecated(since = "3.0.0", note = "use settings.generate()")]
@@ -774,7 +759,7 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
                 logs: Logs::from_logs(errors),
                 clear_err_tracker: HashSet::new(),
                 settings: format!("{:#?}", settings),
-                random: None
+                random: None,
             };
         }
     };
@@ -789,7 +774,7 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
             logs: Logs::default(),
             clear_err_tracker: HashSet::new(),
             settings: String::new(),
-            random: Some(random)
+            random: Some(random),
         };
     }
     let mut numbers: Vec<usize> = Vec::new();
@@ -828,16 +813,16 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
         }
 
         for (_, expected_rule) in &expected_rules {
-            if let Some(actual_rule_shared_data) =
-                expected_rule.share_data(&current_data_selected_numbers_sd)
-            {
+            if let Some(actual_rule_shared_data) = expected_rule.share_data(&current_data_selected_numbers_sd) {
                 let custom_keys: Vec<String> = actual_rule_shared_data.custom_keys().cloned().collect();
                 if let Err(key) = shared_data.merge(actual_rule_shared_data) {
                     //two rules that set the same custom key is a mistake in the rules, so trying again will not help
                     logs.push(Log::Error {
                         msg: format!(
                             "Custom shared data key {:?} was set by both {} and {}",
-                            key, custom_key_rule_names.get(&key).map(|x| x.as_str()).unwrap_or("another rule"), expected_rule.name()
+                            key,
+                            custom_key_rule_names.get(&key).map(|x| x.as_str()).unwrap_or("another rule"),
+                            expected_rule.name()
                         ),
                     });
                     return RandomResult {
@@ -847,7 +832,7 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
                         logs,
                         clear_err_tracker,
                         settings: format!("{:#?}", settings),
-                        random: None
+                        random: None,
                     };
                 }
                 for key in custom_keys {
@@ -904,18 +889,26 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
                 continue;
             }
 
-            match is_within_range_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
+            match is_within_range_check(
+                &expected_rules,
+                settings.exclude_rules(),
+                settings,
+                &current_data_with_potential_numbers,
+                &mut logs,
+            ) {
                 Ok(_) => {
                     if current_data_with_potential_numbers.selected_numbers().len() == settings.count() {
                         is_match_attempts += 1;
 
-                        match is_match_check(&expected_rules, settings.exclude_rules(), settings, &current_data_with_potential_numbers, &mut logs) {
+                        match is_match_check(
+                            &expected_rules,
+                            settings.exclude_rules(),
+                            settings,
+                            &current_data_with_potential_numbers,
+                            &mut logs,
+                        ) {
                             Ok(_) => {
-                                set_numbers(
-                                    &mut numbers,
-                                    settings,
-                                    current_data_with_potential_numbers.selected_numbers(),
-                                );
+                                set_numbers(&mut numbers, settings, current_data_with_potential_numbers.selected_numbers());
                                 return RandomResult {
                                     status: RandomResultType::Success,
                                     numbers,
@@ -923,9 +916,9 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
                                     logs,
                                     clear_err_tracker,
                                     settings: String::new(),
-                                    random: Some(random)
+                                    random: Some(random),
                                 };
-                            },
+                            }
                             Err(e) => {
                                 halt_from_error(
                                     ErrKey::IsMatch(e.1),
@@ -937,24 +930,18 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
                                     settings,
                                     &mut clear_err_tracker,
                                 );
-                                if is_match_attempts - 1 == settings.max_is_match_attempts() {                        
+                                if is_match_attempts - 1 == settings.max_is_match_attempts() {
                                     clear_numbers(&mut logs, &mut numbers, settings);
                                     is_match_attempts = 0;
-                                    logs.push(Log::Info {
-                                        msg: "Clear - Reached Is Match Attempts".to_string(),
-                                    });
+                                    logs.push(Log::Info { msg: "Clear - Reached Is Match Attempts".to_string() });
                                     clear_err_tracker.insert(attempts);
                                 }
-                            }                    
+                            }
                         }
                     } else {
-                        set_numbers(
-                            &mut numbers,
-                            settings,
-                            current_data_with_potential_numbers.selected_numbers(),
-                        );
+                        set_numbers(&mut numbers, settings, current_data_with_potential_numbers.selected_numbers());
                     }
-                },
+                }
                 Err(e) => {
                     //an exclude rule can not be made the priority because it does not get numbers
                     if let (IsWithinErrorType::MakePriority, RuleRef::Expected(idx)) = (&e.0, e.2) {
@@ -971,8 +958,8 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
                         &mut clear_err_tracker,
                     );
                     continue;
-                },
-            }            
+                }
+            }
         }
     }
 
@@ -983,10 +970,9 @@ pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
         logs,
         clear_err_tracker,
         settings: format!("{:#?}", settings),
-        random: None
+        random: None,
     };
 }
-
 
 //Every result that matches the rules is equally likely.  The numbers are drawn at random, one at a time,
 //without the rules steering them.  After each one, a ticket that a rule says can not match any more is
@@ -1008,7 +994,15 @@ fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sy
         Ok(x) => x,
         Err(e) => {
             logs.push(Log::Error { msg: e });
-            return RandomResult { status: RandomResultType::BadRequest, numbers: Vec::new(), attempts: 0, logs, clear_err_tracker: HashSet::new(), settings: format!("{:#?}", settings), random: None };
+            return RandomResult {
+                status: RandomResultType::BadRequest,
+                numbers: Vec::new(),
+                attempts: 0,
+                logs,
+                clear_err_tracker: HashSet::new(),
+                settings: format!("{:#?}", settings),
+                random: None,
+            };
         }
     };
     for attempt in 1..=settings.max_draws() {
@@ -1035,12 +1029,28 @@ fn generate_uniform(settings: &Settings, random: Arc<dyn RandomTrait + Send + Sy
             let shared_data = rules_shared_data(&expected_rules, settings, &numbers);
             let current_data = CurrentData::new(&numbers, settings, &shared_data);
             if is_match_check(&expected_rules, settings.exclude_rules(), settings, &current_data, &mut logs).is_ok() {
-                return RandomResult { status: RandomResultType::Success, numbers, attempts: attempt, logs, clear_err_tracker: HashSet::new(), settings: String::new(), random: Some(random) };
+                return RandomResult {
+                    status: RandomResultType::Success,
+                    numbers,
+                    attempts: attempt,
+                    logs,
+                    clear_err_tracker: HashSet::new(),
+                    settings: String::new(),
+                    random: Some(random),
+                };
             }
         }
         logs.clear_drawn();
     }
-    return RandomResult { status: RandomResultType::Failed, numbers: Vec::new(), attempts: settings.max_draws(), logs, clear_err_tracker: HashSet::new(), settings: format!("{:#?}", settings), random: None };
+    return RandomResult {
+        status: RandomResultType::Failed,
+        numbers: Vec::new(),
+        attempts: settings.max_draws(),
+        logs,
+        clear_err_tracker: HashSet::new(),
+        settings: format!("{:#?}", settings),
+        random: None,
+    };
 }
 
 //What the rules share about these numbers, for checking them.  Checks may use it, such as for the range
@@ -1063,7 +1073,8 @@ fn can_still_match_check(
     expected_rules: &[(usize, &dyn RuleTrait)],
     exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>,
     current_data: &CurrentData,
-    logs: &mut Logs) -> bool {
+    logs: &mut Logs,
+) -> bool {
     for (idx, expected_rule) in expected_rules {
         if !expected_rule.can_still_match(current_data) {
             logs.expected_rule(*idx, *expected_rule);
@@ -1115,7 +1126,10 @@ pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<Ch
             }
         }
         let Some(choices) = choices else {
-            return Err(format!("Uniform needs a range for every number, such as a NumberRange, or pools that every number comes from.  Number {} has none", index + 1));
+            return Err(format!(
+                "Uniform needs a range for every number, such as a NumberRange, or pools that every number comes from.  Number {} has none",
+                index + 1
+            ));
         };
         if choices.len() == 0 {
             return Err(format!("Uniform can not draw number {}: no number fits its range and pools", index + 1));
@@ -1126,7 +1140,11 @@ pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<Ch
     if no_duplicates {
         let available: HashSet<usize> = all_choices.iter().flat_map(|x| x.numbers().take(settings.count())).collect();
         if available.len() < settings.count() {
-            return Err(format!("Uniform without repeats needs {} different numbers, and the ranges only have {}", settings.count(), available.len()));
+            return Err(format!(
+                "Uniform without repeats needs {} different numbers, and the ranges only have {}",
+                settings.count(),
+                available.len()
+            ));
         }
     }
     return Ok((all_choices, no_duplicates));
@@ -1160,7 +1178,9 @@ impl Choices {
     fn and(&self, other: &Choices) -> Choices {
         return match (self, other) {
             (Choices::Range(min_1, max_1), Choices::Range(min_2, max_2)) => Choices::Range(*min_1.max(min_2), *max_1.min(max_2)),
-            (Choices::Set(numbers), choices) | (choices, Choices::Set(numbers)) => Choices::from_numbers(numbers.iter().copied().filter(|x| choices.contains(*x)).collect()),
+            (Choices::Set(numbers), choices) | (choices, Choices::Set(numbers)) => {
+                Choices::from_numbers(numbers.iter().copied().filter(|x| choices.contains(*x)).collect())
+            }
         };
     }
 
@@ -1173,7 +1193,13 @@ impl Choices {
 
     pub(crate) fn len(&self) -> usize {
         return match self {
-            Choices::Range(min, max) => if min > max { 0 } else { (max - min).saturating_add(1) },
+            Choices::Range(min, max) => {
+                if min > max {
+                    0
+                } else {
+                    (max - min).saturating_add(1)
+                }
+            }
             Choices::Set(numbers) => numbers.len(),
         };
     }
@@ -1222,10 +1248,12 @@ pub(crate) fn uniform_matches(settings: &Settings, numbers: &[usize]) -> bool {
 
 //Checks every rule in order and returns the error from the first rule that does not match, with which rule it was
 fn is_match_check(
-    expected_rules: &[(usize, &dyn RuleTrait)], 
-    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
-    _settings: &Settings, current_data: &CurrentData,
-    logs: &mut Logs) -> std::result::Result<(), (String, RuleRef)> {
+    expected_rules: &[(usize, &dyn RuleTrait)],
+    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>,
+    _settings: &Settings,
+    current_data: &CurrentData,
+    logs: &mut Logs,
+) -> std::result::Result<(), (String, RuleRef)> {
     for (idx, expected_rule) in expected_rules {
         if let Err(e) = expected_rule.is_match(current_data) {
             logs.expected_rule(*idx, *expected_rule);
@@ -1246,11 +1274,12 @@ fn is_match_check(
 
 //Checks every rule in order and returns the error from the first rule that is out of range, with which rule it was
 fn is_within_range_check(
-    expected_rules: &[(usize, &dyn RuleTrait)], 
-    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>, 
-    _settings: &Settings, 
+    expected_rules: &[(usize, &dyn RuleTrait)],
+    exclude_rules: &Option<Vec<Box<dyn ExcludeRuleTrait>>>,
+    _settings: &Settings,
     current_data: &CurrentData,
-    logs: &mut Logs) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
+    logs: &mut Logs,
+) -> std::result::Result<(), (IsWithinErrorType, String, RuleRef)> {
     for (idx, expected_rule) in expected_rules {
         if let Err(e) = expected_rule.is_within_range(current_data) {
             logs.expected_rule(*idx, *expected_rule);

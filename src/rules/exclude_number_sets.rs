@@ -1,12 +1,12 @@
 use crate::random::CurrentData;
-use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
+use crate::rules::{IsWithinErrorType, RuleTrait, SharedData};
 use std::any::Any;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
-use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
+use super::ExcludeRuleTrait;
 
 /// The random numbers can not be any of these lists of numbers, or the random string any of these strings.
 /// It already leaves them out, so add it with .rule(...).  With .exclude(...) it is turned around: the numbers
@@ -85,36 +85,21 @@ impl RuleTrait for ExcludeNumberSets {
         self
     }
 
-    fn share_data(
-        &self,
-        _current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
         None
     }
 
-    fn get_numbers(
-        &self,
-        _current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, _current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         return Ok(None);
     }
 
-    fn is_within_range(
-        &self,
-        _current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         if self.excluded_number_sets.contains(current_data.selected_numbers()) {
-            return Err(format!(
-                "Excluded Number Set found: {:?}",
-                current_data.selected_numbers()
-            ));
+            return Err(format!("Excluded Number Set found: {:?}", current_data.selected_numbers()));
         }
         return Ok(());
     }
@@ -129,17 +114,17 @@ impl RuleTrait for ExcludeNumberSets {
         return String::from("ExcludeNumberSets");
     }
 
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String> {
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String> {
         //sorted so the same one is reported every time
         let mut wrong_lengths: Vec<&Vec<usize>> = self.excluded_number_sets.iter().filter(|x| x.len() != count).collect();
         wrong_lengths.sort();
         if let Some(numbers) = wrong_lengths.first() {
             return Err(format!(
                 "{} {:?} has {} numbers, so it can never be the {} random numbers",
-                self.name(), numbers, numbers.len(), count
+                self.name(),
+                numbers,
+                numbers.len(),
+                count
             ));
         }
         return Ok(true);
@@ -159,17 +144,11 @@ impl ExcludeRuleTrait for ExcludeNumberSets {
         self
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 
-    fn is_within_excluded_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 

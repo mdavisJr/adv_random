@@ -1,14 +1,12 @@
 use crate::random::CurrentData;
-use crate::rules::{
-    IsWithinErrorType, SharedData, RuleTrait, PoolType,
-};
+use crate::rules::{IsWithinErrorType, PoolType, RuleTrait, SharedData};
 use std::any::Any;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
-use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
+use super::ExcludeRuleTrait;
 
 #[derive(Clone, Default)]
 /// The numbers at some indexes come from pools, such as letters for the first two and digits for the rest.
@@ -74,17 +72,11 @@ impl RuleTrait for NumberPoolByIndex {
         self
     }
 
-    fn share_data(
-        &self,
-        _current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
         None
     }
 
-    fn get_numbers(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         for number_pool_item in &self.number_pool_items {
             if number_pool_item.indexes.contains(&current_data.selected_numbers().len()) {
                 let number = number_pool_item.pool.random_number(current_data).ok_or_else(|| current_data.no_number_err())?;
@@ -94,20 +86,18 @@ impl RuleTrait for NumberPoolByIndex {
         return Ok(None);
     }
 
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         for (idx, selected_number) in current_data.selected_numbers().iter().copied().enumerate() {
             for number_pool_item in &self.number_pool_items {
-                if number_pool_item.indexes.contains(&idx)
-                    && !number_pool_item.pool.contains(selected_number)
-                {
+                if number_pool_item.indexes.contains(&idx) && !number_pool_item.pool.contains(selected_number) {
                     return Err((
                         IsWithinErrorType::Regular,
                         format!(
                             "Selected number {} at index {} is not: {:?}. Numbers:{:?}",
-                            selected_number, idx, number_pool_item, current_data.selected_numbers()
+                            selected_number,
+                            idx,
+                            number_pool_item,
+                            current_data.selected_numbers()
                         ),
                     ));
                 }
@@ -116,10 +106,7 @@ impl RuleTrait for NumberPoolByIndex {
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         match self.is_within_range(current_data) {
             Ok(()) => Ok(()),
             Err(e) => Err(e.1),
@@ -141,10 +128,7 @@ impl RuleTrait for NumberPoolByIndex {
         return String::from("NumberPoolByIndex");
     }
 
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String> {
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String> {
         if let Some(index) = self.number_pool_items.iter().flat_map(|x| x.indexes.iter().copied()).filter(|x| *x >= count).min() {
             return Err(format!("{} index: {} is past the last number for count: {}", self.name(), index, count));
         }
@@ -165,17 +149,11 @@ impl ExcludeRuleTrait for NumberPoolByIndex {
         self
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 
-    fn is_within_excluded_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 

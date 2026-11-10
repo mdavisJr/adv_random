@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod custom_random_tests;
-#[cfg(feature="rand")]
+#[cfg(feature = "rand")]
 mod main_tests;
-#[cfg(feature="rand")]
+#[cfg(feature = "rand")]
 mod misc_tests;
 mod uniform_tests;

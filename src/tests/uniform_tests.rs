@@ -41,7 +41,12 @@ fn rule_cases() -> Vec<(&'static str, SettingsBuilder)> {
         ("NumberRange at indexes", Settings::builder(4).no_duplicates().rule(NumberRange::new().at([0], 1, 3).at([1, 2, 3], 4, 10))),
         ("ExcludeNumberSets", b().exclude(ExcludeNumberSets::new().numbers(&[1, 2, 3, 4]).numbers(&[2, 4, 6, 8]))),
         ("AnyOf OddEven 2/2 or 4 in a row", b().rule(AnyOf::new().rule(OddEven::new().odd(2).even(2)).rule(Sequential::new().in_a_row(4)))),
-        ("OddEven + Sequential + NumberPool", b().rule(OddEven::new().odd(3).even(1)).rule(Sequential::new().singles(2).in_a_row(2)).rule(NumberPool::new().at_least(1, [8, 9, 10]))),
+        (
+            "OddEven + Sequential + NumberPool",
+            b().rule(OddEven::new().odd(3).even(1))
+                .rule(Sequential::new().singles(2).in_a_row(2))
+                .rule(NumberPool::new().at_least(1, [8, 9, 10])),
+        ),
         ("repeats allowed, OddEven 2/2", Settings::builder(4).range(1, 6).rule(OddEven::new().odd(2).even(2))),
     ]
 }
@@ -60,7 +65,12 @@ fn rules_only_stop_tickets_that_can_not_match() {
         let (matching, wrong) = matches_and_wrong_stops(&settings);
         println!("{:<50} {:>5} matching tickets, {} wrong stops", name, matching.len(), wrong.len());
         if !wrong.is_empty() {
-            problems.push(format!("{}: {} partial tickets stopped that could match, such as {:?}", name, wrong.len(), &wrong[..wrong.len().min(3)]));
+            problems.push(format!(
+                "{}: {} partial tickets stopped that could match, such as {:?}",
+                name,
+                wrong.len(),
+                &wrong[..wrong.len().min(3)]
+            ));
         }
     }
     assert!(problems.is_empty(), "\n{}", problems.join("\n"));
@@ -78,8 +88,14 @@ fn small_cases() -> Vec<(&'static str, SettingsBuilder)> {
         ("small: AnyOf", b(6).rule(AnyOf::new().rule(OddEven::new().odd(3).even(0)).rule(Sequential::new().in_a_row(3)))),
         ("small: ExcludeNumberSets", b(6).exclude(ExcludeNumberSets::new().numbers(&[1, 2, 3]).numbers(&[4, 5, 6]))),
         ("small: repeats allowed, OddEven 2/1", Settings::builder(3).range(1, 4).rule(OddEven::new().odd(2).even(1))),
-        ("small: pools without a range", Settings::builder(3).no_duplicates().rule(NumberPool::new().exactly(2, [1, 2, 3, 4]).exactly(1, [8, 9]))),
-        ("small: pools by index without a range", Settings::builder(3).rule(NumberPoolByIndex::new().at([0], [1, 2, 3]).at([1, 2], [5, 6, 7]))),
+        (
+            "small: pools without a range",
+            Settings::builder(3).no_duplicates().rule(NumberPool::new().exactly(2, [1, 2, 3, 4]).exactly(1, [8, 9])),
+        ),
+        (
+            "small: pools by index without a range",
+            Settings::builder(3).rule(NumberPoolByIndex::new().at([0], [1, 2, 3]).at([1, 2], [5, 6, 7])),
+        ),
     ]
 }
 
@@ -118,13 +134,19 @@ fn equally_likely_problems(cases: Vec<(&'static str, SettingsBuilder)>, max_tick
         }
         let unknown = counts.keys().filter(|x| !matching.contains(x)).count();
         let p = 1.0 / matching.len() as f64;
-        let z: Vec<f64> = matching.iter().map(|x| (counts.get(x).copied().unwrap_or(0) as f64 - draws as f64 * p) / (draws as f64 * p * (1.0 - p)).sqrt()).collect();
+        let z: Vec<f64> = matching
+            .iter()
+            .map(|x| (counts.get(x).copied().unwrap_or(0) as f64 - draws as f64 * p) / (draws as f64 * p * (1.0 - p)).sqrt())
+            .collect();
         let worst = z.iter().map(|x| x.abs()).fold(0.0, f64::max);
         let mean_square = z.iter().map(|x| x * x).sum::<f64>() / z.len() as f64;
         let allowed = 6.0 * (2.0 / z.len() as f64).sqrt() + 0.05;
         println!("{:<50} {:>5} tickets, worst {:.1} sd, spread {:.3}", name, matching.len(), worst, mean_square);
         if unknown > 0 || worst > 6.0 || (mean_square - 1.0).abs() > allowed {
-            problems.push(format!("{}: {} tickets that don't match, worst {:.1} sd, spread {:.3} (allowed 1 ± {:.3})", name, unknown, worst, mean_square, allowed));
+            problems.push(format!(
+                "{}: {} tickets that don't match, worst {:.1} sd, spread {:.3} (allowed 1 ± {:.3})",
+                name, unknown, worst, mean_square, allowed
+            ));
         }
     }
     assert!(problems.is_empty(), "\n{}", problems.join("\n"));
@@ -134,7 +156,14 @@ fn equally_likely_problems(cases: Vec<(&'static str, SettingsBuilder)>, max_tick
 //When nothing matches it stops at max_draws, with the logs cut short and how often each rule stopped a ticket
 #[test]
 fn uniform_stops_at_max_draws_and_counts_what_stopped_it() {
-    let settings = Settings::builder(4).range(1, 10).no_duplicates().rule(OddEven::new().odd(4).even(0)).rule(Sequential::new().in_a_row(4)).uniform().max_draws(20_000).build();
+    let settings = Settings::builder(4)
+        .range(1, 10)
+        .no_duplicates()
+        .rule(OddEven::new().odd(4).even(0))
+        .rule(Sequential::new().in_a_row(4))
+        .uniform()
+        .max_draws(20_000)
+        .build();
     let error = settings.generate().unwrap_err();
     assert_eq!(error.attempts(), 20_000);
     assert!(error.logs().len() <= 10_001, "{}", error.logs().len());
@@ -146,13 +175,22 @@ fn uniform_stops_at_max_draws_and_counts_what_stopped_it() {
 //Uniform logs keep one number for every draw, and their text says every number drawn so far in the attempt
 #[test]
 fn uniform_logs_say_every_number_drawn_in_the_attempt() {
-    let settings = Settings::builder(5).range(1, 39).no_duplicates()
-        .rule(OddEven::new().odd(4).even(1)).rule(NumberPool::new().exactly(3, 1..=13))
-        .random(SeededRandom::new(2)).uniform().build();
+    let settings = Settings::builder(5)
+        .range(1, 39)
+        .no_duplicates()
+        .rule(OddEven::new().odd(4).even(1))
+        .rule(NumberPool::new().exactly(3, 1..=13))
+        .random(SeededRandom::new(2))
+        .uniform()
+        .build();
     let numbers = settings.generate().unwrap();
     let list = |text: &str| -> Vec<usize> {
         let text = text.trim().trim_start_matches('[').trim_end_matches(']');
-        if text.is_empty() { Vec::new() } else { text.split(", ").map(|x| x.parse().unwrap()).collect() }
+        if text.is_empty() {
+            Vec::new()
+        } else {
+            text.split(", ").map(|x| x.parse().unwrap()).collect()
+        }
     };
     let mut drawn: Vec<usize> = Vec::new();
     let (mut attempts, mut draws, mut clears) = (0, 0, 0);
@@ -203,9 +241,14 @@ fn uniform_needs_enough_numbers_without_repeats() {
 #[test]
 fn any_of_works_without_uniform_and_needs_rules() {
     for _ in 0..200 {
-        let numbers = Settings::builder(4).range(1, 10).no_duplicates()
+        let numbers = Settings::builder(4)
+            .range(1, 10)
+            .no_duplicates()
             .rule(AnyOf::new().rule(OddEven::new().odd(4).even(0)).rule(OddEven::new().odd(0).even(4)))
-            .build().generate().unwrap().into_numbers();
+            .build()
+            .generate()
+            .unwrap()
+            .into_numbers();
         let odd = numbers.iter().filter(|x| *x % 2 == 1).count();
         assert!(odd == 4 || odd == 0, "{:?}", numbers);
     }
@@ -248,7 +291,8 @@ fn uniform_draws_from_pools_every_number_comes_from() {
         assert!(text[..2].chars().all(|x| x.is_ascii_uppercase()) && text[2..].chars().all(|x| x.is_ascii_digit()), "{}", text);
     }
     // Pools that share numbers can count a number twice, so they don't say where every number comes from
-    let error = Settings::builder(4).rule(NumberPool::new().exactly(2, [1, 2, 3]).exactly(2, [3, 4, 5])).uniform().build().generate().unwrap_err();
+    let error =
+        Settings::builder(4).rule(NumberPool::new().exactly(2, [1, 2, 3]).exactly(2, [3, 4, 5])).uniform().build().generate().unwrap_err();
     assert!(error.messages().iter().any(|x| x.contains("Uniform needs a range")), "{:?}", error.messages());
 }
 
@@ -262,22 +306,44 @@ fn sample_uniform_finds_wrong_stops() {
     #[derive(Clone, Debug)]
     struct OddFirstStops;
     impl std::fmt::Display for OddFirstStops {
-        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "OddFirstStops") }
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "OddFirstStops")
+        }
     }
     impl RuleTrait for OddFirstStops {
-        fn as_any(&self) -> &dyn std::any::Any { self }
-        fn share_data(&self, _c: &CurrentData) -> Option<SharedData> { None }
-        fn get_numbers(&self, _c: &CurrentData) -> Result<Option<Vec<usize>>, String> { Ok(None) }
-        fn is_within_range(&self, _c: &CurrentData) -> Result<(), (IsWithinErrorType, String)> { Ok(()) }
-        fn is_match(&self, _c: &CurrentData) -> Result<(), String> { Ok(()) }
-        fn check_count(&self, _count: usize) -> Result<bool, String> { Ok(true) }
-        fn name(&self) -> String { "OddFirstStops".into() }
-        fn can_still_match(&self, c: &CurrentData) -> bool { c.selected_numbers()[0].is_multiple_of(2) }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn share_data(&self, _c: &CurrentData) -> Option<SharedData> {
+            None
+        }
+        fn get_numbers(&self, _c: &CurrentData) -> Result<Option<Vec<usize>>, String> {
+            Ok(None)
+        }
+        fn is_within_range(&self, _c: &CurrentData) -> Result<(), (IsWithinErrorType, String)> {
+            Ok(())
+        }
+        fn is_match(&self, _c: &CurrentData) -> Result<(), String> {
+            Ok(())
+        }
+        fn check_count(&self, _count: usize) -> Result<bool, String> {
+            Ok(true)
+        }
+        fn name(&self) -> String {
+            "OddFirstStops".into()
+        }
+        fn can_still_match(&self, c: &CurrentData) -> bool {
+            c.selected_numbers()[0].is_multiple_of(2)
+        }
     }
     let settings = Settings::builder(6).range(1, 40).no_duplicates().rule(OddFirstStops).random(SeededRandom::new(3)).uniform().build();
     let check = sample_uniform(&settings, 200).unwrap();
     assert_eq!(check.matching.len(), 200);
-    assert!(!check.wrong_stops.is_empty() && check.wrong_stops.iter().all(|x| x[0] % 2 == 1), "{:?}", &check.wrong_stops[..3.min(check.wrong_stops.len())]);
+    assert!(
+        !check.wrong_stops.is_empty() && check.wrong_stops.iter().all(|x| x[0] % 2 == 1),
+        "{:?}",
+        &check.wrong_stops[..3.min(check.wrong_stops.len())]
+    );
 
     let b = || Settings::builder(6).range(1, 40).no_duplicates().random(SeededRandom::new(5));
     for (name, builder) in [

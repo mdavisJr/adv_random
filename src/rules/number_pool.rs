@@ -1,23 +1,24 @@
 use crate::random::{CurrentData, NumberType};
 use crate::random_trait::{get_random_vec_item, RandomTrait};
-use crate::rules::{IsWithinErrorType, SharedData, OperatorType, RuleTrait};
+use crate::rules::{IsWithinErrorType, OperatorType, RuleTrait, SharedData};
 use std::any::Any;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::ops::RangeInclusive;
 
-use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
-
+use super::ExcludeRuleTrait;
 
 /// The letters a to z and A to Z.
-pub const NP_ALPHABET_SET: [char; 52] = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+pub const NP_ALPHABET_SET: [char; 52] = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A',
+    'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+];
 /// The digits 0 to 9.
-pub const NP_NUMERIC_SET: [char; 10] = ['0','1','2','3','4','5','6','7','8','9'];
+pub const NP_NUMERIC_SET: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 /// The special characters `NumberPool::alphanumeric` can add.
-pub const NP_SPECIAL_CHAR_SET: [char; 13] = ['!','@','#','$','%','^','&','*','(',')','-','+','='];
-
+pub const NP_SPECIAL_CHAR_SET: [char; 13] = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '='];
 
 /// The numbers of a PoolType::Set.  They are kept sorted with no duplicates, so use PoolType::set to create one.
 #[derive(Clone, PartialEq, Eq)]
@@ -167,9 +168,13 @@ impl PoolType {
             (PoolType::MinMax(min_1, max_1), PoolType::MinMax(min_2, max_2)) => {
                 let lowest = *min_1.max(min_2);
                 let highest = *max_1.min(max_2);
-                if min_1 <= max_1 && min_2 <= max_2 && lowest <= highest { Some(lowest) } else { None }
-            },
-            (PoolType::Set(set), pool) | (pool, PoolType::Set(set)) => set.numbers().iter().copied().find(|x| pool.contains(*x))
+                if min_1 <= max_1 && min_2 <= max_2 && lowest <= highest {
+                    Some(lowest)
+                } else {
+                    None
+                }
+            }
+            (PoolType::Set(set), pool) | (pool, PoolType::Set(set)) => set.numbers().iter().copied().find(|x| pool.contains(*x)),
         };
     }
 
@@ -177,7 +182,13 @@ impl PoolType {
     pub fn len(&self) -> usize {
         match self {
             PoolType::Set(set) => set.numbers().len(),
-            PoolType::MinMax(min, max) => if min > max { 0 } else { (max - min).saturating_add(1) },
+            PoolType::MinMax(min, max) => {
+                if min > max {
+                    0
+                } else {
+                    (max - min).saturating_add(1)
+                }
+            }
         }
     }
 
@@ -201,11 +212,7 @@ pub struct NumberPoolItem {
 impl NumberPoolItem {
     /// A pool with its key and how many of the numbers come from it.
     pub fn new(key: &str, pool: &PoolType, needs: OperatorType) -> NumberPoolItem {
-        return NumberPoolItem {
-            pool: pool.clone(),
-            needs,
-            key: key.to_owned(),
-        };
+        return NumberPoolItem { pool: pool.clone(), needs, key: key.to_owned() };
     }
 }
 
@@ -221,12 +228,7 @@ pub struct NumberPoolItemFull {
 impl NumberPoolItemFull {
     /// A pool with how many numbers come from it, have so far and are still needed.
     pub fn new(pool: &PoolType, needs: OperatorType, has: usize, missing: usize) -> NumberPoolItemFull {
-        return NumberPoolItemFull {
-            pool: pool.clone(),
-            needs,
-            has,
-            missing,
-        };
+        return NumberPoolItemFull { pool: pool.clone(), needs, has, missing };
     }
     /// The pool.
     pub fn pool(&self) -> &PoolType {
@@ -342,8 +344,8 @@ impl NumberPool {
                     self.errors.push(String::from("NumberPool digits was set more than once"));
                 }
                 alphanumeric.digits = Some(count);
-            },
-            None => self.errors.push(format!("{} digits can only be used with alphanumeric", self.name()))
+            }
+            None => self.errors.push(format!("{} digits can only be used with alphanumeric", self.name())),
         }
         return self;
     }
@@ -356,8 +358,8 @@ impl NumberPool {
                     self.errors.push(String::from("NumberPool special characters were set more than once"));
                 }
                 alphanumeric.special_characters = SpecialCharacters::Some;
-            },
-            None => self.errors.push(format!("{} with_special_characters can only be used with alphanumeric", self.name()))
+            }
+            None => self.errors.push(format!("{} with_special_characters can only be used with alphanumeric", self.name())),
         }
         return self;
     }
@@ -370,8 +372,8 @@ impl NumberPool {
                     self.errors.push(String::from("NumberPool special characters were set more than once"));
                 }
                 alphanumeric.special_characters = SpecialCharacters::Exactly(count);
-            },
-            None => self.errors.push(format!("{} special_characters can only be used with alphanumeric", self.name()))
+            }
+            None => self.errors.push(format!("{} special_characters can only be used with alphanumeric", self.name())),
         }
         return self;
     }
@@ -388,29 +390,37 @@ impl NumberPool {
         let numeric_count = match (alphanumeric.digits, random) {
             (Some(v), _) => v,
             (None, Some(random)) if count >= 10 => random.get_number(1, 3),
-            (None, _) => 1
+            (None, _) => 1,
         };
         let special_char_count = match (alphanumeric.special_characters, random) {
             (SpecialCharacters::None, _) => 0,
             (SpecialCharacters::Exactly(v), _) => v,
             (SpecialCharacters::Some, Some(random)) if count >= 10 => random.get_number(1, 2),
-            (SpecialCharacters::Some, _) => 1
+            (SpecialCharacters::Some, _) => 1,
         };
         let is_exact = alphanumeric.digits.is_some() || matches!(alphanumeric.special_characters, SpecialCharacters::Exactly(_));
         let min_count = if is_exact { numeric_count.saturating_add(special_char_count) } else { numeric_count + special_char_count + 1 };
         if count < min_count {
             number_pool.errors.push(if is_exact {
-                format!("{} alphanumeric digits: {} and special characters: {} are more than count: {}", self.name(), numeric_count, special_char_count, count)
+                format!(
+                    "{} alphanumeric digits: {} and special characters: {} are more than count: {}",
+                    self.name(),
+                    numeric_count,
+                    special_char_count,
+                    count
+                )
             } else {
                 format!("{} alphanumeric count: {} must be {} or more", self.name(), count, min_count)
             });
             return Some(number_pool);
         }
 
-        return Some(number_pool
-            .item("alpha_set", PoolType::from_chars(&NP_ALPHABET_SET), OperatorType::Eq(count - numeric_count - special_char_count))
-            .item("numeric_set", PoolType::from_chars(&NP_NUMERIC_SET), OperatorType::Eq(numeric_count))
-            .item("special_char_set", PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count)));
+        return Some(
+            number_pool
+                .item("alpha_set", PoolType::from_chars(&NP_ALPHABET_SET), OperatorType::Eq(count - numeric_count - special_char_count))
+                .item("numeric_set", PoolType::from_chars(&NP_NUMERIC_SET), OperatorType::Eq(numeric_count))
+                .item("special_char_set", PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count)),
+        );
     }
 
     /// Letters and digits, and special characters if asked, for a string of count characters, with this
@@ -482,12 +492,7 @@ impl NumberPool {
         if let Err(e) = needs.check() {
             self.errors.push(format!("{} pool {:?} {}", self.name(), key, e));
         }
-        let number_pool_item = NumberPoolItemFull {
-            pool,
-            needs,
-            has: 0,
-            missing: needs.get_missing_without_has(),
-        };
+        let number_pool_item = NumberPoolItemFull { pool, needs, has: 0, missing: needs.get_missing_without_has() };
         if self.number_pool_items.insert(key.to_owned(), number_pool_item).is_some() {
             self.errors.push(format!("{} has more than one pool with the key {:?}", self.name(), key));
         }
@@ -508,7 +513,7 @@ impl NumberPool {
     pub fn over(mut self, pool: impl Into<PoolType>) -> NumberPool {
         match self.spreads.last_mut() {
             Some(spread) => spread.pools.push(pool.into()),
-            None => self.errors.push(format!("{} over can only be used after spread", self.name()))
+            None => self.errors.push(format!("{} over can only be used after spread", self.name())),
         }
         return self;
     }
@@ -528,7 +533,10 @@ impl NumberPool {
             if spread.counts.len() != spread.pools.len() {
                 errors.push(format!(
                     "{} spread {:?} has {} counts and {} pools.  Call over one time for every count",
-                    self.name(), spread.counts, spread.counts.len(), spread.pools.len()
+                    self.name(),
+                    spread.counts,
+                    spread.counts.len(),
+                    spread.pools.len()
                 ));
             }
             //a number has to be from one pool only, so that it is counted one time
@@ -537,7 +545,11 @@ impl NumberPool {
                     if let Some(number) = pool_1.first_shared_number(pool_2) {
                         errors.push(format!(
                             "{} spread {:?} pools {} and {} both have the number {}",
-                            self.name(), spread.counts, index_1 + 1, index_2 + 1, number
+                            self.name(),
+                            spread.counts,
+                            index_1 + 1,
+                            index_2 + 1,
+                            number
                         ));
                     }
                 }
@@ -558,7 +570,10 @@ impl NumberPool {
             if let Some((count, pool_size)) = spread.counts.iter().zip(pool_sizes.iter()).find(|(count, pool_size)| count > pool_size) {
                 return Err(format!(
                     "{} spread {:?} needs {} numbers from a pool that only has {}, which is not possible with NoDuplicate",
-                    self.name(), spread.counts, count, pool_size
+                    self.name(),
+                    spread.counts,
+                    count,
+                    pool_size
                 ));
             }
         }
@@ -567,7 +582,10 @@ impl NumberPool {
             if numbers_needed > number_pool_item.pool.len() {
                 return Err(format!(
                     "{} pool {:?} needs {} numbers but only has {}, which is not possible with NoDuplicate",
-                    self.name(), key, numbers_needed, number_pool_item.pool.len()
+                    self.name(),
+                    key,
+                    numbers_needed,
+                    number_pool_item.pool.len()
                 ));
             }
         }
@@ -575,14 +593,9 @@ impl NumberPool {
     }
 
     /// Pools from items with their counts so far.
-    pub fn from_number_pool_item_full(
-        number_pool_items: &[(&str, NumberPoolItemFull)],
-    ) -> NumberPool {
+    pub fn from_number_pool_item_full(number_pool_items: &[(&str, NumberPoolItemFull)]) -> NumberPool {
         return NumberPool {
-            number_pool_items: number_pool_items
-                .iter()
-                .map(|x| (x.0.to_owned(), x.1.to_owned()))
-                .collect(),
+            number_pool_items: number_pool_items.iter().map(|x| (x.0.to_owned(), x.1.to_owned())).collect(),
             errors: Vec::new(),
             alphanumeric: None,
             spreads: Vec::new(),
@@ -598,11 +611,7 @@ impl NumberPool {
     }
 
     /// Pools from items, with how many of these numbers are from each.
-    pub fn from_numbers(
-        number_pool_items: &[NumberPoolItem],
-        numbers: &[usize],
-        set_needs_eq_match: bool,
-    ) -> NumberPool {
+    pub fn from_numbers(number_pool_items: &[NumberPoolItem], numbers: &[usize], set_needs_eq_match: bool) -> NumberPool {
         let mut number_pool_items_full: BTreeMap<String, NumberPoolItemFull> = BTreeMap::new();
         for number_pool_item in number_pool_items {
             let match_count = number_pool_item.pool.has(numbers);
@@ -611,22 +620,13 @@ impl NumberPool {
                 number_pool_item.key.to_owned(),
                 NumberPoolItemFull {
                     pool: number_pool_item.pool.clone(),
-                    needs: if set_needs_eq_match {
-                        OperatorType::Eq(match_count)
-                    } else {
-                        number_pool_item.needs
-                    },
+                    needs: if set_needs_eq_match { OperatorType::Eq(match_count) } else { number_pool_item.needs },
                     has: match_count,
                     missing,
                 },
             );
         }
-        return NumberPool {
-            number_pool_items: number_pool_items_full,
-            errors: Vec::new(),
-            alphanumeric: None,
-            spreads: Vec::new(),
-        };
+        return NumberPool { number_pool_items: number_pool_items_full, errors: Vec::new(), alphanumeric: None, spreads: Vec::new() };
     }
 
     /// Every pool, by its key.
@@ -661,7 +661,7 @@ impl NumberPool {
 
     /// The first pool that has some of the numbers so far.
     pub fn find_first_has_value(&self) -> Option<&NumberPoolItemFull> {
-        return self.number_pool_items().values().find(|&number_pool_item| number_pool_item.has() > 0);        
+        return self.number_pool_items().values().find(|&number_pool_item| number_pool_item.has() > 0);
     }
 }
 
@@ -685,11 +685,9 @@ impl RuleTrait for NumberPool {
         self
     }
 
-    fn share_data(
-        &self,
-        current_data: &CurrentData,
-    ) -> Option<SharedData> {
-        let mut pool_types: Vec<PoolType> = self.number_pool_items().values().filter(|x| x.needs.is_absolute_zero()).map(|x|x.pool().clone()).collect();
+    fn share_data(&self, current_data: &CurrentData) -> Option<SharedData> {
+        let mut pool_types: Vec<PoolType> =
+            self.number_pool_items().values().filter(|x| x.needs.is_absolute_zero()).map(|x| x.pool().clone()).collect();
         //the next number can not be from a pool of a spread that can not take another number
         for spread in &self.spreads {
             let has = spread.has(current_data.selected_numbers());
@@ -709,10 +707,7 @@ impl RuleTrait for NumberPool {
         }
     }
 
-    fn get_numbers(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         let mut numbers: Vec<usize> = Vec::new();
         let mut number_not_found = false;
         for (_, number_pool_item, _, missing) in self.counts(current_data.selected_numbers()) {
@@ -729,7 +724,7 @@ impl RuleTrait for NumberPool {
 
                 match number_pool_item.pool.random_number(current_data) {
                     Some(number) => numbers.push(number),
-                    None => number_not_found = true
+                    None => number_not_found = true,
                 }
             }
         }
@@ -737,11 +732,17 @@ impl RuleTrait for NumberPool {
             let has = spread.has(current_data.selected_numbers());
             if spread.fits(&has) && has.iter().sum::<usize>() < spread.total() {
                 //one number from any of the pools that can still take one
-                let pools: Vec<&PoolType> = spread.pools.iter().enumerate().filter(|(pool_index, _)| spread.can_take(&has, *pool_index)).map(|(_, pool)| pool).collect();
+                let pools: Vec<&PoolType> = spread
+                    .pools
+                    .iter()
+                    .enumerate()
+                    .filter(|(pool_index, _)| spread.can_take(&has, *pool_index))
+                    .map(|(_, pool)| pool)
+                    .collect();
                 let pool = current_data.random().and_then(|random| get_random_vec_item(random, &pools));
                 match pool.and_then(|pool| pool.random_number(current_data)) {
                     Some(number) => numbers.push(number),
-                    None => number_not_found = true
+                    None => number_not_found = true,
                 }
             }
         }
@@ -755,17 +756,14 @@ impl RuleTrait for NumberPool {
         return Ok(None);
     }
 
-    fn is_within_range(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         let mut total_missing: usize = 0;
         for (key, number_pool_item, has, missing) in self.counts(current_data.selected_numbers()) {
             if !number_pool_item.needs.is_within_range(has) {
-                return Err((IsWithinErrorType::Regular, format!(
-                    "Too many from pool {:?}, \"needs\" is {} and \"has\" {} from this pool",
-                    key, number_pool_item.needs, has
-                )));
+                return Err((
+                    IsWithinErrorType::Regular,
+                    format!("Too many from pool {:?}, \"needs\" is {} and \"has\" {} from this pool", key, number_pool_item.needs, has),
+                ));
             }
             if !number_pool_item.needs.is_absolute_zero() {
                 total_missing += missing;
@@ -774,10 +772,10 @@ impl RuleTrait for NumberPool {
         for spread in &self.spreads {
             let has = spread.has(current_data.selected_numbers());
             if !spread.fits(&has) {
-                return Err((IsWithinErrorType::Regular, format!(
-                    "Too many from a pool of the spread {:?}, the pools have {:?}",
-                    spread.counts, has
-                )));
+                return Err((
+                    IsWithinErrorType::Regular,
+                    format!("Too many from a pool of the spread {:?}, the pools have {:?}", spread.counts, has),
+                ));
             }
             total_missing += spread.total() - has.iter().sum::<usize>();
         }
@@ -787,18 +785,18 @@ impl RuleTrait for NumberPool {
             current_data.settings().count() - current_data.selected_numbers().len()
         };
         if total_missing > 0 && total_missing > len_remaining {
-            return Err((IsWithinErrorType::MakePriority, format!(
-                "Need to pull from number pool, \"missing\" {} and there are {} numbers left to pick",
-                total_missing, len_remaining
-            )));
+            return Err((
+                IsWithinErrorType::MakePriority,
+                format!(
+                    "Need to pull from number pool, \"missing\" {} and there are {} numbers left to pick",
+                    total_missing, len_remaining
+                ),
+            ));
         }
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        current_data: &CurrentData
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         for (key, number_pool_item, has, _) in self.counts(current_data.selected_numbers()) {
             if !number_pool_item.needs.is_match(has) {
                 return Err(format!(
@@ -812,10 +810,7 @@ impl RuleTrait for NumberPool {
             let mut sorted_has = has.clone();
             sorted_has.sort_unstable_by(|a, b| b.cmp(a));
             if sorted_has != spread.counts {
-                return Err(format!(
-                    "Expected--Spread:{:?} in any order. Actual Counts:{:?}",
-                    spread.counts, has
-                ));
+                return Err(format!("Expected--Spread:{:?} in any order. Actual Counts:{:?}", spread.counts, has));
             }
         }
         return Ok(());
@@ -866,11 +861,8 @@ impl RuleTrait for NumberPool {
         return String::from("NumberPool");
     }
 
-    fn check_count(
-        &self,
-        count: usize,
-    ) -> std::result::Result<bool, String> {
-        let needs_count:usize = self.number_pool_items.values().map(|x| x.needs.get_missing_without_has()).sum::<usize>()
+    fn check_count(&self, count: usize) -> std::result::Result<bool, String> {
+        let needs_count: usize = self.number_pool_items.values().map(|x| x.needs.get_missing_without_has()).sum::<usize>()
             + self.spreads.iter().map(|x| x.total()).sum::<usize>();
         if needs_count <= count {
             return Ok(true);
@@ -892,17 +884,11 @@ impl ExcludeRuleTrait for NumberPool {
         self
     }
 
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
         return is_excluded_helper(&self.is_match(current_data), &self.to_string());
     }
 
-    fn is_within_excluded_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_excluded_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 

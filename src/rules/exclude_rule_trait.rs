@@ -14,21 +14,14 @@ pub fn is_excluded_helper(is_match_results: &std::result::Result<(), String>, ru
 
 /// A rule the numbers can not match, added with `.exclude(...)`.
 pub trait ExcludeRuleTrait: ExcludeRuleTraitClone + Display + std::fmt::Debug + Send + Sync {
-
     /// The rule as `Any`, to find out which rule it is.
     fn as_any(&self) -> &dyn Any;
 
     /// Without uniform settings, called every time numbers are added: an error when the numbers so far are sure to be left out.
-    fn is_within_excluded_range(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)>;
+    fn is_within_excluded_range(&self, current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)>;
 
     /// Called when all of the numbers are there: an error when they are left out.
-    fn is_excluded(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<(), String>;
+    fn is_excluded(&self, current_data: &CurrentData) -> std::result::Result<(), String>;
 
     /// The rule's name, for logs and errors.
     fn exclude_name(&self) -> String;

@@ -1,5 +1,5 @@
 use crate::random::{CurrentData, NumberType};
-use crate::rules::{SharedData, RuleTrait, IsWithinErrorType};
+use crate::rules::{IsWithinErrorType, RuleTrait, SharedData};
 use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
@@ -25,31 +25,19 @@ impl RuleTrait for RandomNumber {
         self
     }
 
-    fn share_data(
-        &self,
-        _current_data: &CurrentData,
-    ) -> Option<SharedData> {
+    fn share_data(&self, _current_data: &CurrentData) -> Option<SharedData> {
         None
     }
 
-    fn get_numbers(
-        &self,
-        current_data: &CurrentData,
-    ) -> std::result::Result<Option<Vec<usize>>, String> {
+    fn get_numbers(&self, current_data: &CurrentData) -> std::result::Result<Option<Vec<usize>>, String> {
         return Ok(Some(vec![current_data.get_rand(NumberType::Any, None, None).ok_or_else(|| current_data.no_number_err())?]));
     }
 
-    fn is_within_range(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), (IsWithinErrorType, String)> {
+    fn is_within_range(&self, _current_data: &CurrentData) -> std::result::Result<(), (IsWithinErrorType, String)> {
         return Ok(());
     }
 
-    fn is_match(
-        &self,
-        _current_data: &CurrentData,
-    ) -> std::result::Result<(), String> {
+    fn is_match(&self, _current_data: &CurrentData) -> std::result::Result<(), String> {
         return Ok(());
     }
 
@@ -63,10 +51,7 @@ impl RuleTrait for RandomNumber {
         return String::from("RandomNumber");
     }
 
-    fn check_count(
-        &self,
-        _count: usize,
-    ) -> std::result::Result<bool, String> {
+    fn check_count(&self, _count: usize) -> std::result::Result<bool, String> {
         return Ok(true);
     }
 }

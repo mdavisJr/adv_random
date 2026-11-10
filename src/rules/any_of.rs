@@ -65,10 +65,15 @@ impl RuleTrait for AnyOf {
         for rule in &self.rules {
             match rule.is_within_range(current_data) {
                 Ok(()) => return Ok(()),
-                Err(e) => { first_error.get_or_insert(e.1); }
+                Err(e) => {
+                    first_error.get_or_insert(e.1);
+                }
             }
         }
-        return Err((IsWithinErrorType::Regular, format!("{} none of its rules can match.  The first: {}", self.name(), first_error.unwrap_or_default())));
+        return Err((
+            IsWithinErrorType::Regular,
+            format!("{} none of its rules can match.  The first: {}", self.name(), first_error.unwrap_or_default()),
+        ));
     }
 
     fn is_match(&self, current_data: &CurrentData) -> std::result::Result<(), String> {
@@ -76,7 +81,9 @@ impl RuleTrait for AnyOf {
         for rule in &self.rules {
             match rule.is_match(current_data) {
                 Ok(()) => return Ok(()),
-                Err(e) => { first_error.get_or_insert(e); }
+                Err(e) => {
+                    first_error.get_or_insert(e);
+                }
             }
         }
         return Err(format!("{} none of its rules match.  The first: {}", self.name(), first_error.unwrap_or_default()));
