@@ -4,31 +4,32 @@ use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 
-//Matches when any one of its rules matches, such as one of a few odd/even counts.  A ticket can still
-//match while any one of them can.  It gets no numbers itself, so it suits uniform settings best.
+/// Matches when any one of its rules matches, such as one of a few odd/even counts.  A ticket can still
+/// match while any one of them can.  It gets no numbers itself, so it suits uniform settings best.
 #[derive(Clone, Default)]
 pub struct AnyOf {
     rules: Vec<Box<dyn RuleTrait>>,
 }
 
 impl AnyOf {
-    //No rules yet.  Add them with rule.
+    /// No rules yet.  Add them with rule.
     pub fn new() -> AnyOf {
         return AnyOf::default();
     }
 
-    //Adds a rule that can match
+    /// Adds a rule that can match
     pub fn rule(mut self, rule: impl RuleTrait + 'static) -> AnyOf {
         self.rules.push(Box::new(rule));
         return self;
     }
 
-    //Adds rules that are already in boxes
+    /// Adds rules that are already in boxes
     pub fn boxed_rules(mut self, rules: impl IntoIterator<Item = Box<dyn RuleTrait>>) -> AnyOf {
         self.rules.extend(rules);
         return self;
     }
 
+    /// Its rules.
     pub fn rules(&self) -> &Vec<Box<dyn RuleTrait>> {
         return &self.rules;
     }

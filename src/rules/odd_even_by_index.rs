@@ -9,23 +9,24 @@ use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 #[derive(Clone, Default)]
+/// The numbers at some indexes are odd, and at others even.
 pub struct OddEvenByIndex {
     odd_even: HashMap<usize, OddEvenKey>,
     errors: Vec<String>,
 }
 
 impl OddEvenByIndex {
-    //No numbers have to be odd or even yet.  Say which ones with odd and even.
+    /// No numbers have to be odd or even yet.  Say which ones with odd and even.
     pub fn new() -> OddEvenByIndex {
         return OddEvenByIndex::default();
     }
 
-    //The numbers at these indexes are odd.  The first number is index 0.
+    /// The numbers at these indexes are odd.  The first number is index 0.
     pub fn odd(self, indexes: impl IntoIterator<Item = usize>) -> OddEvenByIndex {
         return self.add(indexes, OddEvenKey::Odd);
     }
 
-    //The numbers at these indexes are even.  The first number is index 0.
+    /// The numbers at these indexes are even.  The first number is index 0.
     pub fn even(self, indexes: impl IntoIterator<Item = usize>) -> OddEvenByIndex {
         return self.add(indexes, OddEvenKey::Even);
     }
@@ -50,6 +51,7 @@ impl OddEvenByIndex {
         return self;
     }
 
+    /// Which indexes of these numbers are odd and which are even.
     pub fn from_numbers(numbers: &[usize]) -> OddEvenByIndex {
         let mut odd_even: HashMap<usize, OddEvenKey> = HashMap::new();
         for (idx, number) in numbers.iter().enumerate() {

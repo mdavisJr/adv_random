@@ -11,22 +11,27 @@ use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 
+/// The letters a to z and A to Z.
 pub const NP_ALPHABET_SET: [char; 52] = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+/// The digits 0 to 9.
 pub const NP_NUMERIC_SET: [char; 10] = ['0','1','2','3','4','5','6','7','8','9'];
+/// The special characters `NumberPool::alphanumeric` can add.
 pub const NP_SPECIAL_CHAR_SET: [char; 13] = ['!','@','#','$','%','^','&','*','(',')','-','+','='];
 
 
-//The numbers of a PoolType::Set.  They are kept sorted with no duplicates, so use PoolType::set to create one.
+/// The numbers of a PoolType::Set.  They are kept sorted with no duplicates, so use PoolType::set to create one.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PoolSet {
     numbers: Vec<usize>,
 }
 
 impl PoolSet {
+    /// The numbers, smallest first.
     pub fn numbers(&self) -> &[usize] {
         return &self.numbers;
     }
 
+    /// Whether the number is in the set.
     pub fn contains(&self, number: usize) -> bool {
         return self.numbers.binary_search(&number).is_ok();
     }
@@ -39,8 +44,11 @@ impl Debug for PoolSet {
 }
 
 #[derive(Clone, Debug)]
+/// Numbers that some of the numbers come from: a set or a range.
 pub enum PoolType {
+    /// These numbers.
     Set(PoolSet),
+    /// The numbers from min to max, both included.
     MinMax(usize, usize),
 }
 
@@ -90,6 +98,7 @@ impl From<&PoolType> for PoolType {
 }
 
 impl PoolType {
+    /// A pool of these numbers.
     pub fn set(numbers: impl IntoIterator<Item = usize>) -> PoolType {
         let mut numbers: Vec<usize> = numbers.into_iter().collect();
         numbers.sort_unstable();
@@ -97,23 +106,27 @@ impl PoolType {
         return PoolType::Set(PoolSet { numbers });
     }
 
+    /// A pool of these characters.
     pub fn new(char_set: &HashSet<char>) -> PoolType {
         return PoolType::set(char_set.iter().map(|x| *x as usize));
     }
 
+    /// A pool of these characters.
     pub fn from_chars(chars: &[char]) -> PoolType {
         return PoolType::set(chars.iter().map(|x| *x as usize));
     }
 
+    /// A random number from the pool that the numbers so far allow.
     pub fn random_number(&self, current_data: &CurrentData) -> Option<usize> {
         return current_data.get_rand(NumberType::Any, Some(self), None);
     }
 
-    //counts every number that is in this pool, so a number selected twice counts twice
+    /// counts every number that is in this pool, so a number selected twice counts twice
     pub fn has(&self, numbers: &[usize]) -> usize {
         return numbers.iter().filter(|x| self.contains(**x)).count();
     }
 
+    /// The pool's numbers that are not in the set.
     pub fn difference(&self, numbers_set: &HashSet<usize>) -> Vec<usize> {
         match self {
             PoolType::Set(set) => {
@@ -131,6 +144,7 @@ impl PoolType {
         }
     }
 
+    /// Whether the number is in the pool.
     pub fn contains(&self, number: usize) -> bool {
         match self {
             PoolType::Set(set) => {
@@ -142,11 +156,12 @@ impl PoolType {
         }
     }
 
+    /// Whether the pool has no numbers.
     pub fn is_empty(&self) -> bool {
         return self.len() == 0;
     }
 
-    //Returns a number that is in both pools.  None when they have no number in common.
+    /// Returns a number that is in both pools.  None when they have no number in common.
     pub fn first_shared_number(&self, other: &PoolType) -> Option<usize> {
         return match (self, other) {
             (PoolType::MinMax(min_1, max_1), PoolType::MinMax(min_2, max_2)) => {
@@ -158,6 +173,7 @@ impl PoolType {
         };
     }
 
+    /// How many numbers the pool has.
     pub fn len(&self) -> usize {
         match self {
             PoolType::Set(set) => set.numbers().len(),
@@ -165,7 +181,7 @@ impl PoolType {
         }
     }
 
-    //Every number in the pool, smallest first
+    /// Every number in the pool, smallest first
     pub(crate) fn numbers_iter(&self) -> Box<dyn Iterator<Item = usize> + '_> {
         match self {
             PoolType::Set(set) => Box::new(set.numbers().iter().copied()),
@@ -175,6 +191,7 @@ impl PoolType {
 }
 
 #[derive(Clone, Debug)]
+/// A pool and how many of the numbers come from it.
 pub struct NumberPoolItem {
     pool: PoolType,
     needs: OperatorType,
@@ -182,6 +199,7 @@ pub struct NumberPoolItem {
 }
 
 impl NumberPoolItem {
+    /// A pool with its key and how many of the numbers come from it.
     pub fn new(key: &str, pool: &PoolType, needs: OperatorType) -> NumberPoolItem {
         return NumberPoolItem {
             pool: pool.clone(),
@@ -192,6 +210,7 @@ impl NumberPoolItem {
 }
 
 #[derive(Clone, Debug)]
+/// A pool, how many of the numbers come from it, and how many of the numbers so far it has and still needs.
 pub struct NumberPoolItemFull {
     pool: PoolType,
     needs: OperatorType,
@@ -200,6 +219,7 @@ pub struct NumberPoolItemFull {
 }
 
 impl NumberPoolItemFull {
+    /// A pool with how many numbers come from it, have so far and are still needed.
     pub fn new(pool: &PoolType, needs: OperatorType, has: usize, missing: usize) -> NumberPoolItemFull {
         return NumberPoolItemFull {
             pool: pool.clone(),
@@ -208,21 +228,24 @@ impl NumberPoolItemFull {
             missing,
         };
     }
+    /// The pool.
     pub fn pool(&self) -> &PoolType {
         return &self.pool;
     }
 
+    /// How many of the numbers come from it.
     pub fn needs(&self) -> OperatorType {
         return self.needs;
     }
 
+    /// How many of the numbers so far are from it.
     pub fn has(&self) -> usize {
         return self.has;
     }
 }
 
-//Counts that are spread over pools in any order.  The counts 4, 1, 0 over three pools is 4 numbers from one of the
-//pools, 1 number from another one, and none from the pool that is left.  Created with NumberPool::spread.
+/// Counts that are spread over pools in any order.  The counts 4, 1, 0 over three pools is 4 numbers from one of the
+/// pools, 1 number from another one, and none from the pool that is left.  Created with NumberPool::spread.
 #[derive(Clone, Debug)]
 pub struct NumberPoolSpread {
     //from the largest to the smallest
@@ -231,15 +254,17 @@ pub struct NumberPoolSpread {
 }
 
 impl NumberPoolSpread {
+    /// The counts, the most first.
     pub fn counts(&self) -> &Vec<usize> {
         return &self.counts;
     }
 
+    /// One pool for every count.
     pub fn pools(&self) -> &Vec<PoolType> {
         return &self.pools;
     }
 
-    //How many of the numbers are from each pool
+    /// How many of the numbers are from each pool
     pub fn has(&self, numbers: &[usize]) -> Vec<usize> {
         return self.pools.iter().map(|x| x.has(numbers)).collect();
     }
@@ -285,6 +310,7 @@ enum SpecialCharacters {
 }
 
 #[derive(Clone, Default)]
+/// How many of the numbers come from pools of numbers, such as exactly 2 from 1 to 10 and none of 23.  Also makes letters and digits for strings.
 pub struct NumberPool {
     //sorted by key, so a seeded random generator gives the same numbers every run
     number_pool_items: BTreeMap<String, NumberPoolItemFull>,
@@ -296,9 +322,9 @@ pub struct NumberPool {
 }
 
 impl NumberPool {
-    //Letters and digits for a string of this many characters.  There is 1 digit, or 1 to 3 digits when there are 10
-    //or more characters, and the rest are letters.  Change that with digits, with_special_characters and
-    //special_characters.
+    /// Letters and digits for a string of this many characters.  There is 1 digit, or 1 to 3 digits when there are 10
+    /// or more characters, and the rest are letters.  Change that with digits, with_special_characters and
+    /// special_characters.
     pub fn alphanumeric(count: usize) -> NumberPool {
         return NumberPool {
             number_pool_items: BTreeMap::new(),
@@ -308,7 +334,7 @@ impl NumberPool {
         };
     }
 
-    //Exactly this many of the characters are digits
+    /// Exactly this many of the characters are digits
     pub fn digits(mut self, count: usize) -> NumberPool {
         match &mut self.alphanumeric {
             Some(alphanumeric) => {
@@ -322,7 +348,7 @@ impl NumberPool {
         return self;
     }
 
-    //Adds 1 special character, or 1 or 2 when there are 10 or more characters
+    /// Adds 1 special character, or 1 or 2 when there are 10 or more characters
     pub fn with_special_characters(mut self) -> NumberPool {
         match &mut self.alphanumeric {
             Some(alphanumeric) => {
@@ -336,7 +362,7 @@ impl NumberPool {
         return self;
     }
 
-    //Exactly this many of the characters are special characters
+    /// Exactly this many of the characters are special characters
     pub fn special_characters(mut self, count: usize) -> NumberPool {
         match &mut self.alphanumeric {
             Some(alphanumeric) => {
@@ -350,8 +376,8 @@ impl NumberPool {
         return self;
     }
 
-    //Returns this number pool with the pools of letters, digits and special characters that alphanumeric asked for.
-    //None when alphanumeric was not used.  Settings calls this when it is built.
+    /// Returns this number pool with the pools of letters, digits and special characters that alphanumeric asked for.
+    /// None when alphanumeric was not used.  Settings calls this when it is built.
     pub fn resolve_alphanumeric(&self, random: Option<&dyn RandomTrait>) -> Option<NumberPool> {
         let alphanumeric = self.alphanumeric?;
         let count = alphanumeric.count;
@@ -402,33 +428,33 @@ impl NumberPool {
         return number_pool.resolve_alphanumeric(None).unwrap_or(number_pool);
     }
 
-    //No numbers have to come from a pool yet.  Say what is needed with exactly, at_least, at_most, between and none_of.
-    //A pool is a list of numbers like [1, 4], a range like 1..=10, or the characters of a string like "ABC".
+    /// No numbers have to come from a pool yet.  Say what is needed with exactly, at_least, at_most, between and none_of.
+    /// A pool is a list of numbers like [1, 4], a range like 1..=10, or the characters of a string like "ABC".
     pub fn new() -> NumberPool {
         return NumberPool::default();
     }
 
-    //This many of the numbers come from the pool.  A number that is picked twice counts twice.
+    /// This many of the numbers come from the pool.  A number that is picked twice counts twice.
     pub fn exactly(self, count: usize, pool: impl Into<PoolType>) -> NumberPool {
         return self.add(pool, OperatorType::Eq(count));
     }
 
-    //This many or more of the numbers come from the pool
+    /// This many or more of the numbers come from the pool
     pub fn at_least(self, count: usize, pool: impl Into<PoolType>) -> NumberPool {
         return self.add(pool, OperatorType::Gte(count));
     }
 
-    //This many or fewer of the numbers come from the pool
+    /// This many or fewer of the numbers come from the pool
     pub fn at_most(self, count: usize, pool: impl Into<PoolType>) -> NumberPool {
         return self.add(pool, OperatorType::Lte(count));
     }
 
-    //From min to max of the numbers come from the pool
+    /// From min to max of the numbers come from the pool
     pub fn between(self, min: usize, max: usize, pool: impl Into<PoolType>) -> NumberPool {
         return self.add(pool, OperatorType::Between(min, max));
     }
 
-    //None of the numbers come from the pool
+    /// None of the numbers come from the pool
     pub fn none_of(self, pool: impl Into<PoolType>) -> NumberPool {
         return self.add(pool, OperatorType::Eq(0));
     }
@@ -442,7 +468,7 @@ impl NumberPool {
         return self.item(&format!("pool_{:03}", number), pool, needs);
     }
 
-    //Adds a pool with a key to find it with later, and any type for how many numbers come from it
+    /// Adds a pool with a key to find it with later, and any type for how many numbers come from it
     pub fn item(mut self, key: &str, pool: impl Into<PoolType>, needs: OperatorType) -> NumberPool {
         let pool: PoolType = pool.into();
         //an empty pool is only a problem when numbers have to come from it
@@ -464,9 +490,9 @@ impl NumberPool {
         return self;
     }
 
-    //Starts counts that are spread over pools in any order.  Give the pools with over, one for every count.
-    //spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39) is 4 numbers from one of the three pools, 1 number
-    //from another one, and none from the pool that is left.
+    /// Starts counts that are spread over pools in any order.  Give the pools with over, one for every count.
+    /// spread([4, 1, 0]).over(1..=13).over(14..=26).over(27..=39) is 4 numbers from one of the three pools, 1 number
+    /// from another one, and none from the pool that is left.
     pub fn spread(mut self, counts: impl IntoIterator<Item = usize>) -> NumberPool {
         let mut counts: Vec<usize> = counts.into_iter().collect();
         counts.sort_unstable_by(|a, b| b.cmp(a));
@@ -474,7 +500,7 @@ impl NumberPool {
         return self;
     }
 
-    //Adds a pool to the counts that the last call to spread started
+    /// Adds a pool to the counts that the last call to spread started
     pub fn over(mut self, pool: impl Into<PoolType>) -> NumberPool {
         match self.spreads.last_mut() {
             Some(spread) => spread.pools.push(pool.into()),
@@ -483,6 +509,7 @@ impl NumberPool {
         return self;
     }
 
+    /// The counts in any order and their pools, from `spread` and `over`.
     pub fn spreads(&self) -> &Vec<NumberPoolSpread> {
         return &self.spreads;
     }
@@ -518,7 +545,7 @@ impl NumberPool {
         return errors;
     }
 
-    //Checks the pools when no two numbers can be the same.  A pool can not give more numbers than it has.
+    /// Checks the pools when no two numbers can be the same.  A pool can not give more numbers than it has.
     pub fn check_no_duplicates(&self) -> std::result::Result<(), String> {
         for spread in &self.spreads {
             //the largest count has to fit in the largest pool, the next largest in the next largest pool, and so on
@@ -543,6 +570,7 @@ impl NumberPool {
         return Ok(());
     }
 
+    /// Pools from items with their counts so far.
     pub fn from_number_pool_item_full(
         number_pool_items: &[(&str, NumberPoolItemFull)],
     ) -> NumberPool {
@@ -565,6 +593,7 @@ impl NumberPool {
         });
     }
 
+    /// Pools from items, with how many of these numbers are from each.
     pub fn from_numbers(
         number_pool_items: &[NumberPoolItem],
         numbers: &[usize],
@@ -596,30 +625,37 @@ impl NumberPool {
         };
     }
 
+    /// Every pool, by its key.
     pub fn number_pool_items(&self) -> &BTreeMap<String, NumberPoolItemFull> {
         return &self.number_pool_items;
     }
 
+    /// The pool with this key.
     pub fn number_pool_item(&self, key: &str) -> Option<&NumberPoolItemFull> {
         return self.number_pool_items.get(key);
     }
 
+    /// The pool with this key.
     pub fn pool(&self, key: &str) -> Option<&PoolType> {
         return self.number_pool_items.get(key).map(|v| &v.pool);
     }
 
+    /// How many of the numbers so far are from the pool with this key.
     pub fn has(&self, key: &str) -> Option<usize> {
         return self.number_pool_items.get(key).map(|v| v.has);
     }
 
+    /// How many of the numbers come from the pool with this key.
     pub fn needs(&self, key: &str) -> Option<OperatorType> {
         return self.number_pool_items.get(key).map(|v| v.needs);
     }
 
+    /// How many more numbers the pool with this key still needs.
     pub fn missing(&self, key: &str) -> Option<usize> {
         return self.number_pool_items.get(key).map(|v| v.missing);
     }
 
+    /// The first pool that has some of the numbers so far.
     pub fn find_first_has_value(&self) -> Option<&NumberPoolItemFull> {
         return self.number_pool_items().values().find(|&number_pool_item| number_pool_item.has() > 0);        
     }

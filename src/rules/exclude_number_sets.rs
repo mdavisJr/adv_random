@@ -8,36 +8,39 @@ use std::fmt::{Debug, Display, Formatter, Result};
 use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
+/// The random numbers can not be any of these lists of numbers, or the random string any of these strings.
+/// It already leaves them out, so add it with .rule(...).  With .exclude(...) it is turned around: the numbers
+/// can not match the rule, so only these lists are allowed.
 #[derive(Clone, Default)]
 pub struct ExcludeNumberSets {
     excluded_number_sets: HashSet<Vec<usize>>,
 }
 
 impl ExcludeNumberSets {
-    //Nothing is excluded yet.  Say what is with numbers and string.
+    /// Nothing is excluded yet.  Say what is with numbers and string.
     pub fn new() -> ExcludeNumberSets {
         return ExcludeNumberSets::default();
     }
 
-    //The random numbers can not be these numbers in this order
+    /// The random numbers can not be these numbers in this order
     pub fn numbers(mut self, numbers: &[usize]) -> ExcludeNumberSets {
         self.excluded_number_sets.insert(numbers.to_vec());
         return self;
     }
 
-    //Excludes every list of numbers.  The same as calling numbers for each one.
+    /// Excludes every list of numbers.  The same as calling numbers for each one.
     pub fn numbers_each(mut self, number_sets: impl IntoIterator<Item = Vec<usize>>) -> ExcludeNumberSets {
         self.excluded_number_sets.extend(number_sets);
         return self;
     }
 
-    //The random string can not be this string
+    /// The random string can not be this string
     pub fn string(mut self, string: &str) -> ExcludeNumberSets {
         self.excluded_number_sets.insert(string.chars().map(|c| c as usize).collect());
         return self;
     }
 
-    //Excludes every string.  The same as calling string for each one.
+    /// Excludes every string.  The same as calling string for each one.
     pub fn string_each<T: AsRef<str>>(mut self, strings: impl IntoIterator<Item = T>) -> ExcludeNumberSets {
         for string in strings {
             self = self.string(string.as_ref());
@@ -54,10 +57,12 @@ impl ExcludeNumberSets {
     }
 
     #[deprecated(since = "3.0.0", note = "use ExcludeNumberSets::new().string(...) or .string_each(...)")]
+    /// Leaves out every string in the set.
     pub fn new_string(excluded_sets: &HashSet<String>) -> ExcludeNumberSets {
         return ExcludeNumberSets::new().string_each(excluded_sets);
     }
 
+    /// The lists of numbers that are left out.
     pub fn excluded_number_sets(&self) -> &HashSet<Vec<usize>> {
         return &self.excluded_number_sets;
     }

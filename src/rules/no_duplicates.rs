@@ -8,6 +8,7 @@ use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 #[derive(Clone)]
+/// No number is there more than once.
 pub struct NoDuplicate;
 
 impl Display for NoDuplicate {

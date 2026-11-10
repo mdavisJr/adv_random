@@ -8,20 +8,26 @@ use std::fmt::{Debug, Display, Formatter, Result};
 
 use super::{ExcludeRuleTrait, is_excluded_helper};
 
-//More types can be added, so a match on this needs a _ arm
+/// More types can be added, so a match on this needs a _ arm
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum OperatorType {
+    /// Less than it.
     Lt(usize),
+    /// Less than or equal to it.
     Lte(usize),
+    /// Equal to it.
     Eq(usize),
+    /// Greater than or equal to it.
     Gte(usize),
+    /// Greater than it.
     Gt(usize),
+    /// From the first to the second, both included.
     Between(usize, usize)
 }
 
 impl OperatorType {
-    //Returns an error when nothing can ever match this
+    /// Returns an error when nothing can ever match this
     pub fn check(&self) -> std::result::Result<(), String> {
         return match *self {
             OperatorType::Lt(0) => Err(String::from("Lt(0) never matches because nothing is less than 0")),
@@ -32,6 +38,7 @@ impl OperatorType {
         };
     }
 
+    /// Whether it only allows 0.
     pub fn is_absolute_zero(&self) -> bool {
         return match *self {
             OperatorType::Lt(v) => v == 1,
@@ -42,10 +49,12 @@ impl OperatorType {
         };
     }
 
+    /// How many it needs at least.
     pub fn get_missing_without_has(&self) -> usize {
         return self.get_missing(0);
     }
 
+    /// How many more it needs when there are value already.
     pub fn get_missing(&self, value: usize) -> usize {
         return match *self {
             OperatorType::Lt(_v) => 0,
@@ -57,6 +66,7 @@ impl OperatorType {
         };
     }
 
+    /// Whether value can still become a match.
     pub fn is_within_range(&self, value: usize) -> bool {
         return match *self {
             OperatorType::Lt(v) => value < v,
@@ -68,6 +78,7 @@ impl OperatorType {
         };
     }
 
+    /// Whether value matches.
     pub fn is_match(&self, value: usize) -> bool {
         return match *self {
             OperatorType::Lt(v) => value < v,
@@ -80,6 +91,7 @@ impl OperatorType {
     }
 
     #[allow(unused_assignments)]
+    /// How many of the spaces fit it.
     pub fn has(&self, num_spaces: &[usize]) -> Vec<usize> {
         let mut matches: Vec<usize> = Vec::new();
         let mut match_count = 0;
@@ -112,7 +124,7 @@ impl OperatorType {
         return matches; 
     }
 
-    //Returns true when the space between any two different numbers matches
+    /// Returns true when the space between any two different numbers matches
     pub fn is_match_for_all_different_numbers(&self) -> bool {
         return match *self {
             OperatorType::Gte(v) => v <= 1,
@@ -122,7 +134,7 @@ impl OperatorType {
         };
     }
 
-    //Returns how many of the sorted numbers are not next to a space that matches, and if the highest number is one of them
+    /// Returns how many of the sorted numbers are not next to a space that matches, and if the highest number is one of them
     pub fn lone_numbers(&self, sorted_numbers: &[usize]) -> (usize, bool) {
         let mut lone_count = 0;
         let mut highest_is_lone = false;
@@ -137,12 +149,12 @@ impl OperatorType {
         return (lone_count, highest_is_lone);
     }
 
-    //Returns the new numbers needed to add "count" spaces after the highest selected number
+    /// Returns the new numbers needed to add "count" spaces after the highest selected number
     pub fn get_number(&self, current_data: &CurrentData, count: usize) -> Vec<usize> {
         return self.get_run(current_data, count, false);
     }
 
-    //Returns the numbers for a new run of "count" spaces that starts at a random number
+    /// Returns the numbers for a new run of "count" spaces that starts at a random number
     pub fn get_new_run(&self, current_data: &CurrentData, count: usize) -> Vec<usize> {
         return self.get_run(current_data, count, true);
     }
@@ -310,6 +322,7 @@ impl Display for OperatorType {
 }
 
 #[derive(Clone, Debug)]
+/// How many of the spaces between neighbouring numbers fit an `OperatorType`.
 pub struct NumberSpaceItem {
     number_space_type: OperatorType,
     needs: Vec<usize>,
@@ -317,7 +330,7 @@ pub struct NumberSpaceItem {
 }
 
 impl NumberSpaceItem {
-    //No runs yet.  Say what is needed with needs, and what a set of numbers has with has.
+    /// No runs yet.  Say what is needed with needs, and what a set of numbers has with has.
     pub fn new(number_space_type: OperatorType) -> NumberSpaceItem {
         return NumberSpaceItem {
             number_space_type,
@@ -326,7 +339,7 @@ impl NumberSpaceItem {
         };
     }
 
-    //The runs that are needed.  Each count is how many spaces in a row match the type.
+    /// The runs that are needed.  Each count is how many spaces in a row match the type.
     pub fn needs(mut self, counts: &[usize]) -> NumberSpaceItem {
         //sorted because the counts from selected numbers are sorted before they are compared
         self.needs = counts.to_vec();
@@ -334,12 +347,13 @@ impl NumberSpaceItem {
         return self;
     }
 
-    //The runs that a set of numbers has
+    /// The runs that a set of numbers has
     pub fn has(mut self, counts: &[usize]) -> NumberSpaceItem {
         self.has = counts.to_vec();
         return self;
     }
 
+    /// The spaces between neighbouring numbers.
     pub fn get_num_spaces(list: &[usize], is_sorted: bool) -> Vec<usize> {    
         if list.len() > 1 {
             let mut num_spaces:Vec<usize> = Vec::new();
@@ -358,6 +372,7 @@ impl NumberSpaceItem {
         return Vec::new();
     }
 
+    /// The items with how many spaces these numbers have of each.
     pub fn from_numbers(
         number_space_types: &[(OperatorType, Option<Vec<usize>>)],
         numbers: &[usize],
@@ -366,6 +381,7 @@ impl NumberSpaceItem {
         return NumberSpaceItem::from_number_spaces(number_space_types, &NumberSpaceItem::get_num_spaces(numbers, is_sorted));
     }
 
+    /// Items from operator types, with how many spaces of each there are.
     pub fn from_number_spaces(
         number_space_types: &[(OperatorType, Option<Vec<usize>>)],
         number_spaces: &[usize]
@@ -388,20 +404,22 @@ impl NumberSpaceItem {
         return number_space_items;
     }
 
+    /// Which spaces it counts.
     pub fn number_space_type(&self) -> &OperatorType {
         return &self.number_space_type;
     }
 
-    //The runs that are needed
+    /// The runs that are needed
     pub fn needed(&self) -> &Vec<usize> {
         return &self.needs;
     }
 
-    //The runs that the numbers have
+    /// The runs that the numbers have
     pub fn found(&self) -> &Vec<usize> {
         return &self.has;
     }
 
+    /// How many more spaces it still needs.
     pub fn missing(&self) -> Vec<usize> {
         //needs and has are both sorted, so the longest of each are paired with each other
         let mut missing_list: Vec<usize> = Vec::new();
@@ -418,6 +436,7 @@ impl NumberSpaceItem {
         return missing_list;
     }
 
+    /// Whether more spaces fit it than it allows.
     pub fn has_too_many(&self) -> bool {
         let mut needs_desc = self.needs.clone();
         needs_desc.sort_unstable_by(|a, b| b.cmp(a));
@@ -425,16 +444,17 @@ impl NumberSpaceItem {
         return self.has.len() > needs_desc.len() || self.has.iter().rev().zip(needs_desc.iter()).any(|(has, needs)| has > needs);
     }
 
-    //Returns how many numbers the runs in needs take.  A run of 3 spaces takes 4 numbers.
+    /// Returns how many numbers the runs in needs take.  A run of 3 spaces takes 4 numbers.
     pub fn numbers_needed(&self) -> usize {
         return self.needs.iter().filter(|x| **x > 0).map(|x| x.saturating_add(1)).fold(0, usize::saturating_add);
     }
 
+    /// How many of the missing spaces to make next.
     pub fn process_missing_count(&self) -> usize {
         return self.process_missing().map(|x| x.0).unwrap_or(0);
     }
 
-    //Returns how many spaces the longest missing run needs, and true when none of that run is there yet
+    /// Returns how many spaces the longest missing run needs, and true when none of that run is there yet
     pub fn process_missing(&self) -> Option<(usize, bool)> {
         //missing is in the same order as needs, and only the last has.len() of them are paired with a run that is there
         let new_runs = self.needs.len().saturating_sub(self.has.len());
@@ -449,12 +469,16 @@ impl NumberSpaceItem {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// How many items `NumberSpace` makes numbers for at a time.
 pub enum ProcessNumberSpaceItems {
+    /// All of them.
     AllPerRequest,
+    /// One.
     OnePerRequest
 }
 
 #[derive(Clone)]
+/// The spaces between neighbouring numbers, such as 9 spaces of less than 3.
 pub struct NumberSpace {
     number_space_items: Vec<NumberSpaceItem>,
     process_number_space_items: ProcessNumberSpaceItems,
@@ -468,7 +492,7 @@ impl Default for NumberSpace {
 }
 
 impl NumberSpace {
-    //No spaces are needed yet.  Say what is needed with run.
+    /// No spaces are needed yet.  Say what is needed with run.
     pub fn new() -> NumberSpace {
         return NumberSpace {
             number_space_items: Vec::new(),
@@ -477,8 +501,8 @@ impl NumberSpace {
         };
     }
 
-    //Adds one run of this many spaces in a row that match the type.  10 numbers have 9 spaces between them, so
-    //run(OperatorType::Lt(3), 9) is 10 numbers that are all less than 3 apart.
+    /// Adds one run of this many spaces in a row that match the type.  10 numbers have 9 spaces between them, so
+    /// run(OperatorType::Lt(3), 9) is 10 numbers that are all less than 3 apart.
     pub fn run(mut self, number_space_type: OperatorType, count: usize) -> NumberSpace {
         if count == 0 {
             self.errors.push(format!("{} run of {:?}: 0 must be 1 or more", self.name(), number_space_type));
@@ -497,7 +521,7 @@ impl NumberSpace {
         return self;
     }
 
-    //Adds a run for every count.  The same as calling run for each one.
+    /// Adds a run for every count.  The same as calling run for each one.
     pub fn runs(mut self, number_space_type: OperatorType, counts: &[usize]) -> NumberSpace {
         for count in counts {
             self = self.run(number_space_type, *count);
@@ -505,7 +529,7 @@ impl NumberSpace {
         return self;
     }
 
-    //Adds an item that is already created, such as one that says what a set of numbers has
+    /// Adds an item that is already created, such as one that says what a set of numbers has
     pub fn item(mut self, number_space_item: NumberSpaceItem) -> NumberSpace {
         if let Err(e) = number_space_item.number_space_type.check() {
             self.errors.push(format!("{} {}", self.name(), e));
@@ -514,7 +538,7 @@ impl NumberSpace {
         return self;
     }
 
-    //Adds every item.  The same as calling item for each one.
+    /// Adds every item.  The same as calling item for each one.
     pub fn items(mut self, number_space_items: impl IntoIterator<Item = NumberSpaceItem>) -> NumberSpace {
         for number_space_item in number_space_items {
             self = self.item(number_space_item);
@@ -531,13 +555,14 @@ impl NumberSpace {
         return errors;
     }
 
-    //Says if the runs of every type are created in the same request, or one type per request
+    /// Says if the runs of every type are created in the same request, or one type per request
     pub fn process(mut self, process_number_space_items: ProcessNumberSpaceItems) -> NumberSpace {
         self.process_number_space_items = process_number_space_items;
         return self;
     }
 
     #[deprecated(since = "3.0.0", note = "use NumberSpace::new().item(...).process(...)")]
+    /// Items, with how many to make numbers for at a time.
     pub fn new_with_process_number_space_items(
         number_space_items: &[NumberSpaceItem], 
         process_number_space_items: ProcessNumberSpaceItems
@@ -549,12 +574,13 @@ impl NumberSpace {
         return number_space;
     }
 
+    /// Its items.
     pub fn number_space_items(&self) -> &Vec<NumberSpaceItem> {
         return &self.number_space_items;
     }
 
-    //Checks the runs when no two numbers can be the same.  A type that matches the space between any two different
-    //numbers then has one run with every number in it, so any other runs can never be found.
+    /// Checks the runs when no two numbers can be the same.  A type that matches the space between any two different
+    /// numbers then has one run with every number in it, so any other runs can never be found.
     pub fn check_no_duplicates(&self, count: usize) -> std::result::Result<(), String> {
         for number_space_item in &self.number_space_items {
             if number_space_item.number_space_type.is_match_for_all_different_numbers() {
@@ -571,6 +597,7 @@ impl NumberSpace {
         return Ok(());
     }
 
+    /// The spaces these numbers have, as items.
     pub fn from_numbers(
         number_space: &NumberSpace,
         numbers: &[usize],

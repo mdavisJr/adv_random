@@ -11,6 +11,7 @@ use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 #[derive(Clone, Default)]
+/// The numbers at some indexes come from pools, such as letters for the first two and digits for the rest.
 pub struct NumberPoolByIndex {
     number_pool_items: Vec<NumberPoolItemByIndex>,
     errors: Vec<String>,
@@ -23,7 +24,7 @@ struct NumberPoolItemByIndex {
 }
 
 impl NumberPoolByIndex {
-    //No numbers have to come from a pool yet.  Say which ones with at.
+    /// No numbers have to come from a pool yet.  Say which ones with at.
     pub fn new() -> NumberPoolByIndex {
         return NumberPoolByIndex::default();
     }
@@ -37,7 +38,7 @@ impl NumberPoolByIndex {
         return errors;
     }
 
-    //The numbers at these indexes come from this pool.  The first number is index 0.
+    /// The numbers at these indexes come from this pool.  The first number is index 0.
     pub fn at(mut self, indexes: impl IntoIterator<Item = usize>, pool: impl Into<PoolType>) -> NumberPoolByIndex {
         let pool: PoolType = pool.into();
         let indexes: HashSet<usize> = indexes.into_iter().collect();

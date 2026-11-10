@@ -6,10 +6,11 @@ use crate::rules::{RuleTrait, RandomNumber, ExcludeRuleTrait, NoDuplicate, Numbe
 use std::fmt;
 use std::sync::Arc;
 
-//How many tickets uniform generation starts before it stops, unless max_draws says otherwise
+/// How many tickets uniform generation starts before it stops, unless max_draws says otherwise
 pub const DEFAULT_MAX_DRAWS: usize = 1_000_000;
 
 #[derive(Clone)]
+/// What to generate: how many numbers, the rules they have to match, and the random number generator.  Create it with `Settings::builder`, and use it as many times as you want.
 pub struct Settings {
     expected_rules: Vec<Box<dyn RuleTrait>>,
     count: usize,
@@ -43,7 +44,7 @@ impl fmt::Debug for Settings {
     }
 }
 
-//Builds Settings.  Created with Settings::builder.
+/// Builds Settings.  Created with Settings::builder.
 #[derive(Clone, Debug)]
 pub struct SettingsBuilder {
     count: usize,
@@ -55,76 +56,80 @@ pub struct SettingsBuilder {
 }
 
 impl SettingsBuilder {
-    //Adds a rule that the random numbers have to match
+    /// Adds a rule that the random numbers have to match
     pub fn rule(mut self, rule: impl RuleTrait + 'static) -> SettingsBuilder {
         self.expected_rules.push(Box::new(rule));
         return self;
     }
 
-    //Adds rules that are already in boxes, such as a list of rules that was put together while the program runs
+    /// Adds rules that are already in boxes, such as a list of rules that was put together while the program runs
     pub fn boxed_rules(mut self, rules: impl IntoIterator<Item = Box<dyn RuleTrait>>) -> SettingsBuilder {
         self.expected_rules.extend(rules);
         return self;
     }
 
-    //Adds a rule that the random numbers can not match
+    /// Adds a rule that the random numbers can not match
     pub fn exclude(mut self, rule: impl ExcludeRuleTrait + 'static) -> SettingsBuilder {
         self.exclude_rules.push(Box::new(rule));
         return self;
     }
 
-    //Adds exclude rules that are already in boxes
+    /// Adds exclude rules that are already in boxes
     pub fn boxed_excludes(mut self, rules: impl IntoIterator<Item = Box<dyn ExcludeRuleTrait>>) -> SettingsBuilder {
         self.exclude_rules.extend(rules);
         return self;
     }
 
-    //Every result that matches the rules is equally likely.  The numbers are drawn at random, without the rules
-    //steering them, and a ticket is started again as soon as a rule says it can not match.  Rules that only a
-    //few tickets match take many draws: see max_draws.
+    /// Every result that matches the rules is equally likely.  The numbers are drawn at random, without the rules
+    /// steering them, and a ticket is started again as soon as a rule says it can not match.  Rules that only a
+    /// few tickets match take many draws: see max_draws.
     pub fn uniform(mut self) -> SettingsBuilder {
         self.uniform = true;
         return self;
     }
 
-    //With uniform, how many tickets to start before giving up.  DEFAULT_MAX_DRAWS without it.
+    /// With uniform, how many tickets to start before giving up.  DEFAULT_MAX_DRAWS without it.
     pub fn max_draws(mut self, max_draws: usize) -> SettingsBuilder {
         self.max_draws = max_draws;
         return self;
     }
 
-    //Uses this random number generator instead of DefaultRandom
+    /// Uses this random number generator instead of DefaultRandom
     pub fn random(mut self, random: impl RandomTrait + Send + Sync + 'static) -> SettingsBuilder {
         self.random = Some(Arc::new(random));
         return self;
     }
 
-    //Every number is from min to max.  The same as rule(NumberRange::all(min, max)).
+    /// Every number is from min to max.  The same as rule(NumberRange::all(min, max)).
     pub fn range(self, min: usize, max: usize) -> SettingsBuilder {
         return self.rule(NumberRange::all(min, max));
     }
 
-    //No number is there more than once.  The same as rule(NoDuplicate).
+    /// No number is there more than once.  The same as rule(NoDuplicate).
     pub fn no_duplicates(self) -> SettingsBuilder {
         return self.rule(NoDuplicate);
     }
 
-    //This many odd numbers and this many even numbers.  The same as rule(OddEven::new().odd(odd).even(even)).
+    /// This many odd numbers and this many even numbers.  The same as rule(OddEven::new().odd(odd).even(even)).
     pub fn odd_even(self, odd: usize, even: usize) -> SettingsBuilder {
         return self.rule(OddEven::new().odd(odd).even(even));
     }
 
+    /// Returns the settings.  Problems with them are in `errors()`, and `generate` returns a `BadRequest` error for them.
     pub fn build(self) -> Settings {
         let exclude_rules = if self.exclude_rules.is_empty() { None } else { Some(self.exclude_rules) };
         let mut settings = Settings::from_parts(self.expected_rules, self.count, exclude_rules, self.random);
         settings.uniform = self.uniform;
         settings.max_draws = self.max_draws;
+        if self.uniform && self.max_draws == 0 {
+            settings.errors.push(String::from("max_draws must be at least 1"));
+        }
         return settings;
     }
 }
 
 impl Settings {
-    //Starts the settings for "count" random numbers.  Add the rules, then call build.
+    /// Starts the settings for "count" random numbers.  Add the rules, then call build.
     pub fn builder(count: usize) -> SettingsBuilder {
         return SettingsBuilder {
             count,
@@ -220,7 +225,7 @@ impl Settings {
         };
     }
 
-    //Creates the random numbers.  Err says why when the settings can not work or no numbers were found.
+    /// Creates the random numbers.  Err says why when the settings can not work or no numbers were found.
     pub fn generate(&self) -> Result<RandomNumbers, RandomError> {
         return generate_result(self).into_result();
     }
@@ -235,48 +240,58 @@ impl Settings {
         return None;
     }
 
+    /// Uses this random number generator.
     pub fn with_random(mut self, random: impl RandomTrait + Send + Sync + 'static) -> Settings {
         self.random = Some(Arc::new(random));
         return self;
     }
 
+    /// The random number generator.
     pub fn random(&self) -> Option<&Arc<dyn RandomTrait + Send + Sync>> {
         return self.random.as_ref();
     }
 
-    //Problems found with the rules.  random_numbers returns a BadRequest result when there are any.
+    /// Problems found with the rules.  random_numbers returns a BadRequest result when there are any.
     pub fn errors(&self) -> &[String] {
         return &self.errors;
     }
 
+    /// The rules the numbers have to match, with the `RandomNumber` rule that is added when none of them is one.
     pub fn expected_rules(&self) -> &Vec<Box<dyn RuleTrait>> {
         return &self.expected_rules;
     }
 
+    /// The rules the numbers can not match.
     pub fn exclude_rules(&self) -> &Option<Vec<Box<dyn ExcludeRuleTrait>>> {
         return &self.exclude_rules;
     }
 
+    /// How many numbers are generated.
     pub fn count(&self) -> usize {
         return self.count;
     }
 
+    /// Whether every result that matches the rules is equally likely.  See `SettingsBuilder::uniform`.
     pub fn uniform(&self) -> bool {
         return self.uniform;
     }
 
+    /// With `uniform`, how many tickets are started before giving up.
     pub fn max_draws(&self) -> usize {
         return self.max_draws;
     }
 
+    /// Without `uniform`, how many attempts are made before giving up.
     pub fn max_tries(&self) -> usize {
         return self.max_tries;
     }
 
+    /// How many full sets of numbers are checked before starting over.
     pub fn max_is_match_attempts(&self) -> usize {
         return self.max_is_match_attempts;
     }
 
+    /// How many times the same error can happen before the numbers so far are cleared.
     pub fn max_specific_error_count(&self) -> usize {
         return self.max_specific_error_count;
     }

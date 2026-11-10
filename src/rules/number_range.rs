@@ -27,6 +27,7 @@ fn is_within_range_helper(
 }
 
 #[derive(Clone, Default)]
+/// The range of every number, or of the numbers at some indexes.
 pub struct NumberRange {
     ranges: HashMap<usize, (usize, usize)>,
     //The range of every number, when all made it.  It is in ranges too, at index 0.
@@ -35,19 +36,19 @@ pub struct NumberRange {
 }
 
 impl NumberRange {
-    //Every number is from min to max
+    /// Every number is from min to max
     pub fn all(min: usize, max: usize) -> NumberRange {
         let mut ranges: HashMap<usize, (usize, usize)> = HashMap::new();
         ranges.insert(0, (min, max));
         return NumberRange { ranges, all: Some((min, max)), errors: Vec::new() };
     }
 
-    //No number has a range yet.  Give the numbers at some indexes a range with at.
+    /// No number has a range yet.  Give the numbers at some indexes a range with at.
     pub fn new() -> NumberRange {
         return NumberRange::default();
     }
 
-    //The numbers at these indexes are from min to max.  The first number is index 0.
+    /// The numbers at these indexes are from min to max.  The first number is index 0.
     pub fn at(mut self, indexes: impl IntoIterator<Item = usize>, min: usize, max: usize) -> NumberRange {
         if self.all.is_some() {
             self.errors.push(format!("{} at can not be used with all", self.name()));
@@ -89,10 +90,12 @@ impl NumberRange {
         };
     }
 
+    /// How many ranges there are.
     pub fn len(&self) -> usize {
         return self.ranges.len();
     }
 
+    /// Whether there are no ranges.
     pub fn is_empty(&self) -> bool {
         return self.len() == 0;
     }

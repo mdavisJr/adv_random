@@ -1,31 +1,49 @@
-//Checks rules for uniform settings: that can_still_match only says no when no numbers added could make the
-//numbers match.  A rule that says no too soon makes uniform settings leave tickets out, so a custom rule's
-//can_still_match should only be used when these find no wrong stops for it.
-//
-//  let settings = Settings::builder(4).range(1, 10).no_duplicates().rule(MyRule::new()).uniform().build();
-//  let check = check_uniform(&settings).unwrap();
-//  assert!(check.wrong_stops.is_empty(), "{:?}", check.wrong_stops);
-//
-//check_uniform goes through every ticket the settings can draw, so it is for small ranges and counts: 4
-//numbers from 1 to 10 are 5,040 tickets.  sample_uniform checks random tickets instead, for settings of any
-//size.
+//! Checks rules for uniform settings: that `can_still_match` only says no when no numbers added could make
+//! the numbers match.  A rule that says no too soon makes uniform settings leave tickets out, so a custom
+//! rule's `can_still_match` should only be used when these find no wrong stops for it.
+//!
+//! ```
+//! use adv_random::prelude::*;
+//! use adv_random::uniform_check::check_uniform;
+//!
+//! //Put your own rule here
+//! let settings = Settings::builder(4).range(1, 10).no_duplicates().rule(OddEven::new().odd(2).even(2)).uniform().build();
+//! let check = check_uniform(&settings).unwrap();
+//! assert!(check.wrong_stops.is_empty(), "{:?}", check.wrong_stops);
+//! ```
+//!
+//! `check_uniform` goes through every ticket the settings can draw, so it is for small ranges and counts: 4
+//! numbers from 1 to 10 are 5,040 tickets.  `sample_uniform` checks random tickets instead, for settings of
+//! any size.
 
 use crate::random::{uniform_can_go_on, uniform_matches, uniform_ranges, Choices, NO_RANDOM_ERR};
 use crate::settings::Settings;
 use std::collections::HashSet;
 
-//What check_uniform or sample_uniform found
+/// The most tickets `check_uniform` goes through: more would take too long, and keep too many matching
+/// ones.  `sample_uniform` is for bigger settings.
+pub const CHECK_UNIFORM_MOST_TICKETS: usize = 10_000_000;
+
+/// What `check_uniform` or `sample_uniform` found
+#[non_exhaustive]
 pub struct UniformCheck {
-    //The tickets that uniform generation can give, in the order it draws the numbers: every one for
-    //check_uniform, the ones drawn for sample_uniform
+    /// The tickets that uniform generation can give, in the order it draws the numbers: every one for
+    /// check_uniform, the ones drawn for sample_uniform
     pub matching: Vec<Vec<usize>>,
-    //Partial or full tickets that a rule stopped, although numbers added to them could make them match
+    /// Partial or full tickets that a rule stopped, although numbers added to them could make them match
     pub wrong_stops: Vec<Vec<usize>>,
 }
 
-//Goes through every ticket the uniform settings can draw.  Err when the settings can not be uniform.
+/// Goes through every ticket the uniform settings can draw.  Err when the settings can not be uniform.
 pub fn check_uniform(settings: &Settings) -> Result<UniformCheck, String> {
     let (choices, no_duplicates) = uniform_ranges(settings)?;
+    let tickets = choices.iter().fold(1usize, |tickets, x| tickets.saturating_mul(x.len()));
+    if tickets > CHECK_UNIFORM_MOST_TICKETS {
+        return Err(format!(
+            "check_uniform goes through every ticket, and these settings can draw about {} tickets, more than {}.  Use sample_uniform for them.",
+            tickets, CHECK_UNIFORM_MOST_TICKETS
+        ));
+    }
     let mut matching: Vec<Vec<usize>> = Vec::new();
     let mut stopped: Vec<Vec<usize>> = Vec::new();
     //every full ticket that matches, whether or not something stopped it on the way
@@ -47,10 +65,10 @@ pub fn check_uniform(settings: &Settings) -> Result<UniformCheck, String> {
     return Ok(UniformCheck { matching, wrong_stops });
 }
 
-//Draws tickets random tickets as uniform generation does, but without stopping any early, and for each one
-//that matches, asks can_still_match about every start of it.  Every no is a wrong stop.  The random number
-//generator of the settings draws them, so a seeded one checks the same tickets every time.  A wrong stop it
-//finds is certain.  Finding none means no wrong stop was in the tickets that matched, so draw enough of them.
+/// Draws tickets random tickets as uniform generation does, but without stopping any early, and for each one
+/// that matches, asks can_still_match about every start of it.  Every no is a wrong stop.  The random number
+/// generator of the settings draws them, so a seeded one checks the same tickets every time.  A wrong stop it
+/// finds is certain.  Finding none means no wrong stop was in the tickets that matched, so draw enough of them.
 pub fn sample_uniform(settings: &Settings, tickets: usize) -> Result<UniformCheck, String> {
     let (choices, no_duplicates) = uniform_ranges(settings)?;
     let random = settings.random().ok_or_else(|| NO_RANDOM_ERR.to_owned())?;

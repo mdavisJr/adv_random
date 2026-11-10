@@ -5,6 +5,7 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter, Result};
 
 #[derive(Clone)]
+/// Gets a random number from the range when no other rule gets numbers.  Settings add it when none of their rules is one.
 pub struct RandomNumber {}
 
 impl Display for RandomNumber {

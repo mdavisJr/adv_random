@@ -6,10 +6,12 @@ use crate::random_trait::RandomTrait;
 
 #[cfg(feature="rand")]
 #[derive(Debug, Clone, Default)]
+/// The random number generator from `rand`, which settings use when they are given no other one.  Needs the `rand` feature.
 pub struct DefaultRandom {}
 
 #[cfg(feature="rand")]
 impl DefaultRandom {
+    /// A new one.
     pub fn new() -> DefaultRandom {
         return DefaultRandom {  };
     }

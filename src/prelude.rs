@@ -1,4 +1,4 @@
-//Everything most programs need, in one line:  use adv_random::prelude::*;
+//! Everything most programs need, in one line:  use adv_random::prelude::*;
 
 pub use crate::random::{CurrentData, Log, RandomError, RandomErrorType, RandomNumbers};
 pub use crate::random_trait::RandomTrait;

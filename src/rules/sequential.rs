@@ -9,6 +9,7 @@ use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 #[derive(Clone, Default)]
+/// How many numbers are next to another number, in runs like 4, 5, 6, and how many are not.
 pub struct Sequential {
     not: usize,
     seq_counts: Vec<usize>,
@@ -17,12 +18,12 @@ pub struct Sequential {
 }
 
 impl Sequential {
-    //No numbers yet.  Say what is needed with singles and in_a_row.
+    /// No numbers yet.  Say what is needed with singles and in_a_row.
     pub fn new() -> Sequential {
         return Sequential::default();
     }
 
-    //How many numbers are not next to another number
+    /// How many numbers are not next to another number
     pub fn singles(mut self, count: usize) -> Sequential {
         if self.is_singles_set {
             self.errors.push(format!("{} singles was set more than once", self.name()));
@@ -32,7 +33,7 @@ impl Sequential {
         return self;
     }
 
-    //Adds one sequence of this many numbers in a row.  4, 5, 6 is 3 in a row.
+    /// Adds one sequence of this many numbers in a row.  4, 5, 6 is 3 in a row.
     pub fn in_a_row(mut self, count: usize) -> Sequential {
         if count < 2 {
             self.errors.push(format!("{} in_a_row: {} must be 2 or more", self.name(), count));
@@ -43,7 +44,7 @@ impl Sequential {
         return self;
     }
 
-    //Adds a sequence for every count.  The same as calling in_a_row for each one.
+    /// Adds a sequence for every count.  The same as calling in_a_row for each one.
     pub fn in_a_row_each(mut self, counts: &[usize]) -> Sequential {
         for count in counts {
             self = self.in_a_row(*count);
@@ -51,6 +52,7 @@ impl Sequential {
         return self;
     }
 
+    /// The runs these numbers have.
     pub fn from_numbers(current_data: &CurrentData, seq_order_matters: bool) -> Sequential {
         let mut seq_counts: Vec<usize> = Vec::new();
         let mut seq_count: usize = 0;
@@ -84,14 +86,17 @@ impl Sequential {
         };
     }
 
+    /// The length of each run.
     pub fn seq_counts(&self) -> &Vec<usize> {
         return &self.seq_counts;
     }
 
+    /// How many numbers are not in a run.
     pub fn not(&self) -> usize {
         return self.not;
     }
 
+    /// The length of a run that other still needs.
     pub fn needs_seq(&self, other: &Self, current_data: &CurrentData) -> usize {
         if other.not == current_data.settings().count() {
             return 0;

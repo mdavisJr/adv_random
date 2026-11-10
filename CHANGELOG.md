@@ -18,6 +18,7 @@
   - `NumberPool::spreads` returns them as `NumberPoolSpread`.
 - `PoolType::first_shared_number`.
 - `CurrentData::is_selected` and `CurrentData::has_duplicates`, for custom rules.  They look through a few selected numbers instead of making a set of them.
+- **Documentation for every public item** on docs.rs.  `check_uniform` refuses settings with more than 10,000,000 tickets (`CHECK_UNIFORM_MOST_TICKETS`), and `.max_draws(0)` with `.uniform()` is a settings error.
 
 ### Faster
 Generating is quicker, with the same results: the same seed gives the same numbers, logs and reports as in 3.0.0.

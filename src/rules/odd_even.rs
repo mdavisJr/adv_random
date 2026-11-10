@@ -10,6 +10,7 @@ use super::ExcludeRuleTrait;
 use super::exclude_rule_trait::is_excluded_helper;
 
 #[derive(Clone, Copy, Default)]
+/// How many numbers are odd and how many are even.
 pub struct OddEven {
     odd: usize,
     even: usize,
@@ -19,25 +20,26 @@ pub struct OddEven {
 }
 
 impl OddEven {
-    //No odd and no even numbers yet.  Say how many with odd and even.
+    /// No odd and no even numbers yet.  Say how many with odd and even.
     pub fn new() -> OddEven {
         return OddEven::default();
     }
 
-    //How many of the numbers are odd
+    /// How many of the numbers are odd
     pub fn odd(mut self, count: usize) -> OddEven {
         self.odd = count;
         self.odd_calls = self.odd_calls.saturating_add(1);
         return self;
     }
 
-    //How many of the numbers are even
+    /// How many of the numbers are even
     pub fn even(mut self, count: usize) -> OddEven {
         self.even = count;
         self.even_calls = self.even_calls.saturating_add(1);
         return self;
     }
 
+    /// The odd and even counts of these numbers.
     pub fn from_numbers(numbers: &[usize]) -> OddEven {
         let mut odd: usize = 0_usize;
         let mut even: usize = 0_usize;
@@ -63,17 +65,21 @@ impl OddEven {
         return errors;
     }
 
+    /// How many are odd.
     pub fn odd_count(&self) -> usize {
         return self.odd;
     }
 
+    /// How many are even.
     pub fn even_count(&self) -> usize {
         return self.even;
     }
 
+    /// Whether the number is odd.
     pub fn is_odd(number: usize) -> bool {
         return !OddEven::is_even(number);
     }
+    /// Whether the number is even.
     pub fn is_even(number: usize) -> bool {
         if number.is_multiple_of(2) {
             return true;
@@ -81,18 +87,22 @@ impl OddEven {
         return false;
     }
 
+    /// Whether other still needs an even number to have these counts.
     pub fn needs_even(&self, other: &Self) -> bool {
         return self.even < other.even;
     }
 
+    /// Whether other still needs an odd number to have these counts.
     pub fn needs_odd(&self, other: &Self) -> bool {
         return self.odd < other.odd;
     }
 
+    /// Whether other only needs even numbers from now on.
     pub fn needs_only_even(&self, other: &Self) -> bool {
         return self.odd == other.odd && self.even < other.even;
     }
 
+    /// Whether other only needs odd numbers from now on.
     pub fn needs_only_odd(&self, other: &Self) -> bool {
         return self.even == other.even && self.odd < other.odd;
     }
@@ -115,8 +125,11 @@ impl Debug for OddEven {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+/// Odd or even.
 pub enum OddEvenKey {
+    /// Odd numbers.
     Odd,
+    /// Even numbers.
     Even,
 }
 

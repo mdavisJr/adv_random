@@ -143,6 +143,17 @@ fn uniform_stops_at_max_draws_and_counts_what_stopped_it() {
     println!("{}", last);
 }
 
+//check_uniform refuses settings with too many tickets, and max_draws(0) is a mistake
+#[test]
+fn check_uniform_is_for_small_settings_and_max_draws_is_at_least_1() {
+    let big = Settings::builder(6).range(1, 49).no_duplicates().uniform().build();
+    let error = check_uniform(&big).err().unwrap();
+    assert!(error.contains("Use sample_uniform"), "{}", error);
+    let settings = Settings::builder(3).range(1, 9).uniform().max_draws(0).build();
+    assert_eq!(settings.errors(), ["max_draws must be at least 1"]);
+    assert_eq!(settings.generate().unwrap_err().error_type(), crate::random::RandomErrorType::BadRequest);
+}
+
 //Uniform without repeats needs enough different numbers
 #[test]
 fn uniform_needs_enough_numbers_without_repeats() {
@@ -226,7 +237,7 @@ fn sample_uniform_finds_wrong_stops() {
         fn is_match(&self, _c: &CurrentData) -> Result<(), String> { Ok(()) }
         fn check_count(&self, _count: usize) -> Result<bool, String> { Ok(true) }
         fn name(&self) -> String { "OddFirstStops".into() }
-        fn can_still_match(&self, c: &CurrentData) -> bool { c.selected_numbers()[0] % 2 == 0 }
+        fn can_still_match(&self, c: &CurrentData) -> bool { c.selected_numbers()[0].is_multiple_of(2) }
     }
     let settings = Settings::builder(6).range(1, 40).no_duplicates().rule(OddFirstStops).random(SeededRandom::new(3)).uniform().build();
     let check = sample_uniform(&settings, 200).unwrap();

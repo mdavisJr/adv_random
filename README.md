@@ -1,5 +1,5 @@
 # adv_random
-Create random numbers, passwords, or strings based on rules.  You can choose your own random number generator to work with this framework.  By default this framework will use [rand](https://crates.io/crates/rand) if you do not provide a random number generator.
+Create random numbers, passwords, or strings based on rules.
 
 This framework comes with some standard rules that you can use.  If you don't see a rule that you need, you can create your own custom rules to use with this framework or send me a request to add in a new rule.
 
@@ -186,7 +186,8 @@ println!("{}", random_numbers.string().unwrap());
 
 Things to know about `.uniform()`:
 - Every number needs a range, such as `.range(min, max)` or `NumberRange::new().at(...)`, or pools that every number comes from.  `NumberPoolByIndex` gives each index's pool.  A `NumberPool` whose pools share no number, and need all of the numbers between them, gives every number's pools, like the password below.  Other pools decide whether the numbers are kept, not which numbers are drawn.
-- Rules that only a few results match take many tickets.  When none matches in `.max_draws(n)`, `generate` returns a `Failed` error.  Its logs keep the first 10,000 entries and end with how many times each rule stopped a ticket, which says which rule is the hard one.
+- Only what is the same for every ticket decides which numbers are drawn: the ranges, no repeats, and pools every number comes from.  What depends on the numbers so far, like the pools a `NumberPool` has filled, is checked instead of steering the draws.
+- Rules that only a few results match take many tickets.  When none matches in `.max_draws(n)`, `generate` returns a `Failed` error.  `n` has to be at least 1.  Its logs keep the first 10,000 entries and end with how many times each rule stopped a ticket, which says which rule is the hard one.
 - A ticket is thrown away early when a rule's `can_still_match` says no numbers added to it could make it match.  Rules without one are checked on full tickets, which is just as fair but slower.  `Sequential` and `NumberSpace` are checked on full tickets.
 
 # Examples
@@ -503,6 +504,8 @@ let random_numbers = Settings::builder(9)
 println!("{}", random_numbers.string().unwrap());
 ```
 #### Output: MW6406422
+
+`ExcludeNumberSets` already leaves its lists out, so it is added with `.rule(...)`.  `.exclude(...)` turns a rule around, so with `ExcludeNumberSets` only its lists would be allowed.
 ---
 ### Create 10 random numbers between 1 and 100 where the space between numbers is less than 3
 `run(OperatorType::Lt(3), 9)` is 9 spaces in a row that are less than 3.  10 numbers have 9 spaces between them.
@@ -685,7 +688,9 @@ assert_eq!(check.matching.len(), 64);
 
 `uniform_choices(index, count)` is optional too, and only used by `.uniform()`.  It returns the numbers that can be at an index whatever else is drawn, like a pool every number has to come from, and `.uniform()` only draws from them.  It must not leave out a number that a result could have there.
 
-To use a rule with `.exclude(...)` it also has to implement `ExcludeRuleTrait`.
+To use a rule with `.exclude(...)` it also has to implement `ExcludeRuleTrait`.  `.exclude(rule)` means the numbers can not match the rule.
+
+`Display` is what logs and reports show for the rule, and it is made when a log entry names the rule.  With `.uniform()` that is once a `generate` for a rule that stops a ticket, so keep it short, such as the rule's settings rather than a long list of everything it checks.  A slow one slows uniform settings down.
 
 A rule that can have more than one thing wrong with it can also implement `validate`, which returns every problem.  Without it the error from `check_count` is used.
 

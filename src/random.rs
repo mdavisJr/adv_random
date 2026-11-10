@@ -10,19 +10,26 @@ use std::fmt;
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::Hash;
 
+/// The error when no number fits the rules.
 pub const NO_NUMBER_FOUND_ERR: &str = "Could not find a number that fits the rules";
 //Up to this many selected numbers are quicker to look through than to put in a set
 const LOOK_THROUGH_UP_TO: usize = 16;
 
+/// The error when there is no random number generator.  Without the `rand` feature, give one with `Settings::with_random`.
 pub const NO_RANDOM_ERR: &str = "No random number generator. Please call Settings::with_random or use feature \"rand\"";
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+/// How generating numbers went.
 pub enum RandomResultType {
+    /// Numbers that match the rules were found.
     Success,
+    /// The settings can not work.
     BadRequest,
+    /// No numbers that match the rules were found in the attempts allowed.
     Failed,
 }
 
+/// Everything that happened when the deprecated `random_numbers` generated numbers.  `Settings::generate` returns a `Result` instead.
 pub struct RandomResult {
     status: RandomResultType,
     numbers: Vec<usize>,
@@ -40,10 +47,12 @@ impl Debug for RandomResult {
 }
 
 impl RandomResult {
+    /// How it went.
     pub fn status(&self) -> RandomResultType {
         return self.status;
     }
 
+    /// The numbers, when it worked.
     pub fn numbers(&self) -> std::result::Result<&Vec<usize>, String> {
         match self.status {
             RandomResultType::Success => {
@@ -53,7 +62,7 @@ impl RandomResult {
         }
     }
 
-    //The numbers as characters, in the order they were created
+    /// The numbers as characters, in the order they were created
     pub fn string(&self) -> std::result::Result<String, String> {
         match self.status {
             RandomResultType::Success => numbers_to_string(&self.numbers),
@@ -61,7 +70,7 @@ impl RandomResult {
         }
     }
 
-    //The numbers as characters, in a random order
+    /// The numbers as characters, in a random order
     pub fn shuffled_string(&self) -> std::result::Result<String, String> {
         match self.status {
             RandomResultType::Success => numbers_to_string(&shuffled_numbers(&self.numbers, &self.random)),
@@ -69,7 +78,7 @@ impl RandomResult {
         }
     }
 
-    //Ok with the numbers when the status is Success, and Err with what went wrong when it is not
+    /// Ok with the numbers when the status is Success, and Err with what went wrong when it is not
     pub fn into_result(self) -> std::result::Result<RandomNumbers, RandomError> {
         return match self.status {
             RandomResultType::Success => Ok(RandomNumbers {
@@ -97,12 +106,15 @@ impl RandomResult {
             }) })
         };
     }
+    /// How many attempts it took.
     pub fn attempts(&self) -> usize {
         return self.attempts;
     }
+    /// Everything that happened in every attempt.
     pub fn logs(&self) -> &Vec<Log> {
         return self.logs.logs();
     }
+    /// The attempts where the numbers so far were cleared to start over.
     pub fn clear_err_tracker(&self) -> &HashSet<usize> {
         return &self.clear_err_tracker;
     }
@@ -176,7 +188,7 @@ fn format_report(settings: &str, status: &str, attempts: usize, clear_err_tracke
     return report;
 }
 
-//The random numbers from Settings::generate
+/// The random numbers from Settings::generate
 pub struct RandomNumbers {
     numbers: Vec<usize>,
     attempts: usize,
@@ -186,38 +198,42 @@ pub struct RandomNumbers {
 }
 
 impl RandomNumbers {
+    /// The numbers, in the order they were made.
     pub fn numbers(&self) -> &Vec<usize> {
         return &self.numbers;
     }
 
+    /// The numbers, to keep.
     pub fn into_numbers(self) -> Vec<usize> {
         return self.numbers;
     }
 
-    //The numbers as characters, in the order they were created
+    /// The numbers as characters, in the order they were created
     pub fn string(&self) -> std::result::Result<String, RandomError> {
         return numbers_to_string(&self.numbers).map_err(|x| self.invalid_character(x));
     }
 
-    //The numbers as characters, in a random order
+    /// The numbers as characters, in a random order
     pub fn shuffled_string(&self) -> std::result::Result<String, RandomError> {
         return numbers_to_string(&shuffled_numbers(&self.numbers, &self.random)).map_err(|x| self.invalid_character(x));
     }
 
+    /// How many attempts it took.  With `.uniform()`, how many tickets were started.
     pub fn attempts(&self) -> usize {
         return self.attempts;
     }
 
+    /// Everything that happened in every attempt.  The text is made the first time they are asked for.
     pub fn logs(&self) -> &Vec<Log> {
         return self.logs.logs();
     }
 
-    //The attempts where the numbers selected so far were cleared to start over
+    /// The attempts where the numbers selected so far were cleared to start over
     pub fn clear_err_tracker(&self) -> &HashSet<usize> {
         return &self.clear_err_tracker;
     }
 
-    //Everything there is to know for debugging: the numbers, the attempts and the logs
+    /// Everything there is to know for debugging: the numbers, the attempts and the logs
     pub fn report(&self) -> String {
         return format_report(
             "",
@@ -246,19 +262,19 @@ impl Debug for RandomNumbers {
     }
 }
 
-//More types can be added, so a match on this needs a _ arm
+/// More types can be added, so a match on this needs a _ arm
 #[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum RandomErrorType {
-    //The settings can not work.  The messages say why.
+    /// The settings can not work.  The messages say why.
     BadRequest,
-    //No numbers that match the rules were found in the attempts that are allowed
+    /// No numbers that match the rules were found in the attempts that are allowed
     Failed,
-    //A number is not a valid character, so the numbers can not be a string
+    /// A number is not a valid character, so the numbers can not be a string
     InvalidCharacter,
 }
 
-//Why Settings::generate, or a string from its numbers, did not work
+/// Why Settings::generate, or a string from its numbers, did not work
 pub struct RandomError {
     //in a box so a Result with this error stays small
     data: Box<RandomErrorData>
@@ -274,29 +290,32 @@ struct RandomErrorData {
 }
 
 impl RandomError {
+    /// What kind of error it is.
     pub fn error_type(&self) -> RandomErrorType {
         return self.data.error_type;
     }
 
+    /// What went wrong.
     pub fn messages(&self) -> &Vec<String> {
         return &self.data.messages;
     }
 
+    /// How many attempts were made.
     pub fn attempts(&self) -> usize {
         return self.data.attempts;
     }
 
-    //Everything that happened in every attempt
+    /// Everything that happened in every attempt
     pub fn logs(&self) -> &Vec<Log> {
         return self.data.logs.logs();
     }
 
-    //The attempts where the numbers selected so far were cleared to start over
+    /// The attempts where the numbers selected so far were cleared to start over
     pub fn clear_err_tracker(&self) -> &HashSet<usize> {
         return &self.data.clear_err_tracker;
     }
 
-    //Everything there is to know for debugging: the settings, what went wrong, the attempts and the logs
+    /// Everything there is to know for debugging: the settings, what went wrong, the attempts and the logs
     pub fn report(&self) -> String {
         return format_report(
             &self.data.settings,
@@ -454,9 +473,13 @@ impl Logs {
 }
 
 #[derive(Debug, Clone)]
+/// One entry of the logs.
 pub enum Log {
+    /// Something went wrong.
     Error { msg: String },
+    /// What happened.
     Info { msg: String },
+    /// A message for the person using the numbers.
     UserInfo { msg: String },
 }
 
@@ -525,13 +548,18 @@ fn reset(
 }
 
 #[derive(Debug, Clone, Copy)]
+/// Which numbers `CurrentData::get_rand` can return.
 pub enum NumberType {
+    /// Any number.
     Any,
+    /// Only odd numbers.
     Odd,
+    /// Only even numbers.
     Even
 }
 
 #[derive(Debug, Clone)]
+/// What a rule is told about the numbers so far: the numbers, the settings, and what the rules share.
 pub struct CurrentData<'a> {
     selected_numbers: &'a Vec<usize>,
     selected_numbers_set: OnceLock<HashSet<usize>>,
@@ -542,10 +570,12 @@ pub struct CurrentData<'a> {
 
 impl<'a> CurrentData<'a> {
 
+    /// The numbers so far, with the settings and what the rules share.
     pub fn new(selected_numbers: &'a Vec<usize>, settings: &'a Settings, shared_data: &'a SharedData) -> CurrentData<'a> {
         return CurrentData { selected_numbers, settings, shared_data, selected_numbers_set: OnceLock::new(), selected_numbers_sorted: OnceLock::new() };
     }
 
+    /// The same numbers and settings with other shared data.
     pub fn from_current_data(current_data: &'a CurrentData, shared_data: &'a SharedData) -> CurrentData<'a> {
         let new_current_data = CurrentData { 
             selected_numbers: current_data.selected_numbers, 
@@ -563,7 +593,7 @@ impl<'a> CurrentData<'a> {
         return new_current_data;
     }
 
-    //Returns None when no number that fits could be found
+    /// Returns None when no number that fits could be found
     pub fn get_rand(&self, number_type: NumberType, from_pool_type: Option<&PoolType>, min_max: Option<(usize, usize)>) -> Option<usize> {
         let random = self.random()?;
         let (min, max) = min_max.unwrap_or_else(|| self.shared_data.min_max());
@@ -614,15 +644,17 @@ impl<'a> CurrentData<'a> {
         return None;
     }
 
+    /// The numbers so far, in the order they were made.
     pub fn selected_numbers(&self) -> &'a Vec<usize> {
         return self.selected_numbers;
     }
 
+    /// The settings the numbers are made with.
     pub fn settings(&self) -> &'a Settings {
         return self.settings;
     }
 
-    //Returns None when the settings have no random number generator
+    /// Returns None when the settings have no random number generator
     pub fn random(&self) -> Option<&'a dyn RandomTrait> {
         return match self.settings.random() {
             Some(v) => Some(v.as_ref()),
@@ -630,16 +662,17 @@ impl<'a> CurrentData<'a> {
         };
     }
 
-    //The error for a rule to return when get_rand returns None
+    /// The error for a rule to return when get_rand returns None
     pub fn no_number_err(&self) -> String {
         return if self.random().is_none() { NO_RANDOM_ERR } else { NO_NUMBER_FOUND_ERR }.to_owned();
     }
 
+    /// What the rules share about the numbers so far.
     pub fn shared_data(&self) -> &'a SharedData {
         return self.shared_data;
     }
 
-    //Whether val is one of the selected numbers
+    /// Whether val is one of the selected numbers
     pub fn is_selected(&self, val: usize) -> bool {
         if self.selected_numbers.len() <= LOOK_THROUGH_UP_TO {
             return self.selected_numbers.contains(&val);
@@ -647,7 +680,7 @@ impl<'a> CurrentData<'a> {
         return self.selected_numbers_set().contains(&val);
     }
 
-    //Whether a selected number is there more than once
+    /// Whether a selected number is there more than once
     pub fn has_duplicates(&self) -> bool {
         let numbers = self.selected_numbers;
         if numbers.len() <= LOOK_THROUGH_UP_TO {
@@ -656,12 +689,14 @@ impl<'a> CurrentData<'a> {
         return numbers.len() != self.selected_numbers_set().len();
     }
 
+    /// The numbers so far, as a set.
     pub fn selected_numbers_set(&self) -> &HashSet<usize> {
         return self.selected_numbers_set.get_or_init(|| {
             self.selected_numbers.iter().copied().collect()
         });
     }
 
+    /// The numbers so far, smallest first.
     pub fn selected_numbers_sorted(&self) -> &Vec<usize> {
         return self.selected_numbers_sorted.get_or_init(|| {
             let mut selected_numbers = self.selected_numbers.to_vec();
@@ -672,11 +707,12 @@ impl<'a> CurrentData<'a> {
 }
 
 #[deprecated(since = "3.0.0", note = "use settings.generate()")]
+/// Generates numbers and returns everything that happened.  Use `Settings::generate` instead.
 pub fn random_numbers(settings: &Settings) -> RandomResult {
     return generate_result(settings);
 }
 
-//Creates the random numbers and returns everything that happened.  Settings::generate turns it into a Result.
+/// Creates the random numbers and returns everything that happened.  Settings::generate turns it into a Result.
 pub(crate) fn generate_result(settings: &Settings) -> RandomResult {
     let mut errors: Vec<Log> = settings.errors().iter().map(|x| Log::Error { msg: x.to_owned() }).collect();
     if settings.random().is_none() {
@@ -1002,8 +1038,8 @@ fn indexed_rules(settings: &Settings) -> Vec<(usize, &dyn RuleTrait)> {
     return settings.expected_rules().iter().map(|x| x.as_ref()).enumerate().collect();
 }
 
-//For uniform generation: the range of the number at each index, and whether numbers can not be repeated.
-//Only what the rules share that is the same for every ticket is used.
+/// For uniform generation: the range of the number at each index, and whether numbers can not be repeated.
+/// Only what the rules share that is the same for every ticket is used.
 pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<Choices>, bool), String> {
     let expected_rules = indexed_rules(settings);
     let empty_shared_data = SharedData::new();
@@ -1050,7 +1086,7 @@ pub(crate) fn uniform_ranges(settings: &Settings) -> std::result::Result<(Vec<Ch
     return Ok((all_choices, no_duplicates));
 }
 
-//The numbers uniform generation can draw at an index
+/// The numbers uniform generation can draw at an index
 #[derive(Clone, Debug)]
 pub(crate) enum Choices {
     Range(usize, usize),
@@ -1096,7 +1132,7 @@ impl Choices {
         };
     }
 
-    //Every choice, smallest first
+    /// Every choice, smallest first
     pub(crate) fn numbers(&self) -> Box<dyn Iterator<Item = usize> + '_> {
         return match self {
             Choices::Range(min, max) => Box::new(*min..=*max),
@@ -1104,8 +1140,8 @@ impl Choices {
         };
     }
 
-    //A random choice that is not in numbers when there can be no repeats, or None when every choice is.
-    //Drawing again until one is new is drawing without putting numbers back, which keeps every ticket as likely.
+    /// A random choice that is not in numbers when there can be no repeats, or None when every choice is.
+    /// Drawing again until one is new is drawing without putting numbers back, which keeps every ticket as likely.
     pub(crate) fn draw(&self, random: &dyn RandomTrait, numbers: &[usize], no_duplicates: bool) -> Option<usize> {
         if no_duplicates && self.numbers().all(|x| numbers.contains(&x)) {
             return None;
@@ -1122,7 +1158,7 @@ impl Choices {
     }
 }
 
-//For uniform generation: whether a partial or full ticket gets past is_within_range, so it is not stopped
+/// For uniform generation: whether a partial or full ticket gets past is_within_range, so it is not stopped
 pub(crate) fn uniform_can_go_on(settings: &Settings, numbers: &[usize]) -> bool {
     let numbers = numbers.to_vec();
     let shared_data = rules_shared_data(&indexed_rules(settings), settings, &numbers);
@@ -1130,7 +1166,7 @@ pub(crate) fn uniform_can_go_on(settings: &Settings, numbers: &[usize]) -> bool 
     return can_still_match_check(&indexed_rules(settings), settings.exclude_rules(), &current_data, &mut Logs::default());
 }
 
-//For uniform generation: whether a full ticket matches every rule
+/// For uniform generation: whether a full ticket matches every rule
 pub(crate) fn uniform_matches(settings: &Settings, numbers: &[usize]) -> bool {
     let numbers = numbers.to_vec();
     let shared_data = rules_shared_data(&indexed_rules(settings), settings, &numbers);
