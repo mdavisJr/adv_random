@@ -413,6 +413,8 @@ impl NumberPool {
             .item("special_char_set", PoolType::from_chars(&NP_SPECIAL_CHAR_SET), OperatorType::Eq(special_char_count)));
     }
 
+    /// Letters and digits, and special characters if asked, for a string of count characters, with this
+    /// random number generator.  Use `NumberPool::alphanumeric(count)` instead.
     #[deprecated(since = "3.0.0", note = "use NumberPool::alphanumeric(count), and .random(...) on the settings builder")]
     pub fn alphanumeric_with_random(random: &dyn RandomTrait, count: usize, include_special_char: bool) -> NumberPool {
         let number_pool = NumberPool::alphanumeric(count);
@@ -420,6 +422,8 @@ impl NumberPool {
         return number_pool.resolve_alphanumeric(Some(random)).unwrap_or(number_pool);
     }
 
+    /// This many letters, digits and special characters.  Use `NumberPool::alphanumeric(count)` with `digits`
+    /// and `special_characters` instead.
     #[deprecated(since = "3.0.0", note = "use NumberPool::alphanumeric(count).digits(...).special_characters(...)")]
     pub fn alphanumeric_specs(alpha_count: usize, numeric_count: usize, special_char_count: usize) -> NumberPool {
         let number_pool = NumberPool::alphanumeric(alpha_count + numeric_count + special_char_count)

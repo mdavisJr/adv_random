@@ -1,4 +1,6 @@
 #![allow(clippy::needless_return)]
+//Every public item has documentation on docs.rs, and CI fails on this warning
+#![warn(missing_docs)]
 //The examples in the README are tested by cargo test.  They need the default random number generator.
 #![cfg_attr(feature="rand", doc = include_str!("../README.md"))]
 

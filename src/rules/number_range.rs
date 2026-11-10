@@ -71,6 +71,8 @@ impl NumberRange {
         return errors;
     }
 
+    /// The numbers at each list of indexes are from its min to its max.  Use `NumberRange::new().at(...)`
+    /// instead.
     #[deprecated(since = "3.0.0", note = "use NumberRange::new().at(indexes, min, max)")]
     pub fn from_map(ranges: &[(&[usize], usize, usize)]) -> NumberRange {
         let mut number_range = NumberRange::new();

@@ -513,11 +513,20 @@ impl Logs {
 /// One entry of the logs.
 pub enum Log {
     /// Something went wrong.
-    Error { msg: String },
+    Error {
+        /// What went wrong.
+        msg: String,
+    },
     /// What happened.
-    Info { msg: String },
+    Info {
+        /// What happened.
+        msg: String,
+    },
     /// A message for the person using the numbers.
-    UserInfo { msg: String },
+    UserInfo {
+        /// The message.
+        msg: String,
+    },
 }
 
 impl fmt::Display for Log {

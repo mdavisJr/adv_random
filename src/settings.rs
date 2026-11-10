@@ -141,6 +141,7 @@ impl Settings {
         };
     }
 
+    /// Settings for count numbers that match these rules.  Use `Settings::builder(count)` instead.
     #[deprecated(since = "3.0.0", note = "use Settings::builder(count).rule(...).build()")]
     pub fn new(
         expected_rules: &[Box<dyn RuleTrait>],
@@ -149,6 +150,8 @@ impl Settings {
         return Settings::from_parts(expected_rules.to_vec(), count, None, None);
     }
 
+    /// Settings for count numbers that match these rules and not the exclude rules.  Use
+    /// `Settings::builder(count)` instead.
     #[deprecated(since = "3.0.0", note = "use Settings::builder(count).rule(...).exclude(...).build()")]
     pub fn with_exclude_rules(
         expected_rules: &[Box<dyn RuleTrait>],
