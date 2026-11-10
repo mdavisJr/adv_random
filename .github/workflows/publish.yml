@@ -1,0 +1,49 @@
+# Publishes adv_random to crates.io when a version tag (v3.2.0, ...) is pushed,
+# or by hand from the Actions tab with the tag to publish. Uses crates.io's
+# trusted publishing: GitHub asks crates.io for a short-lived token, so no
+# token is kept in the repository. The tag must match the version in
+# Cargo.toml, and the tests run before anything is published.
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish, such as v3.1.0"
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check the tag matches Cargo.toml
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "Tag $TAG does not match version $VERSION in Cargo.toml"
+            exit 1
+          fi
+      - name: Test, with the README examples
+        run: cargo test --all-targets && cargo test --doc
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - name: Publish
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
