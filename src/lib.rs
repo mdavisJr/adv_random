@@ -3,6 +3,11 @@
 #![warn(missing_docs)]
 //The examples in the README are tested by cargo test.  They need the default random number generator.
 #![cfg_attr(feature="rand", doc = include_str!("../README.md"))]
+//Without rand, the crate says what it is, without the README's examples
+#![cfg_attr(
+    not(feature = "rand"),
+    doc = "Create random numbers, passwords, or strings based on rules.  The examples in the README need the default `rand` feature."
+)]
 
 /// The default random number generator, from `rand`.
 pub mod default_random;

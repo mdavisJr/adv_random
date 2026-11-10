@@ -1,6 +1,6 @@
 # Tests adv_random on every push and pull request: on stable Rust and on the
 # oldest it supports (rust-version in Cargo.toml), without the rand feature,
-# and with clippy and the docs failing on warnings.
+# and with formatting checked and clippy and the docs failing on warnings.
 name: CI
 
 on:
@@ -29,13 +29,15 @@ jobs:
         run: cargo build --no-default-features
 
   check:
-    name: Clippy and docs
+    name: Formatting, clippy and docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
+      - name: Formatting
+        run: cargo fmt --check
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: Docs

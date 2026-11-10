@@ -1,0 +1,5 @@
+# Commits that only reformat, which git blame skips.  GitHub uses this file on its own; locally:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Format with cargo fmt
+3074acfa5087b1797ba7b8ed75f58c9f03771162
